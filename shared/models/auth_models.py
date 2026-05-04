@@ -4,7 +4,6 @@ SQLAlchemy ORM models for auth domain.
 Tables are prefixed with 'auth_' to maintain domain separation in the shared PostgreSQL instance.
 """
 
-from datetime import datetime
 from sqlalchemy import Column, Integer, String, DateTime, Enum, Index
 from sqlalchemy.sql import func
 import enum
@@ -38,7 +37,8 @@ class User(Base):
     password_hash = Column(String(255), nullable=False)
 
     # Metadata
-    role = Column(Enum(UserRoleEnum), default=UserRoleEnum.USER, nullable=False)
+    role = Column(Enum(UserRoleEnum),
+                  default=UserRoleEnum.USER, nullable=False)
     # SQLite compatibility
     is_active = Column(Integer, default=1, nullable=False)
     created_at = Column(
@@ -87,7 +87,8 @@ class JWTKeyPair(Base):
     created_at = Column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
-    expires_at = Column(DateTime(timezone=True), nullable=True)  # For key rotation
+    expires_at = Column(DateTime(timezone=True),
+                        nullable=True)  # For key rotation
     is_active = Column(Integer, default=1, nullable=False)
 
     def __repr__(self):
