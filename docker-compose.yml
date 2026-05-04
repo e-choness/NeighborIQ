@@ -134,6 +134,24 @@ services:
     networks:
       - neighbor_iq_net
 
+  ai-insights-service:
+    build:
+      context: .
+      dockerfile: services/ai-insights-service/Dockerfile
+    ports:
+      - "8003:8000"
+    networks:
+      - neighbor_iq_net
+
+  test-ai-insights-service:
+    build:
+      context: .
+      dockerfile: services/ai-insights-service/Dockerfile
+    command: ["pytest"]
+    profiles: ["test"]
+    networks:
+      - neighbor_iq_net
+
 networks:
   neighbor_iq_net:
     driver: bridge
