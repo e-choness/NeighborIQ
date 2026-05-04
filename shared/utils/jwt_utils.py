@@ -6,7 +6,6 @@ The auth-service owns the private key; other services verify using the public ke
 """
 
 import os
-import json
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 import jwt as pyjwt

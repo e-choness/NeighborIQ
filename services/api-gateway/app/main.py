@@ -2,17 +2,17 @@
 API Gateway Service - Boundary for authentication, rate limiting, and routing.
 """
 
+import os
 import time
-from typing import Dict, Any
+from typing import Any, Dict
+
 import httpx
-from fastapi import FastAPI, Request, Response, HTTPException, Depends
+import jwt as pyjwt
+from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import JSONResponse
 from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
-import os
-import json
-import jwt as pyjwt
+from slowapi.util import get_remote_address
 
 # Import only JWT utilities — avoid pulling in the database layer (sqlalchemy/asyncpg)
 # which the gateway does not need and does not install

@@ -4,8 +4,6 @@ SQLAlchemy ORM models for house domain.
 Tables are prefixed with 'house_' to maintain domain separation in the shared PostgreSQL instance.
 """
 
-from datetime import datetime
-from decimal import Decimal
 from sqlalchemy import (
     Column,
     Integer,
@@ -13,7 +11,6 @@ from sqlalchemy import (
     DateTime,
     Numeric,
     Text,
-    Boolean,
     ForeignKey,
     Index,
 )
