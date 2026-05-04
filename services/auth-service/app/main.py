@@ -42,7 +42,10 @@ from shared import (
     hash_token,
 )
 from shared.models.schemas import HealthResponse
-from shared.utils.jwt_utils import ACCESS_TOKEN_EXPIRE_MINUTES, REFRESH_TOKEN_EXPIRE_DAYS
+from shared.utils.jwt_utils import (
+    ACCESS_TOKEN_EXPIRE_MINUTES,
+    REFRESH_TOKEN_EXPIRE_DAYS,
+)
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -51,6 +54,7 @@ logging.basicConfig(level=logging.INFO)
 # ============================================================================
 # Startup/Shutdown Events
 # ============================================================================
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -96,9 +100,7 @@ async def initialize_jwt_keys(db: AsyncSession):
     On subsequent startups, load the existing key pair and set environment variables.
     """
     # Check if keys already exist
-    result = await db.execute(
-        select(JWTKeyPair).where(JWTKeyPair.is_active == 1)
-    )
+    result = await db.execute(select(JWTKeyPair).where(JWTKeyPair.is_active == 1))
     existing_key = result.scalar_one_or_none()
 
     if existing_key:
@@ -146,6 +148,7 @@ app = FastAPI(
 # Health Endpoint
 # ============================================================================
 
+
 @app.get("/health", tags=["health"], response_model=HealthResponse)
 async def health():
     """Health check endpoint."""
@@ -160,6 +163,7 @@ async def health():
 # ============================================================================
 # Auth Endpoints
 # ============================================================================
+
 
 @app.post("/api/v1/auth/signup", tags=["auth"], response_model=UserResponse)
 async def signup(
@@ -180,9 +184,7 @@ async def signup(
     - Returns user info
     """
     # Check if user already exists
-    result = await db.execute(
-        select(User).where(User.email == user_create.email)
-    )
+    result = await db.execute(select(User).where(User.email == user_create.email))
     if result.scalar_one_or_none():
         raise HTTPException(status_code=409, detail="Email already registered")
 
@@ -206,7 +208,8 @@ async def signup(
     refresh_token_obj = RefreshToken(
         user_id=new_user.id,
         token_hash=hash_token(refresh_token),
-        expires_at=datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS),
+        expires_at=datetime.now(timezone.utc)
+        + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS),
         is_revoked=0,
     )
     db.add(refresh_token_obj)
@@ -251,14 +254,11 @@ async def login(
     - Returns user info
     """
     # Find user
-    result = await db.execute(
-        select(User).where(User.email == user_login.email)
-    )
+    result = await db.execute(select(User).where(User.email == user_login.email))
     user = result.scalar_one_or_none()
 
     if not user or not verify_password(user_login.password, user.password_hash):
-        raise HTTPException(
-            status_code=401, detail="Invalid email or password")
+        raise HTTPException(status_code=401, detail="Invalid email or password")
 
     if user.is_active == 0:
         raise HTTPException(status_code=403, detail="User account is disabled")
@@ -271,7 +271,8 @@ async def login(
     refresh_token_obj = RefreshToken(
         user_id=user.id,
         token_hash=hash_token(refresh_token),
-        expires_at=datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS),
+        expires_at=datetime.now(timezone.utc)
+        + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS),
         is_revoked=0,
     )
     db.add(refresh_token_obj)
@@ -360,8 +361,7 @@ async def refresh_access_token(
     # Find the refresh token record
     result = await db.execute(
         select(RefreshToken).where(
-            RefreshToken.token_hash == token_hash,
-            RefreshToken.is_revoked == 0
+            RefreshToken.token_hash == token_hash, RefreshToken.is_revoked == 0
         )
     )
     stored_token = result.scalar_one_or_none()
@@ -389,7 +389,8 @@ async def refresh_access_token(
     new_refresh_token_obj = RefreshToken(
         user_id=int(user_id),
         token_hash=hash_token(new_refresh_token),
-        expires_at=datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS),
+        expires_at=datetime.now(timezone.utc)
+        + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS),
         is_revoked=0,
     )
     db.add(new_refresh_token_obj)
@@ -426,9 +427,7 @@ async def get_jwks(db: AsyncSession = Depends(get_db)):
     without making a round-trip to the auth service.
     """
     # Fetch active key
-    result = await db.execute(
-        select(JWTKeyPair).where(JWTKeyPair.is_active == 1)
-    )
+    result = await db.execute(select(JWTKeyPair).where(JWTKeyPair.is_active == 1))
     key = result.scalar_one_or_none()
 
     if not key:
@@ -442,4 +441,5 @@ async def get_jwks(db: AsyncSession = Depends(get_db)):
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8000)

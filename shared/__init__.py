@@ -7,7 +7,13 @@ This is a modular monolith shared layer:
 - Shared Pydantic schemas, SQLAlchemy models, and utility functions
 """
 
-from shared.database.postgres import Base, AsyncSessionLocal, get_db, init_db, dispose_db
+from shared.database.postgres import (
+    Base,
+    AsyncSessionLocal,
+    get_db,
+    init_db,
+    dispose_db,
+)
 from shared.models.schemas import (
     UserBase,
     UserCreate,
@@ -23,7 +29,20 @@ from shared.models.schemas import (
     RentalYield,
     HouseInsights,
 )
-from shared.models import User, JWTKeyPair, RefreshToken, House, HousePriceHistory, Community, School, Hospital, BusStop, HouseSchoolLink, HouseHospitalLink, HouseBusLink
+from shared.models import (
+    User,
+    JWTKeyPair,
+    RefreshToken,
+    House,
+    HousePriceHistory,
+    Community,
+    School,
+    Hospital,
+    BusStop,
+    HouseSchoolLink,
+    HouseHospitalLink,
+    HouseBusLink,
+)
 from shared.utils.jwt_utils import (
     create_access_token,
     create_refresh_token,

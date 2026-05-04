@@ -1,6 +1,7 @@
 """
 API Gateway Service - Boundary for authentication, rate limiting, and routing.
 """
+
 import time
 from typing import Dict, Any
 import httpx
@@ -12,6 +13,7 @@ from slowapi.errors import RateLimitExceeded
 import os
 import json
 import jwt as pyjwt
+
 # Import only JWT utilities — avoid pulling in the database layer (sqlalchemy/asyncpg)
 # which the gateway does not need and does not install
 from shared.utils.jwt_utils import verify_token
@@ -45,17 +47,19 @@ JWKS_CACHE_TTL = 300  # 5 minutes
 async def get_jwks():
     """Fetch and cache JWKS from auth service."""
     global _jwks_cache, _jwks_cache_time
-    
+
     now = time.time()
     if _jwks_cache is not None and (now - _jwks_cache_time) < JWKS_CACHE_TTL:
         return _jwks_cache
-    
+
     async with httpx.AsyncClient() as client:
         try:
-            response = await client.get(f"{AUTH_SERVICE_URL}/api/v1/auth/.well-known/jwks.json")
+            response = await client.get(
+                f"{AUTH_SERVICE_URL}/api/v1/auth/.well-known/jwks.json"
+            )
             response.raise_for_status()
             jwks_data = response.json()
-            
+
             _jwks_cache = jwks_data
             _jwks_cache_time = now
             return jwks_data
@@ -63,7 +67,9 @@ async def get_jwks():
             # If we have cached data, use it even if expired
             if _jwks_cache is not None:
                 return _jwks_cache
-            raise HTTPException(status_code=503, detail=f"Unable to fetch JWKS: {str(e)}")
+            raise HTTPException(
+                status_code=503, detail=f"Unable to fetch JWKS: {str(e)}"
+            )
 
 
 def get_signing_key_from_jwks(jwks_data: Dict[str, Any], token: str) -> str:
@@ -72,7 +78,7 @@ def get_signing_key_from_jwks(jwks_data: Dict[str, Any], token: str) -> str:
         # Decode token header to get key ID
         header = pyjwt.get_unverified_header(token)
         kid = header.get("kid")
-        
+
         if not kid:
             # If no kid in header, use the first key
             key_data = jwks_data["keys"][0]
@@ -83,37 +89,39 @@ def get_signing_key_from_jwks(jwks_data: Dict[str, Any], token: str) -> str:
                 if key.get("kid") == kid:
                     key_data = key
                     break
-            
+
             if not key_data:
                 # Fallback to first key
                 key_data = jwks_data["keys"][0]
-        
+
         # Convert JWK to PEM format
         from cryptography.hazmat.primitives.asymmetric import rsa
         from cryptography.hazmat.primitives import serialization
         import base64
-        
+
         def base64url_to_int(s: str) -> int:
-            s = s.replace('-', '+').replace('_', '/')
+            s = s.replace("-", "+").replace("_", "/")
             padding = 4 - len(s) % 4
             if padding != 4:
-                s += '=' * padding
-            return int.from_bytes(base64.b64decode(s), 'big')
-        
+                s += "=" * padding
+            return int.from_bytes(base64.b64decode(s), "big")
+
         n = base64url_to_int(key_data["n"])
         e = base64url_to_int(key_data["e"])
-        
+
         public_numbers = rsa.RSAPublicNumbers(e, n)
         public_key = public_numbers.public_key()
-        
+
         public_key_pem = public_key.public_bytes(
             encoding=serialization.Encoding.PEM,
             format=serialization.PublicFormat.SubjectPublicKeyInfo,
-        ).decode('utf-8')
-        
+        ).decode("utf-8")
+
         return public_key_pem
     except Exception as e:
-        raise HTTPException(status_code=401, detail=f"Unable to extract signing key: {str(e)}")
+        raise HTTPException(
+            status_code=401, detail=f"Unable to extract signing key: {str(e)}"
+        )
 
 
 # Public auth endpoints that do not require a JWT (login/signup generate tokens;
@@ -160,7 +168,9 @@ async def verify_jwt_middleware(request: Request, call_next):
         public_key_pem = get_signing_key_from_jwks(jwks_data, token)
 
         # Verify token
-        payload = verify_token(token, public_key_pem=public_key_pem, token_type="access")
+        payload = verify_token(
+            token, public_key_pem=public_key_pem, token_type="access"
+        )
 
         # Store user info in request.state — proxy functions inject this into outgoing headers
         request.state.user_id = payload["sub"]
@@ -169,9 +179,13 @@ async def verify_jwt_middleware(request: Request, call_next):
     except pyjwt.ExpiredSignatureError:
         return JSONResponse(status_code=401, content={"detail": "Token has expired"})
     except pyjwt.InvalidTokenError as e:
-        return JSONResponse(status_code=401, content={"detail": f"Invalid token: {str(e)}"})
+        return JSONResponse(
+            status_code=401, content={"detail": f"Invalid token: {str(e)}"}
+        )
     except Exception as e:
-        return JSONResponse(status_code=401, content={"detail": f"Token verification failed: {str(e)}"})
+        return JSONResponse(
+            status_code=401, content={"detail": f"Token verification failed: {str(e)}"}
+        )
 
     response = await call_next(request)
     return response
@@ -187,7 +201,9 @@ async def routes() -> dict[str, list[str]]:
     return {"routes": ["/api/v1/auth", "/api/v1/houses", "/api/v1/search"]}
 
 
-@app.api_route("/api/v1/auth/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH"])
+@app.api_route(
+    "/api/v1/auth/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH"]
+)
 @limiter.limit("100/minute")
 async def auth_proxy(request: Request, path: str):
     """Proxy requests to auth service."""
@@ -213,11 +229,13 @@ async def auth_proxy(request: Request, path: str):
             content=resp.content,
             status_code=resp.status_code,
             headers=dict(resp.headers),
-            media_type=resp.headers.get("content-type")
+            media_type=resp.headers.get("content-type"),
         )
 
 
-@app.api_route("/api/v1/houses/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH"])
+@app.api_route(
+    "/api/v1/houses/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH"]
+)
 @limiter.limit("100/minute")
 async def houses_proxy(request: Request, path: str):
     """Proxy requests to house service."""
@@ -242,11 +260,13 @@ async def houses_proxy(request: Request, path: str):
             content=resp.content,
             status_code=resp.status_code,
             headers=dict(resp.headers),
-            media_type=resp.headers.get("content-type")
+            media_type=resp.headers.get("content-type"),
         )
 
 
-@app.api_route("/api/v1/search/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH"])
+@app.api_route(
+    "/api/v1/search/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH"]
+)
 @limiter.limit("100/minute")
 async def search_proxy(request: Request, path: str):
     """Proxy requests to search service."""
@@ -256,10 +276,10 @@ async def search_proxy(request: Request, path: str):
         headers.pop("host", None)
         if hasattr(request.state, "user_id"):
             headers["X-User-ID"] = str(request.state.user_id)
-        
+
         # Get request body
         body = await request.body()
-        
+
         resp = await client.request(
             method=request.method,
             url=url,
@@ -267,15 +287,16 @@ async def search_proxy(request: Request, path: str):
             content=body,
             params=request.query_params,
         )
-        
+
         return Response(
             content=resp.content,
             status_code=resp.status_code,
             headers=dict(resp.headers),
-            media_type=resp.headers.get("content-type")
+            media_type=resp.headers.get("content-type"),
         )
 
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8000)

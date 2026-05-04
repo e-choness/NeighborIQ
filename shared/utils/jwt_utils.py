@@ -16,7 +16,6 @@ from cryptography.hazmat.backends import default_backend
 import hashlib
 import secrets
 
-
 ALGORITHM = "RS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 15
 REFRESH_TOKEN_EXPIRE_DAYS = 7
@@ -188,8 +187,7 @@ def verify_token(
 
         # Verify token type
         if payload.get("type") != token_type:
-            raise pyjwt.InvalidTokenError(
-                f"Expected token type '{token_type}'")
+            raise pyjwt.InvalidTokenError(f"Expected token type '{token_type}'")
 
         return payload
     except pyjwt.ExpiredSignatureError:

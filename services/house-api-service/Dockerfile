@@ -14,6 +14,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy shared module (modular monolith shared layer)
 COPY shared ./shared
 
+# Copy migrations so alembic can run inside the container
+COPY migrations ./migrations
+
 # Copy service application files
 COPY services/house-api-service/app ./app
 COPY services/house-api-service/main.py ./main.py

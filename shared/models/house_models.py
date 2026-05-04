@@ -6,7 +6,17 @@ Tables are prefixed with 'house_' to maintain domain separation in the shared Po
 
 from datetime import datetime
 from decimal import Decimal
-from sqlalchemy import Column, Integer, String, DateTime, Numeric, Text, Boolean, ForeignKey, Index
+from sqlalchemy import (
+    Column,
+    Integer,
+    String,
+    DateTime,
+    Numeric,
+    Text,
+    Boolean,
+    ForeignKey,
+    Index,
+)
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -51,11 +61,20 @@ class House(Base):
 
     # Metadata
     is_active = Column(Integer, default=1, nullable=False)
-    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+    created_at = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
 
     # Relationships
-    price_history = relationship("HousePriceHistory", back_populates="house", cascade="all, delete-orphan")
+    price_history = relationship(
+        "HousePriceHistory", back_populates="house", cascade="all, delete-orphan"
+    )
 
     # Indexes
     __table_args__ = (
@@ -81,9 +100,16 @@ class HousePriceHistory(Base):
     __tablename__ = "house_price_history"
 
     id = Column(Integer, primary_key=True, index=True)
-    house_id = Column(Integer, ForeignKey("house_houses.id", ondelete="CASCADE"), nullable=False, index=True)
+    house_id = Column(
+        Integer,
+        ForeignKey("house_houses.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
     price = Column(Integer, nullable=False)  # In yuan
-    recorded_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    recorded_at = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
 
     # Relationship
     house = relationship("House", back_populates="price_history")
@@ -122,8 +148,15 @@ class Community(Base):
     max_price = Column(Integer, nullable=True)
 
     # Metadata
-    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+    created_at = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
 
     __table_args__ = (
         Index("idx_house_communities_city_region", "city", "region"),
@@ -153,7 +186,9 @@ class School(Base):
     level = Column(String(50), nullable=True)  # 小学, 中学, 高中, 大学
     address = Column(String(512), nullable=True)
 
-    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    created_at = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
 
     __table_args__ = (
         Index("idx_house_schools_city", "city"),
@@ -180,7 +215,9 @@ class Hospital(Base):
     hospital_type = Column(String(50), nullable=True)
     address = Column(String(512), nullable=True)
 
-    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    created_at = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
 
     __table_args__ = (
         Index("idx_house_hospitals_city", "city"),
@@ -206,7 +243,9 @@ class BusStop(Base):
     longitude = Column(Numeric(11, 8), nullable=True)
     routes = Column(Text, nullable=True)  # JSON list of bus route numbers
 
-    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    created_at = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
 
     __table_args__ = (
         Index("idx_house_bus_stops_city", "city"),
@@ -225,8 +264,18 @@ class HouseSchoolLink(Base):
     __tablename__ = "house_school_links"
 
     id = Column(Integer, primary_key=True, index=True)
-    house_id = Column(Integer, ForeignKey("house_houses.id", ondelete="CASCADE"), nullable=False, index=True)
-    school_id = Column(Integer, ForeignKey("house_schools.id", ondelete="CASCADE"), nullable=False, index=True)
+    house_id = Column(
+        Integer,
+        ForeignKey("house_houses.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    school_id = Column(
+        Integer,
+        ForeignKey("house_schools.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
     distance_m = Column(Integer, nullable=False)  # Distance in meters
 
     __table_args__ = (
@@ -247,8 +296,18 @@ class HouseHospitalLink(Base):
     __tablename__ = "house_hospital_links"
 
     id = Column(Integer, primary_key=True, index=True)
-    house_id = Column(Integer, ForeignKey("house_houses.id", ondelete="CASCADE"), nullable=False, index=True)
-    hospital_id = Column(Integer, ForeignKey("house_hospitals.id", ondelete="CASCADE"), nullable=False, index=True)
+    house_id = Column(
+        Integer,
+        ForeignKey("house_houses.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    hospital_id = Column(
+        Integer,
+        ForeignKey("house_hospitals.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
     distance_m = Column(Integer, nullable=False)
 
     __table_args__ = (
@@ -268,8 +327,18 @@ class HouseBusLink(Base):
     __tablename__ = "house_bus_links"
 
     id = Column(Integer, primary_key=True, index=True)
-    house_id = Column(Integer, ForeignKey("house_houses.id", ondelete="CASCADE"), nullable=False, index=True)
-    bus_stop_id = Column(Integer, ForeignKey("house_bus_stops.id", ondelete="CASCADE"), nullable=False, index=True)
+    house_id = Column(
+        Integer,
+        ForeignKey("house_houses.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    bus_stop_id = Column(
+        Integer,
+        ForeignKey("house_bus_stops.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
     distance_m = Column(Integer, nullable=False)
 
     __table_args__ = (

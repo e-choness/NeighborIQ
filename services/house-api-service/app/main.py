@@ -37,6 +37,7 @@ app = FastAPI(
 # Health
 # ============================================================================
 
+
 @app.get("/health", tags=["health"])
 async def health() -> dict[str, str]:
     return {"status": "ok", "service": "house-api-service"}
@@ -46,6 +47,7 @@ async def health() -> dict[str, str]:
 # Houses
 # ============================================================================
 
+
 @app.get("/api/v1/houses", tags=["houses"])
 async def list_houses(
     city: Optional[str] = Query(default=None, description="Filter by city"),
@@ -54,24 +56,30 @@ async def list_houses(
     community: Optional[str] = Query(default=None, description="Filter by community"),
     price_min: Optional[int] = Query(default=None, description="Minimum price (yuan)"),
     price_max: Optional[int] = Query(default=None, description="Maximum price (yuan)"),
-    rooms_min: Optional[int] = Query(default=None, description="Minimum number of rooms"),
-    rooms_max: Optional[int] = Query(default=None, description="Maximum number of rooms"),
+    rooms_min: Optional[int] = Query(
+        default=None, description="Minimum number of rooms"
+    ),
+    rooms_max: Optional[int] = Query(
+        default=None, description="Maximum number of rooms"
+    ),
     area_min: Optional[Decimal] = Query(default=None, description="Minimum area (sqm)"),
     area_max: Optional[Decimal] = Query(default=None, description="Maximum area (sqm)"),
     page: int = Query(default=1, ge=1, description="Page number"),
     page_size: int = Query(default=50, ge=1, le=100, description="Page size"),
-    sort: str = Query(default="created_at", description="Sort field (price, created_at, area)"),
+    sort: str = Query(
+        default="created_at", description="Sort field (price, created_at, area)"
+    ),
     order: str = Query(default="desc", description="Sort order (asc, desc)"),
     db: AsyncSession = Depends(get_db),
 ) -> HouseListResponse:
     """
     List houses with filtering and pagination.
-    
+
     Filters:
     - Geographic: city, region, street, community
     - Price range: price_min, price_max
     - Property: rooms, area
-    
+
     Returns paginated results.
     """
     # Build shared filter conditions
@@ -212,6 +220,7 @@ async def delete_house(
 # Search
 # ============================================================================
 
+
 @app.get("/api/v1/houses/search", tags=["houses"])
 async def search_houses(
     q: Optional[str] = Query(default=None, description="Full-text search query"),
@@ -249,6 +258,7 @@ async def search_houses(
 # Communities
 # ============================================================================
 
+
 @app.get("/api/v1/communities", tags=["communities"])
 async def list_communities(
     city: Optional[str] = Query(default=None, description="Filter by city"),
@@ -268,11 +278,7 @@ async def list_communities(
     result = await db.execute(query)
     communities = result.scalars().all()
 
-    return {
-        "items": [
-            CommunityResponse.model_validate(c) for c in communities
-        ]
-    }
+    return {"items": [CommunityResponse.model_validate(c) for c in communities]}
 
 
 @app.get("/api/v1/communities/{community_id}/stats", tags=["communities"])
@@ -283,9 +289,7 @@ async def get_community_stats(
     """
     Get aggregated statistics for a community.
     """
-    result = await db.execute(
-        select(Community).where(Community.id == community_id)
-    )
+    result = await db.execute(select(Community).where(Community.id == community_id))
     community = result.scalar_one_or_none()
     if not community:
         raise HTTPException(status_code=404, detail="Community not found")

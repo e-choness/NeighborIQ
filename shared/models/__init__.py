@@ -1,5 +1,15 @@
 from shared.models.auth_models import User, JWTKeyPair, RefreshToken
-from shared.models.house_models import House, HousePriceHistory, Community, School, Hospital, BusStop, HouseSchoolLink, HouseHospitalLink, HouseBusLink
+from shared.models.house_models import (
+    House,
+    HousePriceHistory,
+    Community,
+    School,
+    Hospital,
+    BusStop,
+    HouseSchoolLink,
+    HouseHospitalLink,
+    HouseBusLink,
+)
 from shared.models.schemas import (
     UserBase,
     UserCreate,
@@ -43,4 +53,3 @@ __all__ = [
     "RentalYield",
     "HouseInsights",
 ]
-

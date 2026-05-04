@@ -9,10 +9,10 @@ from typing import Optional
 from datetime import datetime
 from pydantic import BaseModel, EmailStr, Field
 
-
 # ============================================================================
 # Auth DTOs
 # ============================================================================
+
 
 class UserBase(BaseModel):
     """Shared fields for user objects."""
@@ -58,6 +58,7 @@ class TokenResponse(BaseModel):
 # ============================================================================
 # House DTOs
 # ============================================================================
+
 
 class HouseBase(BaseModel):
     """Shared fields for house objects."""
@@ -109,6 +110,7 @@ class HouseListResponse(BaseModel):
 # Community DTOs
 # ============================================================================
 
+
 class CommunityBase(BaseModel):
     """Shared fields for community."""
 
@@ -134,6 +136,7 @@ class CommunityResponse(CommunityBase):
 # ============================================================================
 # AI Insights DTOs
 # ============================================================================
+
 
 class PricePrediction(BaseModel):
     """Price prediction with confidence interval."""
@@ -166,6 +169,7 @@ class HouseInsights(BaseModel):
 # Error DTOs
 # ============================================================================
 
+
 class ErrorResponse(BaseModel):
     """Standard error response."""
 
@@ -177,6 +181,7 @@ class ErrorResponse(BaseModel):
 # ============================================================================
 # Health DTOs
 # ============================================================================
+
 
 class HealthResponse(BaseModel):
     """Health check response."""
