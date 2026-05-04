@@ -1,0 +1,142 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: house_discovery
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: root
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - neighbor_iq_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U root -d house_discovery"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    networks:
+      - neighbor_iq_net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    ports:
+      - "9200:9200"
+    networks:
+      - neighbor_iq_net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:9200/_cluster/health || exit 1"]
+      interval: 20s
+      timeout: 10s
+      retries: 10
+
+  api-gateway:
+    build:
+      context: .
+      dockerfile: services/api-gateway/Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - AUTH_SERVICE_URL=http://auth-service:8000
+      - HOUSE_SERVICE_URL=http://house-api-service:8000
+      - SEARCH_SERVICE_URL=http://search-service:8000
+    depends_on:
+      auth-service:
+        condition: service_started
+      house-api-service:
+        condition: service_started
+    networks:
+      - neighbor_iq_net
+
+  auth-service:
+    build:
+      context: .
+      dockerfile: services/auth-service/Dockerfile
+    ports:
+      - "8001:8000"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://root:root@postgres:5432/house_discovery
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - neighbor_iq_net
+
+  house-api-service:
+    build:
+      context: .
+      dockerfile: services/house-api-service/Dockerfile
+    ports:
+      - "8002:8000"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://root:root@postgres:5432/house_discovery
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - neighbor_iq_net
+
+  test-api-gateway:
+    build:
+      context: .
+      dockerfile: services/api-gateway/Dockerfile
+    command: ["pytest"]
+    profiles: ["test"]
+    networks:
+      - neighbor_iq_net
+
+  test-auth-service:
+    build:
+      context: .
+      dockerfile: services/auth-service/Dockerfile
+    command: ["pytest"]
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://root:root@postgres:5432/house_discovery
+    depends_on:
+      postgres:
+        condition: service_healthy
+    profiles: ["test"]
+    networks:
+      - neighbor_iq_net
+
+  test-house-api-service:
+    build:
+      context: .
+      dockerfile: services/house-api-service/Dockerfile
+    command: ["pytest"]
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://root:root@postgres:5432/house_discovery
+    depends_on:
+      postgres:
+        condition: service_healthy
+    profiles: ["test"]
+    networks:
+      - neighbor_iq_net
+
+networks:
+  neighbor_iq_net:
+    driver: bridge
+
+volumes:
+  postgres_data:

@@ -1,0 +1,16 @@
+fastapi
+uvicorn[standard]
+httpx
+python-dotenv
+slowapi
+limits
+redis
+PyJWT[crypto]
+cryptography
+# shared/__init__.py eagerly imports the database layer; these deps are required even though
+# the gateway does not use the database directly
+sqlalchemy[asyncio]
+asyncpg
+passlib[bcrypt]
+pydantic[email]
+pytest

@@ -1,0 +1,10 @@
+fastapi
+uvicorn[standard]
+PyJWT[crypto]
+passlib[bcrypt]
+python-dotenv
+sqlalchemy[asyncio]
+asyncpg
+pydantic[email]
+pytest
+httpx

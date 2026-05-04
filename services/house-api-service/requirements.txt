@@ -1,0 +1,13 @@
+fastapi
+uvicorn[standard]
+python-dotenv
+sqlalchemy[asyncio]
+asyncpg
+pydantic[email]
+# shared/__init__.py imports jwt_utils (RS256 key helpers) — required even though
+# this service doesn't do JWT signing; only the gateway and auth-service do
+PyJWT[crypto]
+cryptography
+passlib[bcrypt]
+pytest
+httpx

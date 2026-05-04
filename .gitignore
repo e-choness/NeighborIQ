@@ -170,6 +170,7 @@ bin/
 # Claude
 .claude
 .openclaude-profile.json
+.openclaude
 
 # legacy code
 legacy/
