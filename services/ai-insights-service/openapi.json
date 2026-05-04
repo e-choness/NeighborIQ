@@ -1,0 +1,82 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "AI Insights Service (Provider-agnostic)",
+    "version": "0.1.0",
+    "description": "Service for AI-powered numeric predictions and text narratives. Provider-agnostic interface: clients select provider via the 'provider' field (e.g., 'azure', 'openai', 'local') and pass provider-specific options in 'parameters'. DO NOT include PII in inputs; anonymize before sending."
+  },
+  "paths": {
+    "/api/v1/ai/predict": {
+      "post": {
+        "summary": "Request numeric predictions (price, rental yield)",
+        "operationId": "ai_predict",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "#/components/schemas/AIProviderRequest"}
+            }
+          }
+        },
+        "responses": {
+          "200": {"description": "Prediction result", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/AIProviderPredictionResponse"}}}},
+          "400": {"description": "Invalid request"},
+          "500": {"description": "Provider or internal error"}
+        }
+      }
+    },
+    "/api/v1/ai/narrative": {
+      "post": {
+        "summary": "Request textual market narrative (city-level)",
+        "operationId": "ai_narrative",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {"$ref": "#/components/schemas/AIProviderRequest"}
+            }
+          }
+        },
+        "responses": {
+          "200": {"description": "Narrative result", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/AIProviderTextResponse"}}}},
+          "400": {"description": "Invalid request"},
+          "500": {"description": "Provider or internal error"}
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AIProviderRequest": {
+        "type": "object",
+        "properties": {
+          "provider": {"type": "string", "description": "Provider identifier (provider-agnostic). Example: 'azure', 'openai', 'local'."},
+          "model": {"type": "string", "description": "Optional model name or identifier"},
+          "input": {"type": "object", "description": "Domain-specific input payload (e.g., features for prediction or city descriptor for narrative)."},
+          "parameters": {"type": "object", "description": "Provider-specific options (max_tokens, temperature, top_p, etc)."},
+          "async_callback_url": {"type": "string", "format": "uri", "description": "Optional callback URL for async results."}
+        },
+        "required": ["provider", "input"]
+      },
+      "AIProviderPredictionResponse": {
+        "type": "object",
+        "properties": {
+          "provider": {"type": "string"},
+          "model": {"type": "string"},
+          "predictions": {"type": "object", "additionalProperties": true},
+          "metadata": {"type": "object", "additionalProperties": true}
+        }
+      },
+      "AIProviderTextResponse": {
+        "type": "object",
+        "properties": {
+          "provider": {"type": "string"},
+          "model": {"type": "string"},
+          "text": {"type": "string"},
+          "tokens_used": {"type": "integer"},
+          "metadata": {"type": "object", "additionalProperties": true}
+        }
+      }
+    }
+  }
+}
