@@ -1,81 +1,305 @@
 {
-  "openapi": "3.0.3",
+  "openapi": "3.1.0",
   "info": {
-    "title": "AI Insights Service (Provider-agnostic)",
-    "version": "0.1.0",
-    "description": "Service for AI-powered numeric predictions and text narratives. Provider-agnostic interface: clients select provider via the 'provider' field (e.g., 'azure', 'openai', 'local') and pass provider-specific options in 'parameters'. DO NOT include PII in inputs; anonymize before sending."
+    "title": "AI Insights Service (provider-agnostic)",
+    "version": "0.1.0"
   },
   "paths": {
     "/api/v1/ai/predict": {
       "post": {
-        "summary": "Request numeric predictions (price, rental yield)",
-        "operationId": "ai_predict",
+        "summary": "Ai Predict",
+        "operationId": "ai_predict_api_v1_ai_predict_post",
         "requestBody": {
-          "required": true,
           "content": {
             "application/json": {
-              "schema": {"$ref": "#/components/schemas/AIProviderRequest"}
+              "schema": {
+                "$ref": "#/components/schemas/AIProviderRequest"
+              }
             }
-          }
+          },
+          "required": true
         },
         "responses": {
-          "200": {"description": "Prediction result", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/AIProviderPredictionResponse"}}}},
-          "400": {"description": "Invalid request"},
-          "500": {"description": "Provider or internal error"}
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AIProviderPredictionResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
         }
       }
     },
     "/api/v1/ai/narrative": {
       "post": {
-        "summary": "Request textual market narrative (city-level)",
-        "operationId": "ai_narrative",
+        "summary": "Ai Narrative",
+        "operationId": "ai_narrative_api_v1_ai_narrative_post",
         "requestBody": {
-          "required": true,
           "content": {
             "application/json": {
-              "schema": {"$ref": "#/components/schemas/AIProviderRequest"}
+              "schema": {
+                "$ref": "#/components/schemas/AIProviderRequest"
+              }
             }
-          }
+          },
+          "required": true
         },
         "responses": {
-          "200": {"description": "Narrative result", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/AIProviderTextResponse"}}}},
-          "400": {"description": "Invalid request"},
-          "500": {"description": "Provider or internal error"}
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AIProviderTextResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
         }
       }
     }
   },
   "components": {
     "schemas": {
-      "AIProviderRequest": {
-        "type": "object",
-        "properties": {
-          "provider": {"type": "string", "description": "Provider identifier (provider-agnostic). Example: 'azure', 'openai', 'local'."},
-          "model": {"type": "string", "description": "Optional model name or identifier"},
-          "input": {"type": "object", "description": "Domain-specific input payload (e.g., features for prediction or city descriptor for narrative)."},
-          "parameters": {"type": "object", "description": "Provider-specific options (max_tokens, temperature, top_p, etc)."},
-          "async_callback_url": {"type": "string", "format": "uri", "description": "Optional callback URL for async results."}
-        },
-        "required": ["provider", "input"]
-      },
       "AIProviderPredictionResponse": {
-        "type": "object",
         "properties": {
-          "provider": {"type": "string"},
-          "model": {"type": "string"},
-          "predictions": {"type": "object", "additionalProperties": true},
-          "metadata": {"type": "object", "additionalProperties": true}
-        }
+          "provider": {
+            "type": "string",
+            "title": "Provider"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "predictions": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Predictions"
+          },
+          "metadata": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Metadata"
+          }
+        },
+        "type": "object",
+        "required": [
+          "provider",
+          "model",
+          "predictions"
+        ],
+        "title": "AIProviderPredictionResponse"
+      },
+      "AIProviderRequest": {
+        "properties": {
+          "provider": {
+            "type": "string",
+            "title": "Provider",
+            "description": "Provider identifier, e.g., 'azure', 'openai', 'local'",
+            "example": "local"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model",
+            "description": "Optional model name",
+            "example": "gpt-4o-mini"
+          },
+          "input": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Input",
+            "description": "Domain-specific input (features or city descriptor)",
+            "example": {
+              "city": "Austin",
+              "median_income": 80000
+            }
+          },
+          "parameters": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parameters",
+            "description": "Provider-specific options",
+            "example": {
+              "max_tokens": 200,
+              "temperature": 0.2
+            }
+          },
+          "async_callback_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Async Callback Url",
+            "description": "Optional callback URL for async results"
+          }
+        },
+        "type": "object",
+        "required": [
+          "provider",
+          "input"
+        ],
+        "title": "AIProviderRequest"
       },
       "AIProviderTextResponse": {
-        "type": "object",
         "properties": {
-          "provider": {"type": "string"},
-          "model": {"type": "string"},
-          "text": {"type": "string"},
-          "tokens_used": {"type": "integer"},
-          "metadata": {"type": "object", "additionalProperties": true}
-        }
+          "provider": {
+            "type": "string",
+            "title": "Provider"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "tokens_used": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tokens Used"
+          },
+          "metadata": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Metadata"
+          }
+        },
+        "type": "object",
+        "required": [
+          "provider",
+          "model",
+          "text"
+        ],
+        "title": "AIProviderTextResponse"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
       }
     }
   }
