@@ -53,3 +53,30 @@ def test_protected_route_without_token_returns_401() -> None:
 
     assert response.status_code == 401
     assert response.json()["detail"] == "Missing access token"
+
+
+def test_cors_preflight_allowed_origin() -> None:
+    """OPTIONS preflight from the allowed origin must return CORS headers."""
+    response = TestClient(app).options(
+        "/api/v1/houses",
+        headers={
+            "Origin": "http://localhost:5173",
+            "Access-Control-Request-Method": "GET",
+        },
+    )
+    # 200 (with CORS headers) — middleware handles preflight before JWT middleware
+    assert response.status_code == 200
+    assert response.headers.get("access-control-allow-origin") == "http://localhost:5173"
+
+
+def test_cors_preflight_disallowed_origin() -> None:
+    """OPTIONS preflight from an unknown origin must NOT echo that origin back."""
+    response = TestClient(app).options(
+        "/api/v1/houses",
+        headers={
+            "Origin": "https://evil.example.com",
+            "Access-Control-Request-Method": "GET",
+        },
+    )
+    # The CORS middleware must not reflect an unknown origin
+    assert response.headers.get("access-control-allow-origin") != "https://evil.example.com"

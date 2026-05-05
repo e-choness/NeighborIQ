@@ -7,14 +7,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt .
+# Build context is project root — prefix all paths with service directory
+COPY services/ai-insights-service/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY app ./app
-COPY tests ./tests
+COPY services/ai-insights-service/app ./app
+COPY services/ai-insights-service/tests ./tests
 
 # Copy openapi.json for contract testing
-COPY openapi.json .
+COPY services/ai-insights-service/openapi.json .
 
 ENV PYTHONPATH=/app
 

@@ -9,6 +9,7 @@ from typing import Any, Dict
 import httpx
 import jwt as pyjwt
 from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -26,6 +27,19 @@ app = FastAPI(
         {"name": "health", "description": "Service health checks"},
         {"name": "gateway", "description": "Gateway routing contract"},
     ],
+)
+
+# CORS — allow only the configured frontend origin (Phase 1D requirement)
+# Defaults to the Vue 3 dev server; override via CORS_ORIGINS env var in production
+_cors_origins_raw = os.getenv("CORS_ORIGINS", "http://localhost:5173")
+_cors_origins = [o.strip() for o in _cors_origins_raw.split(",") if o.strip()]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_cors_origins,
+    allow_credentials=True,  # Required so browsers send HttpOnly cookies cross-origin
+    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization"],
 )
 
 # Rate limiting setup
@@ -140,9 +154,10 @@ async def verify_jwt_middleware(request: Request, call_next):
     """Middleware to verify JWT tokens for protected routes."""
     path = request.url.path
 
-    # Skip verification for health, gateway info, docs, and public auth endpoints
+    # Skip verification for OPTIONS preflight (CORS), health, gateway info, docs, and public auth
     if (
-        path in ["/health", "/api/v1/routes"]
+        request.method == "OPTIONS"
+        or path in ["/health", "/api/v1/routes"]
         or path in _PUBLIC_AUTH_PATHS
         or path.startswith("/docs")
         or path.startswith("/openapi.json")

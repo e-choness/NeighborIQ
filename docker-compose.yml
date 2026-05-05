@@ -55,6 +55,7 @@ services:
       - AUTH_SERVICE_URL=http://auth-service:8000
       - HOUSE_SERVICE_URL=http://house-api-service:8000
       - SEARCH_SERVICE_URL=http://search-service:8000
+      - CORS_ORIGINS=http://localhost:5173
     depends_on:
       auth-service:
         condition: service_started
