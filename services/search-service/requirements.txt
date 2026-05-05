@@ -1,0 +1,15 @@
+fastapi
+uvicorn[standard]
+elasticsearch[async]==8.11.0
+redis[asyncio]
+python-dotenv
+sqlalchemy[asyncio]
+asyncpg
+pydantic[email]
+PyJWT[crypto]
+cryptography
+passlib[bcrypt]
+bcrypt<4.0.0
+pytest
+httpx
+pytest-asyncio

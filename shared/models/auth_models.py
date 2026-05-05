@@ -37,8 +37,11 @@ class User(Base):
     password_hash = Column(String(255), nullable=False)
 
     # Metadata
-    role = Column(Enum(UserRoleEnum),
-                  default=UserRoleEnum.USER, nullable=False)
+    role = Column(
+        Enum(UserRoleEnum, values_callable=lambda obj: [e.value for e in obj]),
+        default=UserRoleEnum.USER,
+        nullable=False,
+    )
     # SQLite compatibility
     is_active = Column(Integer, default=1, nullable=False)
     created_at = Column(

@@ -18,6 +18,7 @@ COPY shared ./shared
 COPY services/auth-service/app ./app
 COPY services/auth-service/main.py ./main.py
 COPY services/auth-service/tests ./tests
+COPY services/auth-service/pytest.ini ./pytest.ini
 
 # shared/ lives at /app/shared; PYTHONPATH=/app makes `from shared import ...` resolve correctly
 ENV PYTHONPATH=/app

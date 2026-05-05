@@ -21,6 +21,7 @@ COPY migrations ./migrations
 COPY services/house-api-service/app ./app
 COPY services/house-api-service/main.py ./main.py
 COPY services/house-api-service/tests ./tests
+COPY services/house-api-service/pytest.ini ./pytest.ini
 
 # shared/ lives at /app/shared; PYTHONPATH=/app makes `from shared import ...` resolve correctly
 ENV PYTHONPATH=/app

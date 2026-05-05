@@ -17,6 +17,9 @@ from typing import Optional
 
 import jwt as pyjwt
 from fastapi import FastAPI, HTTPException, Depends, Response, Request
+
+# Secure cookies require HTTPS — disable in local/test environments
+SECURE_COOKIES: bool = os.environ.get("SECURE_COOKIES", "1").strip() == "1"
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -220,7 +223,7 @@ async def signup(
         "access_token",
         access_token,
         httponly=True,
-        secure=True,
+        secure=SECURE_COOKIES,
         samesite="strict",
         max_age=900,  # 15 minutes
     )
@@ -228,7 +231,7 @@ async def signup(
         "refresh_token",
         refresh_token,
         httponly=True,
-        secure=True,
+        secure=SECURE_COOKIES,
         samesite="strict",
         max_age=604800,  # 7 days
     )
@@ -283,7 +286,7 @@ async def login(
         "access_token",
         access_token,
         httponly=True,
-        secure=True,
+        secure=SECURE_COOKIES,
         samesite="strict",
         max_age=900,
     )
@@ -291,7 +294,7 @@ async def login(
         "refresh_token",
         refresh_token,
         httponly=True,
-        secure=True,
+        secure=SECURE_COOKIES,
         samesite="strict",
         max_age=604800,
     )
@@ -417,7 +420,7 @@ async def refresh_access_token(
         "access_token",
         new_access_token,
         httponly=True,
-        secure=True,
+        secure=SECURE_COOKIES,
         samesite="strict",
         max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60,  # Convert minutes to seconds
     )
@@ -425,7 +428,7 @@ async def refresh_access_token(
         "refresh_token",
         new_refresh_token,
         httponly=True,
-        secure=True,
+        secure=SECURE_COOKIES,
         samesite="strict",
         max_age=REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,  # Convert days to seconds
     )

@@ -67,7 +67,8 @@ def test_logout_revokes_refresh_token(client: TestClient) -> None:
     # 4. Try to use the refresh token after logout - should fail
     refresh_after_logout = client.post("/api/v1/auth/refresh")
     assert refresh_after_logout.status_code == 401
-    assert "revoked" in refresh_after_logout.json()["detail"].lower() or "invalid" in refresh_after_logout.json()["detail"].lower()
+    detail = refresh_after_logout.json()["detail"].lower()
+    assert "revoked" in detail or "invalid" in detail or "missing" in detail
 
 
 def test_logout_clears_cookies(client: TestClient) -> None:

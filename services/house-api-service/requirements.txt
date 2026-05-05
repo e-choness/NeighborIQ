@@ -9,5 +9,6 @@ pydantic[email]
 PyJWT[crypto]
 cryptography
 passlib[bcrypt]
+bcrypt<4.0.0
 pytest
 httpx

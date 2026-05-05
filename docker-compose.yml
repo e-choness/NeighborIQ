@@ -62,6 +62,8 @@ services:
         condition: service_started
       house-api-service:
         condition: service_started
+      search-service:
+        condition: service_started
     networks:
       - neighbor_iq_net
 
@@ -115,6 +117,7 @@ services:
     command: ["pytest"]
     environment:
       - DATABASE_URL=postgresql+asyncpg://root:root@postgres:5432/house_discovery
+      - SECURE_COOKIES=0
     depends_on:
       postgres:
         condition: service_healthy
@@ -132,6 +135,32 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    profiles: ["test"]
+    networks:
+      - neighbor_iq_net
+
+  search-service:
+    build:
+      context: .
+      dockerfile: services/search-service/Dockerfile
+    ports:
+      - "8004:8000"
+    environment:
+      - ELASTICSEARCH_URL=http://elasticsearch:9200
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - neighbor_iq_net
+
+  test-search-service:
+    build:
+      context: .
+      dockerfile: services/search-service/Dockerfile
+    command: ["pytest"]
     profiles: ["test"]
     networks:
       - neighbor_iq_net
