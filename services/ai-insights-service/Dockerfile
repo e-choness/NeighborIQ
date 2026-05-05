@@ -12,10 +12,14 @@ COPY services/ai-insights-service/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY services/ai-insights-service/app ./app
+COPY services/ai-insights-service/tasks ./tasks
 COPY services/ai-insights-service/tests ./tests
 
 # Copy openapi.json for contract testing
 COPY services/ai-insights-service/openapi.json .
+
+# pytest.ini
+COPY services/ai-insights-service/pytest.ini .
 
 ENV PYTHONPATH=/app
 

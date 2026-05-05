@@ -171,6 +171,47 @@ services:
       dockerfile: services/ai-insights-service/Dockerfile
     ports:
       - "8003:8000"
+    environment:
+      - SCRAPER_DATABASE_URL=postgresql://root:root@postgres:5432/house_discovery
+      - CELERY_BROKER_URL=redis://redis:6379/2
+      - NARRATIVE_PROVIDER=local
+      - MODEL_PATH=/app/models/price_prediction.joblib
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - neighbor_iq_net
+
+  ai-insights-worker:
+    build:
+      context: .
+      dockerfile: services/ai-insights-service/Dockerfile
+    command: ["celery", "-A", "tasks.celery_app", "worker", "--loglevel=info", "-Q", "insights,narratives"]
+    environment:
+      - SCRAPER_DATABASE_URL=postgresql://root:root@postgres:5432/house_discovery
+      - CELERY_BROKER_URL=redis://redis:6379/2
+      - NARRATIVE_PROVIDER=local
+      - MODEL_PATH=/app/models/price_prediction.joblib
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    networks:
+      - neighbor_iq_net
+
+  ai-insights-beat:
+    build:
+      context: .
+      dockerfile: services/ai-insights-service/Dockerfile
+    command: ["celery", "-A", "tasks.celery_app", "beat", "--loglevel=info"]
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/2
+    depends_on:
+      redis:
+        condition: service_healthy
     networks:
       - neighbor_iq_net
 
@@ -178,7 +219,12 @@ services:
     build:
       context: .
       dockerfile: services/ai-insights-service/Dockerfile
-    command: ["pytest"]
+    command: ["pytest", "-v"]
+    environment:
+      - SCRAPER_DATABASE_URL=postgresql://root:root@postgres:5432/house_discovery
+      - CELERY_BROKER_URL=redis://redis:6379/2
+      - NARRATIVE_PROVIDER=local
+      - MODEL_PATH=/app/models/price_prediction.joblib
     profiles: ["test"]
     networks:
       - neighbor_iq_net
