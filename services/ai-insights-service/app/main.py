@@ -8,15 +8,15 @@ import os
 
 class AIProviderRequest(BaseModel):
     provider: str = Field(
-        ..., description="Provider identifier, e.g., 'azure', 'openai', 'local'", example="local")
+        ..., description="Provider identifier, e.g., 'azure', 'openai', 'local'", json_schema_extra={"example": "local"})
     model: Optional[str] = Field(
-        None, description="Optional model name", example="gpt-4o-mini")
+        None, description="Optional model name", json_schema_extra={"example": "gpt-4o-mini"})
     input: Dict[str, Any] = Field(..., description="Domain-specific input (features or city descriptor)",
-                                  example={"city": "Austin", "median_income": 80000})
+                                  json_schema_extra={"example": {"city": "Austin", "median_income": 80000}})
     parameters: Optional[Dict[str, Any]] = Field(
-        None, description="Provider-specific options", example={"max_tokens": 200, "temperature": 0.2})
+        None, description="Provider-specific options", json_schema_extra={"example": {"max_tokens": 200, "temperature": 0.2}})
     async_callback_url: Optional[str] = Field(
-        None, description="Optional callback URL for async results", example=None)
+        None, description="Optional callback URL for async results", json_schema_extra={"example": None})
 
 
 class AIProviderPredictionResponse(BaseModel):
