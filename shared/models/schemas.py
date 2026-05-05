@@ -7,7 +7,7 @@ Schemas are used for validation and serialization.
 
 from typing import Optional
 from datetime import datetime
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, ConfigDict
 
 # ============================================================================
 # Auth DTOs
@@ -42,8 +42,7 @@ class UserResponse(UserBase):
     created_at: datetime
     updated_at: Optional[datetime]
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class TokenResponse(BaseModel):
@@ -93,8 +92,7 @@ class HouseResponse(HouseBase):
     created_at: datetime
     updated_at: Optional[datetime]
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class HouseListResponse(BaseModel):
@@ -129,8 +127,7 @@ class CommunityResponse(CommunityBase):
     house_count: int
     avg_price: Optional[float]
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # ============================================================================
