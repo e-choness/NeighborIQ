@@ -2,6 +2,7 @@ fastapi
 uvicorn[standard]
 httpx
 python-dotenv
+pydantic-settings
 slowapi
 limits
 redis
