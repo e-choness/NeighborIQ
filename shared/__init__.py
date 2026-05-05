@@ -42,6 +42,9 @@ from shared.models import (
     HouseSchoolLink,
     HouseHospitalLink,
     HouseBusLink,
+    HousePricePrediction,
+    HouseRentalYield,
+    MarketInsight,
 )
 from shared.utils.jwt_utils import (
     create_access_token,
@@ -61,7 +64,7 @@ __all__ = [
     "get_db",
     "init_db",
     "dispose_db",
-    # Schemas
+    # Pydantic schemas
     "UserBase",
     "UserCreate",
     "UserLogin",
@@ -75,10 +78,11 @@ __all__ = [
     "PricePrediction",
     "RentalYield",
     "HouseInsights",
-    # Models
+    # Auth ORM models
     "User",
     "JWTKeyPair",
     "RefreshToken",
+    # House ORM models
     "House",
     "HousePriceHistory",
     "Community",
@@ -88,6 +92,10 @@ __all__ = [
     "HouseSchoolLink",
     "HouseHospitalLink",
     "HouseBusLink",
+    # AI ORM models
+    "HousePricePrediction",
+    "HouseRentalYield",
+    "MarketInsight",
     # JWT
     "create_access_token",
     "create_refresh_token",

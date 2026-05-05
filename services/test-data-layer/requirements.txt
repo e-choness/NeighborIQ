@@ -1,0 +1,13 @@
+sqlalchemy[asyncio]
+asyncpg
+psycopg2-binary
+alembic
+redis[asyncio]
+elasticsearch[async]==8.11.0
+PyJWT[crypto]
+cryptography
+passlib[bcrypt]
+pydantic[email]
+pytest
+pytest-asyncio
+anyio[trio]

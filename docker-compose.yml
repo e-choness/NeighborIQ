@@ -1,6 +1,7 @@
 services:
   postgres:
-    image: postgres:15-alpine
+    # PostGIS image required for Phase 2A (CREATE EXTENSION postgis)
+    image: postgis/postgis:15-3.4-alpine
     environment:
       POSTGRES_DB: house_discovery
       POSTGRES_USER: root
@@ -149,6 +150,25 @@ services:
       context: .
       dockerfile: services/ai-insights-service/Dockerfile
     command: ["pytest"]
+    profiles: ["test"]
+    networks:
+      - neighbor_iq_net
+
+  test-data-layer:
+    build:
+      context: .
+      dockerfile: services/test-data-layer/Dockerfile
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://root:root@postgres:5432/house_discovery
+      - REDIS_URL=redis://redis:6379/1
+      - ELASTICSEARCH_URL=http://elasticsearch:9200
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
     profiles: ["test"]
     networks:
       - neighbor_iq_net

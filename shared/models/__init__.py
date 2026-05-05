@@ -10,6 +10,7 @@ from shared.models.house_models import (
     HouseHospitalLink,
     HouseBusLink,
 )
+from shared.models.ai_models import HousePricePrediction, HouseRentalYield, MarketInsight
 from shared.models.schemas import (
     UserBase,
     UserCreate,
@@ -27,9 +28,11 @@ from shared.models.schemas import (
 )
 
 __all__ = [
+    # Auth ORM
     "User",
     "JWTKeyPair",
     "RefreshToken",
+    # House ORM
     "House",
     "HousePriceHistory",
     "Community",
@@ -39,6 +42,11 @@ __all__ = [
     "HouseSchoolLink",
     "HouseHospitalLink",
     "HouseBusLink",
+    # AI ORM
+    "HousePricePrediction",
+    "HouseRentalYield",
+    "MarketInsight",
+    # Pydantic schemas
     "UserBase",
     "UserCreate",
     "UserLogin",

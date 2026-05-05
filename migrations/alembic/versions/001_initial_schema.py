@@ -18,6 +18,20 @@ depends_on: Union[str, None] = None
 
 
 def upgrade() -> None:
+    # Create the PostgreSQL ENUM type first (create_type=False on the column means
+    # SQLAlchemy won't auto-create it — we must do it explicitly here).
+    # Note: PostgreSQL does not support CREATE TYPE IF NOT EXISTS for ENUM types,
+    # so we use a DO block for idempotency.
+    op.execute(
+        """
+        DO $$ BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'userroleenum') THEN
+                CREATE TYPE userroleenum AS ENUM ('user', 'admin');
+            END IF;
+        END $$;
+        """
+    )
+
     # Auth domain tables
     op.create_table('auth_users',
         sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
@@ -158,48 +172,50 @@ def upgrade() -> None:
     op.create_index('idx_house_bus_stops_city', 'house_bus_stops', ['city'], unique=False)
     op.create_index('idx_house_bus_stops_location', 'house_bus_stops', ['latitude', 'longitude'], unique=False)
     
-    # Junction tables use simpler names to avoid conflicts
-    op.create_table('house_schools_junction',
+    # Junction tables — names match ORM __tablename__ definitions
+    op.create_table('house_school_links',
         sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
         sa.Column('house_id', sa.Integer(), nullable=False),
         sa.Column('school_id', sa.Integer(), nullable=False),
         sa.Column('distance_m', sa.Integer(), nullable=False),
         sa.PrimaryKeyConstraint('id')
     )
-    op.create_index('idx_house_schools_house', 'house_schools_junction', ['house_id'], unique=False)
-    op.create_index('idx_house_schools_school', 'house_schools_junction', ['school_id'], unique=False)
-    
-    op.create_table('house_hospitals_junction',
+    op.create_index('idx_house_school_links_house', 'house_school_links', ['house_id'], unique=False)
+    op.create_index('idx_house_school_links_school', 'house_school_links', ['school_id'], unique=False)
+    op.create_index('idx_house_school_links_composite', 'house_school_links', ['house_id', 'school_id'], unique=False)
+
+    op.create_table('house_hospital_links',
         sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
         sa.Column('house_id', sa.Integer(), nullable=False),
         sa.Column('hospital_id', sa.Integer(), nullable=False),
         sa.Column('distance_m', sa.Integer(), nullable=False),
         sa.PrimaryKeyConstraint('id')
     )
-    op.create_index('idx_house_hospitals_house', 'house_hospitals_junction', ['house_id'], unique=False)
-    op.create_index('idx_house_hospitals_hospital', 'house_hospitals_junction', ['hospital_id'], unique=False)
-    
-    op.create_table('house_bus_junction',
+    op.create_index('idx_house_hospital_links_house', 'house_hospital_links', ['house_id'], unique=False)
+    op.create_index('idx_house_hospital_links_hospital', 'house_hospital_links', ['hospital_id'], unique=False)
+
+    op.create_table('house_bus_links',
         sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
         sa.Column('house_id', sa.Integer(), nullable=False),
         sa.Column('bus_stop_id', sa.Integer(), nullable=False),
         sa.Column('distance_m', sa.Integer(), nullable=False),
         sa.PrimaryKeyConstraint('id')
     )
-    op.create_index('idx_house_bus_house', 'house_bus_junction', ['house_id'], unique=False)
-    op.create_index('idx_house_bus_stop', 'house_bus_junction', ['bus_stop_id'], unique=False)
+    op.create_index('idx_house_bus_links_house', 'house_bus_links', ['house_id'], unique=False)
+    op.create_index('idx_house_bus_links_stop', 'house_bus_links', ['bus_stop_id'], unique=False)
 
 
 def downgrade() -> None:
-    op.drop_index('idx_house_bus_stop', table_name='house_bus_junction')
-    op.drop_index('idx_house_bus_house', table_name='house_bus_junction')
-    op.drop_table('house_bus_junction')
-    op.drop_index('idx_house_hospitals_hospital', table_name='house_hospitals_junction')
-    op.drop_index('idx_house_hospitals_house', table_name='house_hospitals_junction')
-    op.drop_table('house_hospitals_junction')
-    op.drop_index('idx_house_schools_school', table_name='house_schools_junction')
-    op.drop_index('idx_house_schools_house', table_name='house_schools_junction')
-    op.drop_table('house_schools_junction')
+    op.drop_index('idx_house_bus_links_stop', table_name='house_bus_links')
+    op.drop_index('idx_house_bus_links_house', table_name='house_bus_links')
+    op.drop_table('house_bus_links')
+    op.drop_index('idx_house_hospital_links_hospital', table_name='house_hospital_links')
+    op.drop_index('idx_house_hospital_links_house', table_name='house_hospital_links')
+    op.drop_table('house_hospital_links')
+    op.drop_index('idx_house_school_links_composite', table_name='house_school_links')
+    op.drop_index('idx_house_school_links_school', table_name='house_school_links')
+    op.drop_index('idx_house_school_links_house', table_name='house_school_links')
+    op.drop_table('house_school_links')
     op.drop_index('idx_house_bus_stops_location', table_name='house_bus_stops')
     op.drop_index('idx_house_bus_stops_city', table_name='house_bus_stops')
     op.drop_table('house_bus_stops')
@@ -228,3 +244,4 @@ def downgrade() -> None:
     op.drop_index('idx_auth_users_created_at', table_name='auth_users')
     op.drop_index('idx_auth_users_email', table_name='auth_users')
     op.drop_table('auth_users')
+    op.execute("DROP TYPE IF EXISTS userroleenum")
