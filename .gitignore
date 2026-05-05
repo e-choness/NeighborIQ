@@ -353,6 +353,10 @@ bugs/
 # LSP config files
 pyrightconfig.json
 
+### postman
+.postman/
+postman/
+
 # End of https://www.toptal.com/developers/gitignore/api/python
 
 # End of https://www.toptal.com/developers/gitignore/api/java,intellij+all
