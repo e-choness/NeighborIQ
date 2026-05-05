@@ -300,16 +300,32 @@ async def login(
 
 
 @app.post("/api/v1/auth/logout", tags=["auth"])
-async def logout(response: Response, db: AsyncSession = Depends(get_db)):
+async def logout(request: Request, response: Response, db: AsyncSession = Depends(get_db)):
     """
-    Logout user by clearing cookies and revoking refresh token.
+    Logout user by revoking refresh token and clearing cookies.
     """
-    # Note: In a more sophisticated system, we would:
-    # 1. Extract the refresh token from cookies
-    # 2. Mark it as revoked in the database
-    # 3. Add access token to a blacklist
+    # Extract the refresh token from cookies
+    refresh_token = request.cookies.get("refresh_token")
+    
+    # Revoke the refresh token if it exists
+    if refresh_token:
+        # Hash the token to look up in database
+        token_hash = hash_token(refresh_token)
+        
+        # Find and revoke the refresh token record
+        result = await db.execute(
+            select(RefreshToken).where(
+                RefreshToken.token_hash == token_hash, RefreshToken.is_revoked == 0
+            )
+        )
+        stored_token = result.scalar_one_or_none()
+        
+        if stored_token:
+            stored_token.is_revoked = 1
+            stored_token.revoked_at = datetime.now(timezone.utc)
+            await db.commit()
 
-    # For now, just clear cookies
+    # Clear cookies
     response.delete_cookie("access_token")
     response.delete_cookie("refresh_token")
 

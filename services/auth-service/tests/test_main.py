@@ -39,3 +39,55 @@ def test_signup_missing_body_returns_422(client: TestClient) -> None:
     response = client.post("/api/v1/auth/signup", json={})
 
     assert response.status_code == 422
+
+
+def test_logout_revokes_refresh_token(client: TestClient) -> None:
+    """Test that logout endpoint properly revokes the refresh token."""
+    # 1. Sign up a new user
+    response = client.post(
+        "/api/v1/auth/signup",
+        json={
+            "email": "logout_test@example.com",
+            "password": "secure_password123",
+            "name": "Logout Test User",
+        },
+    )
+    assert response.status_code == 200
+    assert "refresh_token" in client.cookies
+
+    # 2. Verify the refresh token is valid by using it to refresh the access token
+    refresh_response = client.post("/api/v1/auth/refresh")
+    assert refresh_response.status_code == 200
+
+    # 3. Call logout to revoke the token
+    logout_response = client.post("/api/v1/auth/logout")
+    assert logout_response.status_code == 200
+    assert logout_response.json()["status"] == "ok"
+
+    # 4. Try to use the refresh token after logout - should fail
+    refresh_after_logout = client.post("/api/v1/auth/refresh")
+    assert refresh_after_logout.status_code == 401
+    assert "revoked" in refresh_after_logout.json()["detail"].lower() or "invalid" in refresh_after_logout.json()["detail"].lower()
+
+
+def test_logout_clears_cookies(client: TestClient) -> None:
+    """Test that logout clears the access and refresh token cookies."""
+    # 1. Sign up a new user
+    response = client.post(
+        "/api/v1/auth/signup",
+        json={
+            "email": "logout_cookies_test@example.com",
+            "password": "secure_password123",
+            "name": "Logout Cookies Test",
+        },
+    )
+    assert response.status_code == 200
+    assert "refresh_token" in client.cookies
+
+    # 2. Call logout
+    logout_response = client.post("/api/v1/auth/logout")
+    assert logout_response.status_code == 200
+
+    # 3. Verify cookies are cleared (max_age=0 or expires in past)
+    # The TestClient will have removed the cookies
+    assert "refresh_token" not in client.cookies or client.cookies.get("refresh_token") == ""
