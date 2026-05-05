@@ -202,6 +202,68 @@ services:
     networks:
       - neighbor_iq_net
 
+  # ---------------------------------------------------------------------------
+  # Phase 4: Scraper Service
+  # ---------------------------------------------------------------------------
+
+  scraper-service:
+    build:
+      context: .
+      dockerfile: services/scraper-service/Dockerfile
+    ports:
+      - "8005:8005"
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/2
+      - REDIS_URL=redis://redis:6379/0
+      - SCRAPER_DATABASE_URL=postgresql://root:root@postgres:5432/house_discovery
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    networks:
+      - neighbor_iq_net
+
+  scraper-worker:
+    build:
+      context: .
+      dockerfile: services/scraper-service/Dockerfile
+    command: ["celery", "-A", "tasks.celery_app", "worker", "--loglevel=info", "-Q", "scraper"]
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/2
+      - REDIS_URL=redis://redis:6379/0
+      - SCRAPER_DATABASE_URL=postgresql://root:root@postgres:5432/house_discovery
+      - SCRAPY_SETTINGS_MODULE=scraper.settings
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    networks:
+      - neighbor_iq_net
+
+  scraper-beat:
+    build:
+      context: .
+      dockerfile: services/scraper-service/Dockerfile
+    command: ["celery", "-A", "tasks.celery_app", "beat", "--loglevel=info"]
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/2
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - neighbor_iq_net
+
+  test-scraper-service:
+    build:
+      context: .
+      dockerfile: services/scraper-service/Dockerfile
+    command: ["pytest", "-v"]
+    profiles: ["test"]
+    networks:
+      - neighbor_iq_net
+
 networks:
   neighbor_iq_net:
     driver: bridge

@@ -1,0 +1,12 @@
+scrapy==2.11.2
+redis
+celery[redis]
+psycopg2-binary
+sqlalchemy
+pydantic>=2.0
+pydantic-settings
+fastapi
+uvicorn[standard]
+pytest
+pytest-mock
+httpx
