@@ -263,7 +263,9 @@ target/
 # IPython
 profile_default/
 ipython_config.py
-
+**/__pycache__
+*.py[cod]
+*$py.class
 # pyenv
 #   For a library or package, you might want to ignore these files since the code is
 #   intended to run in multiple environments; otherwise, check them in:
@@ -354,3 +356,7 @@ pyrightconfig.json
 # End of https://www.toptal.com/developers/gitignore/api/python
 
 # End of https://www.toptal.com/developers/gitignore/api/java,intellij+all
+shared/__pycache__
+shared/models/__pycache__
+shared/utils/__pycache__
+migrations/alembic/__pycache__
