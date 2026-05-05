@@ -5,3 +5,14 @@ pytest
 schemathesis
 requests
 PyYAML
+httpx
+# Phase 5 additions
+xgboost
+scikit-learn
+joblib
+numpy
+celery[redis]
+psycopg2-binary
+sqlalchemy
+openai>=1.0.0
+pytest-mock
