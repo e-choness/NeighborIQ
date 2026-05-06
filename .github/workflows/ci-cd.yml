@@ -234,4 +234,5 @@ jobs:
           fi
 
       - name: Notify via commit status
-        run: echo "Pipeline status: ${{ steps.status.outputs.status }}"
+        run: |
+          echo "Pipeline status: ${{ steps.status.outputs.status }}"
