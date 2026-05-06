@@ -56,7 +56,9 @@ services:
       - AUTH_SERVICE_URL=http://auth-service:8000
       - HOUSE_SERVICE_URL=http://house-api-service:8000
       - SEARCH_SERVICE_URL=http://search-service:8000
-      - CORS_ORIGINS=http://localhost:5173
+      - PORTFOLIO_SERVICE_URL=http://portfolio-service:8000
+      - AI_INSIGHTS_SERVICE_URL=http://ai-insights-service:8000
+      - CORS_ORIGINS=http://localhost:5173,http://localhost:80,http://localhost,http://frontend:80
     depends_on:
       auth-service:
         condition: service_started
@@ -98,6 +100,37 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    networks:
+      - neighbor_iq_net
+
+  portfolio-service:
+    build:
+      context: .
+      dockerfile: services/portfolio-service/Dockerfile
+    ports:
+      - "8006:8000"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://root:root@postgres:5432/house_discovery
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - neighbor_iq_net
+
+  test-portfolio-service:
+    build:
+      context: .
+      dockerfile: services/portfolio-service/Dockerfile
+    command: ["pytest", "-v"]
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://root:root@postgres:5432/house_discovery
+    depends_on:
+      postgres:
+        condition: service_healthy
+    profiles: ["test"]
     networks:
       - neighbor_iq_net
 
@@ -307,6 +340,30 @@ services:
       dockerfile: services/scraper-service/Dockerfile
     command: ["pytest", "-v"]
     profiles: ["test"]
+    networks:
+      - neighbor_iq_net
+
+  # ---------------------------------------------------------------------------
+  # Phase 6: Vue 3 Frontend
+  # ---------------------------------------------------------------------------
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    ports:
+      - "80:80"
+    depends_on:
+      - api-gateway
+    networks:
+      - neighbor_iq_net
+
+  test-frontend-build:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    profiles: ["test"]
+    command: ["nginx", "-t"]
     networks:
       - neighbor_iq_net
 

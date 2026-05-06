@@ -352,6 +352,7 @@ poetry.toml
 bugs/
 # LSP config files
 pyrightconfig.json
+*.tar
 
 ### postman
 .postman/

@@ -51,6 +51,8 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 AUTH_SERVICE_URL = os.getenv("AUTH_SERVICE_URL", "http://auth-service:8000")
 HOUSE_SERVICE_URL = os.getenv("HOUSE_SERVICE_URL", "http://house-api-service:8000")
 SEARCH_SERVICE_URL = os.getenv("SEARCH_SERVICE_URL", "http://search-service:8000")
+PORTFOLIO_SERVICE_URL = os.getenv("PORTFOLIO_SERVICE_URL", "http://portfolio-service:8000")
+AI_INSIGHTS_SERVICE_URL = os.getenv("AI_INSIGHTS_SERVICE_URL", "http://ai-insights-service:8000")
 
 # Cache for JWKS (public key)
 _jwks_cache = None
@@ -148,6 +150,22 @@ _PUBLIC_AUTH_PATHS = {
     "/api/v1/auth/.well-known/jwks.json",
 }
 
+# Admin service health check endpoints (bypass JWT verification)
+_ADMIN_HEALTH_PATHS = {
+    "/api/v1/admin/health",
+    "/api/v1/auth/health",
+    "/api/v1/houses/health",
+    "/api/v1/ai/health",
+    "/api/v1/search/health",
+}
+
+# Public read-only routes — accessible without authentication (Phase 6: public search)
+_PUBLIC_READ_PREFIXES = (
+    "/api/v1/houses",
+    "/api/v1/communities",
+    "/api/v1/search",
+)
+
 
 @app.middleware("http")
 async def verify_jwt_middleware(request: Request, call_next):
@@ -159,9 +177,14 @@ async def verify_jwt_middleware(request: Request, call_next):
         request.method == "OPTIONS"
         or path in ["/health", "/api/v1/routes"]
         or path in _PUBLIC_AUTH_PATHS
+        or path in _ADMIN_HEALTH_PATHS
         or path.startswith("/docs")
         or path.startswith("/openapi.json")
     ):
+        return await call_next(request)
+
+    # Allow unauthenticated GET requests to public read-only endpoints (Phase 6 search page)
+    if request.method == "GET" and any(path.startswith(p) for p in _PUBLIC_READ_PREFIXES):
         return await call_next(request)
 
     # Get token from cookie
@@ -216,6 +239,72 @@ async def routes() -> dict[str, list[str]]:
     return {"routes": ["/api/v1/auth", "/api/v1/houses", "/api/v1/search"]}
 
 
+@app.get("/api/v1/admin/health", tags=["health"])
+async def admin_health():
+    """Admin health check - proxies to auth service health."""
+    async with httpx.AsyncClient() as client:
+        url = f"{AUTH_SERVICE_URL}/health"
+        resp = await client.get(url)
+        return Response(
+            content=resp.content,
+            status_code=resp.status_code,
+            headers=dict(resp.headers),
+            media_type=resp.headers.get("content-type"),
+        )
+
+
+@app.get("/api/v1/auth/health", tags=["health"])
+async def auth_service_health():
+    """Proxy auth-service health check."""
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(f"{AUTH_SERVICE_URL}/health", timeout=3.0)
+        return Response(
+            content=resp.content,
+            status_code=resp.status_code,
+            headers=dict(resp.headers),
+            media_type=resp.headers.get("content-type"),
+        )
+
+
+@app.get("/api/v1/houses/health", tags=["health"])
+async def house_service_health():
+    """Proxy house-api-service health check."""
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(f"{HOUSE_SERVICE_URL}/health", timeout=3.0)
+        return Response(
+            content=resp.content,
+            status_code=resp.status_code,
+            headers=dict(resp.headers),
+            media_type=resp.headers.get("content-type"),
+        )
+
+
+@app.get("/api/v1/ai/health", tags=["health"])
+async def ai_service_health():
+    """Proxy ai-insights-service health check."""
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(f"{AI_INSIGHTS_SERVICE_URL}/api/v1/health", timeout=3.0)
+        return Response(
+            content=resp.content,
+            status_code=resp.status_code,
+            headers=dict(resp.headers),
+            media_type=resp.headers.get("content-type"),
+        )
+
+
+@app.get("/api/v1/search/health", tags=["health"])
+async def search_service_health():
+    """Proxy search-service health check."""
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(f"{SEARCH_SERVICE_URL}/health", timeout=3.0)
+        return Response(
+            content=resp.content,
+            status_code=resp.status_code,
+            headers=dict(resp.headers),
+            media_type=resp.headers.get("content-type"),
+        )
+
+
 @app.api_route(
     "/api/v1/auth/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH"]
 )
@@ -249,13 +338,16 @@ async def auth_proxy(request: Request, path: str):
 
 
 @app.api_route(
+    "/api/v1/houses", methods=["GET", "POST", "PUT", "DELETE", "PATCH"]
+)
+@app.api_route(
     "/api/v1/houses/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH"]
 )
 @limiter.limit("100/minute")
-async def houses_proxy(request: Request, path: str):
+async def houses_proxy(request: Request, path: str = ""):
     """Proxy requests to house service."""
     async with httpx.AsyncClient() as client:
-        url = f"{HOUSE_SERVICE_URL}/api/v1/houses/{path}"
+        url = f"{HOUSE_SERVICE_URL}/api/v1/houses/{path}".rstrip("/")
         headers = dict(request.headers)
         headers.pop("host", None)
         if hasattr(request.state, "user_id"):
@@ -280,6 +372,38 @@ async def houses_proxy(request: Request, path: str):
 
 
 @app.api_route(
+    "/api/v1/communities", methods=["GET"]
+)
+@app.api_route(
+    "/api/v1/communities/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH"]
+)
+@limiter.limit("100/minute")
+async def communities_proxy(request: Request, path: str = ""):
+    """Proxy community requests to house service."""
+    async with httpx.AsyncClient() as client:
+        url = f"{HOUSE_SERVICE_URL}/api/v1/communities/{path}".rstrip("/")
+        headers = dict(request.headers)
+        headers.pop("host", None)
+        if hasattr(request.state, "user_id"):
+            headers["X-User-ID"] = str(request.state.user_id)
+
+        body = await request.body()
+        resp = await client.request(
+            method=request.method,
+            url=url,
+            headers=headers,
+            content=body,
+            params=request.query_params,
+        )
+        return Response(
+            content=resp.content,
+            status_code=resp.status_code,
+            headers=dict(resp.headers),
+            media_type=resp.headers.get("content-type"),
+        )
+
+
+@app.api_route(
     "/api/v1/search/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH"]
 )
 @limiter.limit("100/minute")
@@ -293,6 +417,37 @@ async def search_proxy(request: Request, path: str):
             headers["X-User-ID"] = str(request.state.user_id)
 
         # Get request body
+        body = await request.body()
+
+        resp = await client.request(
+            method=request.method,
+            url=url,
+            headers=headers,
+            content=body,
+            params=request.query_params,
+        )
+
+        return Response(
+            content=resp.content,
+            status_code=resp.status_code,
+            headers=dict(resp.headers),
+        media_type=resp.headers.get("content-type"),
+    )
+
+
+@app.api_route(
+    "/api/v1/portfolio/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH"]
+)
+@limiter.limit("100/minute")
+async def portfolio_proxy(request: Request, path: str):
+    """Proxy requests to portfolio service."""
+    async with httpx.AsyncClient() as client:
+        url = f"{PORTFOLIO_SERVICE_URL}/api/v1/portfolio/{path}"
+        headers = dict(request.headers)
+        headers.pop("host", None)
+        if hasattr(request.state, "user_id"):
+            headers["X-User-ID"] = str(request.state.user_id)
+
         body = await request.body()
 
         resp = await client.request(
