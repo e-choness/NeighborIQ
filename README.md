@@ -8,7 +8,7 @@
 
 **NeighborIQ** is an AI-powered Canadian real estate intelligence platform. It combines microservices architecture with machine learning to deliver actionable neighborhood insights, price predictions, and investment analytics for Canadian residential markets.
 
----
+![banner](./images/banner-wide.jpeg)
 
 ## At a Glance
 
@@ -16,8 +16,6 @@
 - **🧠 ML-Powered Predictions** — XGBoost models predict property prices and rental yields with confidence intervals
 - **🔍 Full-Text + Geo Search** — Elasticsearch indexes properties for multi-dimensional search (location, price, community); results cached in Redis
 - **🔐 Enterprise Auth** — RS256 JWT tokens with refresh rotation, cookie-based session management, JWKS-aware middleware
-
----
 
 ## System Architecture
 
@@ -67,8 +65,6 @@ flowchart TD
     CeleryWorker --> Postgres & ES
 ```
 
----
-
 ## Technology Stack
 
 ```mermaid
@@ -103,8 +99,6 @@ mindmap
       GitHub Actions
       Trivy Security Scanning
 ```
-
----
 
 ## Quick Start
 
@@ -145,8 +139,6 @@ docker-compose logs -f
 docker-compose --profile test up --abort-on-container-exit
 ```
 
----
-
 ## Service Port Map
 
 | Service | Port | Description |
@@ -159,8 +151,6 @@ docker-compose --profile test up --abort-on-container-exit
 | **Scraper Service** | 8005 | Data ingestion control API, Scrapy pipeline |
 | **Portfolio Service** | 8006 | User saved houses / watchlist |
 | **Frontend (Nginx)** | 80 | Vue 3 SPA |
-
----
 
 ## Documentation
 
@@ -183,8 +173,6 @@ Comprehensive documentation is available in the `/docs` directory:
 - [**Frontend Overview**](docs/frontend/overview.md) — Vue 3 SPA architecture, routing, components, state management
 - [**Getting Started Guide**](docs/development/getting-started.md) — Docker Compose setup, environment variables, common commands
 - [**Testing Guide**](docs/development/testing.md) — Docker-based testing strategy, CI/CD pipeline, test profiles
-
----
 
 ## Development Workflow
 
@@ -227,8 +215,6 @@ docker-compose exec auth-service black app/
 docker-compose exec auth-service isort app/
 ```
 
----
-
 ## Architecture Highlights
 
 ### Single Responsibility Microservices
@@ -262,25 +248,17 @@ Redis caches are layered:
 - User sessions (via refresh tokens)
 - Celery task results
 
----
-
 ## Deployment
 
 NeighborIQ is designed for containerized deployment. See [DEPLOYMENT.md](docs/DEPLOYMENT.md) for production configuration and scaling guidance.
-
----
 
 ## Contributing
 
 Contributions are welcome! Please open an issue or PR. Follow the code style guidelines (Black formatting, Pydantic schema validation, async/await patterns).
 
----
-
 ## License
 
 This project is licensed under the MIT License — see [LICENSE](LICENSE) file for details.
-
----
 
 ## Support
 
