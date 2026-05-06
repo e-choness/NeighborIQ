@@ -1,29 +1,27 @@
+# Multi-stage build (Phase 7A)
+FROM python:3.11-slim AS builder
+
+WORKDIR /build
+RUN apt-get update && apt-get install -y --no-install-recommends     build-essential     libpq-dev     && rm -rf /var/lib/apt/lists/*
+
+COPY services/house-api-service/requirements.txt .
+RUN pip install --user --no-cache-dir -r requirements.txt
+
+# Final stage
 FROM python:3.11-slim
 
 WORKDIR /app
+RUN apt-get update && apt-get install -y --no-install-recommends     libpq5     curl     && rm -rf /var/lib/apt/lists/*
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    libpq-dev \
-    && rm -rf /var/lib/apt/lists/*
+COPY --from=builder /root/.local /root/.local
 
-# Build context is project root; copy service-specific requirements
-COPY services/house-api-service/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Copy shared module (modular monolith shared layer)
+# Copy application code
 COPY shared ./shared
-
-# Copy migrations so alembic can run inside the container
-COPY migrations ./migrations
-
-# Copy service application files
 COPY services/house-api-service/app ./app
-COPY services/house-api-service/main.py ./main.py
 COPY services/house-api-service/tests ./tests
-COPY services/house-api-service/pytest.ini ./pytest.ini
 
-# shared/ lives at /app/shared; PYTHONPATH=/app makes `from shared import ...` resolve correctly
-ENV PYTHONPATH=/app
+ENV PYTHONPATH=/app PATH=/root/.local/bin:$PATH
+EXPOSE 8002
+HEALTHCHECK --interval=10s --timeout=3s --retries=3     CMD curl -f http://localhost:8002/health || exit 1
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8002"]
