@@ -148,6 +148,11 @@ _PUBLIC_AUTH_PATHS = {
     "/api/v1/auth/.well-known/jwks.json",
 }
 
+# Admin service health check endpoints (bypass JWT verification)
+_ADMIN_HEALTH_PATHS = {
+    "/api/v1/admin/health",
+}
+
 # Public read-only routes — accessible without authentication (Phase 6: public search)
 _PUBLIC_READ_PREFIXES = (
     "/api/v1/houses",
@@ -166,6 +171,7 @@ async def verify_jwt_middleware(request: Request, call_next):
         request.method == "OPTIONS"
         or path in ["/health", "/api/v1/routes"]
         or path in _PUBLIC_AUTH_PATHS
+        or path in _ADMIN_HEALTH_PATHS
         or path.startswith("/docs")
         or path.startswith("/openapi.json")
     ):
@@ -225,6 +231,20 @@ async def health() -> dict[str, str]:
 @app.get("/api/v1/routes", tags=["gateway"])
 async def routes() -> dict[str, list[str]]:
     return {"routes": ["/api/v1/auth", "/api/v1/houses", "/api/v1/search"]}
+
+
+@app.get("/api/v1/admin/health", tags=["health"])
+async def admin_health():
+    """Admin health check - proxies to auth service health."""
+    async with httpx.AsyncClient() as client:
+        url = f"{AUTH_SERVICE_URL}/health"
+        resp = await client.get(url)
+        return Response(
+            content=resp.content,
+            status_code=resp.status_code,
+            headers=dict(resp.headers),
+            media_type=resp.headers.get("content-type"),
+        )
 
 
 @app.api_route(
