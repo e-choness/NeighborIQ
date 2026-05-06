@@ -28,7 +28,7 @@ flowchart TD
     
     Predict --> Output["Output<br/>predicted_price: int<br/>price_low: int (−15%)<br/>price_high: int (+15%)<br/>confidence: float"]
     
-    Output --> [*]
+    Output --> End([End])
 ```
 
 **Model Details**:

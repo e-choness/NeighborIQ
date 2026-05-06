@@ -32,7 +32,7 @@ flowchart TD
     
     ReturnCache --> Return
     
-    Return --> [*]
+    Return --> End([End])
 ```
 
 ---

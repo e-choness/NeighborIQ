@@ -24,37 +24,39 @@ sequenceDiagram
     participant AuthSvc as Auth Service
     participant DB as PostgreSQL
     
-    Client->>+Gateway: POST /api/v1/auth/login<br/>{email, password}
+    Client->>+Gateway: POST /api/v1/auth/login (email, password)
     
     Note over Gateway: No JWT required (public endpoint)
     
-    Gateway->>+AuthSvc: POST /api/v1/auth/login<br/>{email, password}
+    Gateway->>+AuthSvc: POST /api/v1/auth/login (email, password)
     
-    AuthSvc->>+DB: SELECT * FROM auth_users<br/>WHERE email='user@example.com'
+    AuthSvc->>+DB: SELECT * FROM auth_users WHERE email='user@example.com'
     DB-->>-AuthSvc: User row (with hashed_password)
     
-    AuthSvc->>AuthSvc: bcrypt.verify(password,<br/>user.hashed_password)
+    AuthSvc->>AuthSvc: bcrypt.verify(password, user.hashed_password)
     
     alt Password matches
-        AuthSvc->>DB: Query auth_jwt_key_pairs<br/>SELECT latest key
+        AuthSvc->>DB: Query auth_jwt_key_pairs (SELECT latest key)
         DB-->>AuthSvc: RSA key pair
         
-        AuthSvc->>AuthSvc: Generate access token<br/>Payload: {sub: user.id, email,<br/>role, exp: now + 15min}<br/>Sign with RS256
+        AuthSvc->>AuthSvc: Generate access token<br>Payload: sub=user.id, email, role, exp=15m<br>Sign with RS256
         
-        AuthSvc->>AuthSvc: Generate refresh token<br/>Payload: {jti: uuid, exp: now + 7d}
+        AuthSvc->>AuthSvc: Generate refresh token<br>Payload: jti=uuid, exp=7d
         
-        AuthSvc->>DB: INSERT INTO auth_refresh_tokens<br/>(user_id, token_hash, expires_at)
+        AuthSvc->>DB: INSERT INTO auth_refresh_tokens (user_id, token_hash, expires_at)
         DB-->>AuthSvc: OK
         
-        AuthSvc-->>Gateway: {<br/>access_token: "eyJh...",<br/>refresh_token: "eyJh...",<br/>user: {id, email, role}}<br/>Set-Cookie: access_token=...;HttpOnly<br/>Set-Cookie: refresh_token=...;HttpOnly
+        AuthSvc-->>Gateway: Response with tokens<br>Set-Cookie: access_token=... (HttpOnly)<br>Set-Cookie: refresh_token=... (HttpOnly)
         
     else Password wrong
         AuthSvc-->>Gateway: 401 Invalid credentials
     end
+    %% Explicitly deactivate AuthSvc after the conditional block ends
+    deactivate AuthSvc
     
     Gateway-->>-Client: (same response as Auth Service)
     
-    Note over Client: Browser stores cookies<br/>(HttpOnly means JS can't access)
+    Note over Client: Browser stores cookies<br>(HttpOnly means JS can't access)
 ```
 
 ---
@@ -68,33 +70,35 @@ sequenceDiagram
     participant AuthSvc as Auth Service
     participant DB as PostgreSQL
     
-    Note over Client: Access token near expiry<br/>or already expired
+    Note over Client: Access token near expiry<br>or already expired
     
-    Client->>+Gateway: POST /api/v1/auth/refresh<br/>Cookie: refresh_token=eyJh...
+    Client->>+Gateway: POST /api/v1/auth/refresh (Cookie: refresh_token=eyJh...)
     
-    Note over Gateway: No access token required<br/>(public refresh endpoint)
+    Note over Gateway: No access token required (public refresh endpoint)
     
-    Gateway->>+AuthSvc: POST /api/v1/auth/refresh<br/>refresh_token in cookie
+    Gateway->>+AuthSvc: POST /api/v1/auth/refresh (refresh_token in cookie)
     
-    AuthSvc->>AuthSvc: Decode refresh token<br/>(no signature check; token was signed by us)
+    AuthSvc->>AuthSvc: Decode refresh token (no signature check, token was signed by us)
     
-    AuthSvc->>DB: SELECT * FROM auth_refresh_tokens<br/>WHERE token_hash = bcrypt(token)<br/>AND NOT revoked AND expires_at > now
+    AuthSvc->>DB: SELECT * FROM auth_refresh_tokens WHERE token_hash = bcrypt(token) AND NOT revoked AND expires_at greater than now
     
     alt Token found and valid
-        AuthSvc->>AuthSvc: Generate new access token<br/>Payload: {sub: user.id, ...}
+        AuthSvc->>AuthSvc: Generate new access token<br>Payload: sub=user.id
         
-        AuthSvc->>AuthSvc: (Optional) Rotate refresh token<br/>Generate new refresh_token
+        AuthSvc->>AuthSvc: (Optional) Rotate refresh token<br>Generate new refresh_token
         
-        AuthSvc->>DB: DELETE old refresh_tokens<br/>INSERT new refresh_token
+        AuthSvc->>DB: DELETE old refresh_tokens, INSERT new refresh_token
         DB-->>AuthSvc: OK
         
-        AuthSvc-->>Gateway: {<br/>access_token: "eyJh...",<br/>refresh_token: "eyJh..."<br/>Set-Cookie: access_token=...<br/>Set-Cookie: refresh_token=...
+        AuthSvc-->>Gateway: Response with new tokens (Set-Cookie: access_token=..., refresh_token=...)
         
     else Token not found or expired
-        AuthSvc-->>Gateway: 401 Refresh token invalid<br/>or expired
+        AuthSvc-->>Gateway: 401 Refresh token invalid or expired
         
         Note over Client: User must log in again
     end
+    %% Cleanly deactivate AuthSvc after the conditional block ends
+    deactivate AuthSvc
     
     Gateway-->>-Client: (response)
 ```

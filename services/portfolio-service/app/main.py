@@ -68,7 +68,10 @@ class SaveHouseRequest(BaseModel):
 
 
 def _get_user_id(request: Request) -> int:
-    """Extract and validate user ID from X-User-ID header (injected by API gateway)."""
+    """Extract and validate user ID from X-User-ID header.
+
+    Header is injected by API gateway.
+    """
     user_id_str = request.headers.get("X-User-ID")
     if not user_id_str:
         raise HTTPException(status_code=401, detail="User not authenticated")
@@ -80,7 +83,9 @@ def _get_user_id(request: Request) -> int:
 
 async def _verify_user(user_id: int, db: AsyncSession) -> UserModel:
     """Verify user exists."""
-    result = await db.execute(select(UserModel).where(UserModel.id == user_id))
+    result = await db.execute(
+        select(UserModel).where(UserModel.id == user_id)
+    )
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -107,32 +112,42 @@ async def get_saved_houses(
     response_data = []
     for entry in saved_entries:
         house = entry.house
-        response_data.append({
-            "id": entry.id,
-            "house_id": house.id,
-            "saved_at": entry.created_at.isoformat(),
-            "notes": entry.notes,
-            "house": {
-                "id": house.id,
-                "title": house.title,
-                "community": house.community,
-                "city": house.city,
-                "region": house.region,
-                "street": house.street,
-                "price": house.price,
-                "area": float(house.area) if house.area else None,
-                "rooms": house.rooms,
-                "floor": house.floor,
-                "decoration": house.decoration,
-                "age": house.age,
-                "latitude": float(house.latitude) if house.latitude else None,
-                "longitude": float(house.longitude) if house.longitude else None,
-                "url": house.url,
-                "images": house.images,
-                "created_at": house.created_at.isoformat(),
-                "updated_at": house.updated_at.isoformat() if house.updated_at else None,
-            },
-        })
+        response_data.append(
+            {
+                "id": entry.id,
+                "house_id": house.id,
+                "saved_at": entry.created_at.isoformat(),
+                "notes": entry.notes,
+                "house": {
+                    "id": house.id,
+                    "title": house.title,
+                    "community": house.community,
+                    "city": house.city,
+                    "region": house.region,
+                    "street": house.street,
+                    "price": house.price,
+                    "area": float(house.area) if house.area else None,
+                    "rooms": house.rooms,
+                    "floor": house.floor,
+                    "decoration": house.decoration,
+                    "age": house.age,
+                    "latitude": (
+                        float(house.latitude) if house.latitude else None
+                    ),
+                    "longitude": (
+                        float(house.longitude) if house.longitude else None
+                    ),
+                    "url": house.url,
+                    "images": house.images,
+                    "created_at": house.created_at.isoformat(),
+                    "updated_at": (
+                        house.updated_at.isoformat()
+                        if house.updated_at
+                        else None
+                    ),
+                },
+            }
+        )
 
     return response_data
 
@@ -147,7 +162,9 @@ async def save_house(
     user_id = _get_user_id(request)
     await _verify_user(user_id, db)
 
-    result = await db.execute(select(HouseModel).where(HouseModel.id == body.house_id))
+    result = await db.execute(
+        select(HouseModel).where(HouseModel.id == body.house_id)
+    )
     house = result.scalar_one_or_none()
     if not house:
         raise HTTPException(status_code=404, detail="House not found")
@@ -200,7 +217,9 @@ async def remove_house(
     )
     saved_house = result.scalar_one_or_none()
     if not saved_house:
-        raise HTTPException(status_code=404, detail="House not found in portfolio")
+        raise HTTPException(
+            status_code=404, detail="House not found in portfolio"
+        )
 
     await db.delete(saved_house)
     await db.commit()

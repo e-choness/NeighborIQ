@@ -49,9 +49,11 @@ flowchart TD
     
     CheckHideForAuth -->|No| AllowNav
     
-    RedirectLogin --> [*]
-    RedirectSearch --> [*]
-    AllowNav --> [*]
+    %% Defined a clean terminal node for the flowchart
+    End([End])
+    RedirectLogin --> End
+    RedirectSearch --> End
+    AllowNav --> End
 ```
 
 **Route Meta Definitions**:

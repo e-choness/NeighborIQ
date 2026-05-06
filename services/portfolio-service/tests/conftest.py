@@ -12,8 +12,11 @@ from fastapi.testclient import TestClient
 @pytest.fixture(scope="module")
 def client():
     """Module-scoped client with init_db patched out for unit tests."""
-    with patch("app.main.init_db", new_callable=AsyncMock), \
-         patch("app.main.dispose_db", new_callable=AsyncMock):
+    with (
+        patch("app.main.init_db", new_callable=AsyncMock),
+        patch("app.main.dispose_db", new_callable=AsyncMock),
+    ):
         from app.main import app
+
         with TestClient(app) as c:
             yield c

@@ -33,7 +33,7 @@ flowchart TD
     
     CeleryDispatch --> Complete["Pipeline Complete<br/>Item logged to stats"]
     
-    Complete --> [*]
+    Complete --> End([End])
 ```
 
 ---
