@@ -51,6 +51,7 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 AUTH_SERVICE_URL = os.getenv("AUTH_SERVICE_URL", "http://auth-service:8000")
 HOUSE_SERVICE_URL = os.getenv("HOUSE_SERVICE_URL", "http://house-api-service:8000")
 SEARCH_SERVICE_URL = os.getenv("SEARCH_SERVICE_URL", "http://search-service:8000")
+PORTFOLIO_SERVICE_URL = os.getenv("PORTFOLIO_SERVICE_URL", "http://portfolio-service:8000")
 
 # Cache for JWKS (public key)
 _jwks_cache = None
@@ -359,6 +360,37 @@ async def search_proxy(request: Request, path: str):
             headers["X-User-ID"] = str(request.state.user_id)
 
         # Get request body
+        body = await request.body()
+
+        resp = await client.request(
+            method=request.method,
+            url=url,
+            headers=headers,
+            content=body,
+            params=request.query_params,
+        )
+
+        return Response(
+            content=resp.content,
+            status_code=resp.status_code,
+            headers=dict(resp.headers),
+        media_type=resp.headers.get("content-type"),
+    )
+
+
+@app.api_route(
+    "/api/v1/portfolio/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH"]
+)
+@limiter.limit("100/minute")
+async def portfolio_proxy(request: Request, path: str):
+    """Proxy requests to portfolio service."""
+    async with httpx.AsyncClient() as client:
+        url = f"{PORTFOLIO_SERVICE_URL}/api/v1/portfolio/{path}"
+        headers = dict(request.headers)
+        headers.pop("host", None)
+        if hasattr(request.state, "user_id"):
+            headers["X-User-ID"] = str(request.state.user_id)
+
         body = await request.body()
 
         resp = await client.request(
