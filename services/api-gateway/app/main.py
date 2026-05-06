@@ -148,6 +148,13 @@ _PUBLIC_AUTH_PATHS = {
     "/api/v1/auth/.well-known/jwks.json",
 }
 
+# Public read-only routes — accessible without authentication (Phase 6: public search)
+_PUBLIC_READ_PREFIXES = (
+    "/api/v1/houses",
+    "/api/v1/communities",
+    "/api/v1/search",
+)
+
 
 @app.middleware("http")
 async def verify_jwt_middleware(request: Request, call_next):
@@ -162,6 +169,10 @@ async def verify_jwt_middleware(request: Request, call_next):
         or path.startswith("/docs")
         or path.startswith("/openapi.json")
     ):
+        return await call_next(request)
+
+    # Allow unauthenticated GET requests to public read-only endpoints (Phase 6 search page)
+    if request.method == "GET" and any(path.startswith(p) for p in _PUBLIC_READ_PREFIXES):
         return await call_next(request)
 
     # Get token from cookie
@@ -249,13 +260,16 @@ async def auth_proxy(request: Request, path: str):
 
 
 @app.api_route(
+    "/api/v1/houses", methods=["GET", "POST", "PUT", "DELETE", "PATCH"]
+)
+@app.api_route(
     "/api/v1/houses/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH"]
 )
 @limiter.limit("100/minute")
-async def houses_proxy(request: Request, path: str):
+async def houses_proxy(request: Request, path: str = ""):
     """Proxy requests to house service."""
     async with httpx.AsyncClient() as client:
-        url = f"{HOUSE_SERVICE_URL}/api/v1/houses/{path}"
+        url = f"{HOUSE_SERVICE_URL}/api/v1/houses/{path}".rstrip("/")
         headers = dict(request.headers)
         headers.pop("host", None)
         if hasattr(request.state, "user_id"):
@@ -271,6 +285,38 @@ async def houses_proxy(request: Request, path: str):
             params=request.query_params,
         )
 
+        return Response(
+            content=resp.content,
+            status_code=resp.status_code,
+            headers=dict(resp.headers),
+            media_type=resp.headers.get("content-type"),
+        )
+
+
+@app.api_route(
+    "/api/v1/communities", methods=["GET"]
+)
+@app.api_route(
+    "/api/v1/communities/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH"]
+)
+@limiter.limit("100/minute")
+async def communities_proxy(request: Request, path: str = ""):
+    """Proxy community requests to house service."""
+    async with httpx.AsyncClient() as client:
+        url = f"{HOUSE_SERVICE_URL}/api/v1/communities/{path}".rstrip("/")
+        headers = dict(request.headers)
+        headers.pop("host", None)
+        if hasattr(request.state, "user_id"):
+            headers["X-User-ID"] = str(request.state.user_id)
+
+        body = await request.body()
+        resp = await client.request(
+            method=request.method,
+            url=url,
+            headers=headers,
+            content=body,
+            params=request.query_params,
+        )
         return Response(
             content=resp.content,
             status_code=resp.status_code,
