@@ -156,7 +156,7 @@
 </template>
 
 <script setup lang="ts">
-import { reactive } from 'vue'
+import { reactive, watch } from 'vue'
 import type { HouseFilters } from '@/types'
 
 const props = defineProps<{
@@ -179,6 +179,9 @@ const localFilters = reactive({
   sort: props.modelValue.sort,
   order: props.modelValue.order,
 })
+
+// Sync localFilters when parent resets store filters externally (BUG-6-006)
+watch(() => props.modelValue, (v) => Object.assign(localFilters, v), { deep: true })
 
 const pricePresets = [
   { label: 'Under $500K', min: null, max: 500000 },

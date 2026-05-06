@@ -52,6 +52,7 @@ AUTH_SERVICE_URL = os.getenv("AUTH_SERVICE_URL", "http://auth-service:8000")
 HOUSE_SERVICE_URL = os.getenv("HOUSE_SERVICE_URL", "http://house-api-service:8000")
 SEARCH_SERVICE_URL = os.getenv("SEARCH_SERVICE_URL", "http://search-service:8000")
 PORTFOLIO_SERVICE_URL = os.getenv("PORTFOLIO_SERVICE_URL", "http://portfolio-service:8000")
+AI_INSIGHTS_SERVICE_URL = os.getenv("AI_INSIGHTS_SERVICE_URL", "http://ai-insights-service:8000")
 
 # Cache for JWKS (public key)
 _jwks_cache = None
@@ -152,6 +153,10 @@ _PUBLIC_AUTH_PATHS = {
 # Admin service health check endpoints (bypass JWT verification)
 _ADMIN_HEALTH_PATHS = {
     "/api/v1/admin/health",
+    "/api/v1/auth/health",
+    "/api/v1/houses/health",
+    "/api/v1/ai/health",
+    "/api/v1/search/health",
 }
 
 # Public read-only routes — accessible without authentication (Phase 6: public search)
@@ -240,6 +245,58 @@ async def admin_health():
     async with httpx.AsyncClient() as client:
         url = f"{AUTH_SERVICE_URL}/health"
         resp = await client.get(url)
+        return Response(
+            content=resp.content,
+            status_code=resp.status_code,
+            headers=dict(resp.headers),
+            media_type=resp.headers.get("content-type"),
+        )
+
+
+@app.get("/api/v1/auth/health", tags=["health"])
+async def auth_service_health():
+    """Proxy auth-service health check."""
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(f"{AUTH_SERVICE_URL}/health", timeout=3.0)
+        return Response(
+            content=resp.content,
+            status_code=resp.status_code,
+            headers=dict(resp.headers),
+            media_type=resp.headers.get("content-type"),
+        )
+
+
+@app.get("/api/v1/houses/health", tags=["health"])
+async def house_service_health():
+    """Proxy house-api-service health check."""
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(f"{HOUSE_SERVICE_URL}/health", timeout=3.0)
+        return Response(
+            content=resp.content,
+            status_code=resp.status_code,
+            headers=dict(resp.headers),
+            media_type=resp.headers.get("content-type"),
+        )
+
+
+@app.get("/api/v1/ai/health", tags=["health"])
+async def ai_service_health():
+    """Proxy ai-insights-service health check."""
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(f"{AI_INSIGHTS_SERVICE_URL}/api/v1/health", timeout=3.0)
+        return Response(
+            content=resp.content,
+            status_code=resp.status_code,
+            headers=dict(resp.headers),
+            media_type=resp.headers.get("content-type"),
+        )
+
+
+@app.get("/api/v1/search/health", tags=["health"])
+async def search_service_health():
+    """Proxy search-service health check."""
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(f"{SEARCH_SERVICE_URL}/health", timeout=3.0)
         return Response(
             content=resp.content,
             status_code=resp.status_code,

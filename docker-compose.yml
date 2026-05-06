@@ -57,6 +57,7 @@ services:
       - HOUSE_SERVICE_URL=http://house-api-service:8000
       - SEARCH_SERVICE_URL=http://search-service:8000
       - PORTFOLIO_SERVICE_URL=http://portfolio-service:8000
+      - AI_INSIGHTS_SERVICE_URL=http://ai-insights-service:8000
       - CORS_ORIGINS=http://localhost:5173,http://localhost:80,http://localhost,http://frontend:80
     depends_on:
       auth-service:

@@ -63,6 +63,13 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch } from 'vue'
+import type Map from 'ol/Map'
+import type Feature from 'ol/Feature'
+import type { Geometry } from 'ol/geom'
+import type VectorSource from 'ol/source/Vector'
+import type VectorLayer from 'ol/layer/Vector'
+import type { MapBrowserEvent } from 'ol'
+import type { FeatureLike } from 'ol/Feature'
 import type { House } from '@/types'
 
 const props = defineProps<{
@@ -75,13 +82,23 @@ const emit = defineEmits<{
   'select-house': [house: House]
 }>()
 
+interface OLModules {
+  ol: typeof import('ol')
+  olLayer: typeof import('ol/layer')
+  olSource: typeof import('ol/source')
+  olProj: typeof import('ol/proj')
+  olStyle: typeof import('ol/style')
+  olGeom: typeof import('ol/geom')
+  olFeature: typeof import('ol/Feature')
+}
+
 const mapEl = ref<HTMLElement | null>(null)
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let map: any = null
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let markerLayer: any = null
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let olModule: any = null
+let map: Map | null = null
+let markerLayer: {
+  vectorSource: VectorSource<Feature<Geometry>>
+  clusterLayer: VectorLayer<Feature<Geometry>>
+} | null = null
+let olModule: OLModules | null = null
 
 // Default center: Canada (Toronto area)
 const DEFAULT_CENTER = [-79.3832, 43.6532] // [lon, lat]
@@ -101,12 +118,12 @@ async function initMap() {
 
   olModule = { ol, olLayer, olSource, olProj, olStyle, olGeom, olFeature }
 
-  // Create tile layer with OSM
+  // Create tile layer with CartoDB dark tiles; crossOrigin required for CORS
   const tileLayer = new olLayer.Tile({
     source: new olSource.OSM({
-      // Use CartoDB dark tiles for better dark theme look
       url: 'https://{a-c}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
       attributions: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/attributions">CARTO</a>',
+      crossOrigin: 'anonymous',
     }),
   })
 
@@ -122,10 +139,8 @@ async function initMap() {
   // Cluster style function
   const clusterLayer = new olLayer.Vector({
     source: clusterSource,
-    style: (feature: unknown) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const f = feature as any
-      const size = f.get('features').length
+    style: (feature: FeatureLike) => {
+      const size = (feature.get('features') as FeatureLike[]).length
       if (size === 1) {
         // Single marker
         return new olStyle.Style({
@@ -166,25 +181,19 @@ async function initMap() {
   })
 
   // Click handler
-  map.on('click', (evt: unknown) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const e = evt as any
-    map.forEachFeatureAtPixel(e.pixel, (feature: unknown) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const f = feature as any
-      const features = f.get('features')
+  map.on('click', (evt: MapBrowserEvent<MouseEvent>) => {
+    map!.forEachFeatureAtPixel(evt.pixel, (feature: FeatureLike) => {
+      const features = feature.get('features') as FeatureLike[] | undefined
       if (features && features.length === 1) {
-        const house = features[0].get('house')
+        const house = features[0].get('house') as House | undefined
         if (house) emit('select-house', house)
       }
     })
   })
 
   // Cursor pointer on hover
-  map.on('pointermove', (evt: unknown) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const e = evt as any
-    const hit = map.hasFeatureAtPixel(e.pixel)
+  map.on('pointermove', (evt: MapBrowserEvent<MouseEvent>) => {
+    const hit = map!.hasFeatureAtPixel(evt.pixel)
     if (mapEl.value) {
       mapEl.value.style.cursor = hit ? 'pointer' : ''
     }
