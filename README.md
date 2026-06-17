@@ -8,7 +8,7 @@
 
 **NeighborIQ** is an AI-powered Canadian real estate intelligence platform. It combines microservices architecture with machine learning to deliver actionable neighborhood insights, price predictions, and investment analytics for Canadian residential markets.
 
-![banner](./images/banner-wide.jpeg)
+![banner](./images/banner-wide.jpg)
 
 ## At a Glance
 
