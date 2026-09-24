@@ -1,0 +1,16 @@
+-r ../../shared/requirements.txt
+fastapi==0.141.1
+uvicorn[standard]==0.53.0
+pydantic[email]==2.13.5
+python-multipart==0.0.32
+slowapi==0.1.10
+limits==5.8.0
+PyJWT[crypto]==2.15.0
+cryptography==50.0.1
+pwdlib[argon2]==0.3.1
+bcrypt==5.0.0  # verifies password hashes from earlier releases
+celery[redis]==5.6.3
+httpx==0.28.1
+# tests
+pytest==9.1.1
+pytest-asyncio==1.4.0

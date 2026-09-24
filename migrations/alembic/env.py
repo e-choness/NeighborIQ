@@ -1,16 +1,12 @@
-from __future__ import with_statement
-import sys
 import os
+import sys
 from logging.config import fileConfig
 
-from sqlalchemy import engine_from_config
+from alembic import context
 from sqlalchemy import pool
 
-from alembic import context
-
 # Add project root so shared package is importable
-project_root = os.path.abspath(os.path.join(
-    os.path.dirname(__file__), "..", ".."))
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
@@ -26,6 +22,7 @@ if config.config_file_name is not None:
 # Import target metadata from shared database
 try:
     from shared.database.postgres import Base
+
     target_metadata = Base.metadata
 except Exception:
     target_metadata = None
@@ -34,6 +31,43 @@ except Exception:
 # can be acquired:
 # my_important_option = config.get_main_option("my_important_option")
 # ... etc.
+
+
+def _database_url() -> str:
+    """DATABASE_URL (the services' env var) wins over alembic.ini; alembic needs a sync driver."""
+    url = os.getenv("DATABASE_URL") or config.get_main_option("sqlalchemy.url")
+    return url.replace("+asyncpg", "+psycopg2")
+
+
+# Revisions 001–005 were squashed into 0001_baseline (same schema). Databases
+# migrated before the squash still record the old ids, which no longer exist.
+LEGACY_HEAD = "005_open_data"
+LEGACY_PARTIAL = {
+    "001_initial_schema",
+    "002_ai_tables_and_postgis",
+    "003_canadian_listing_model",
+    "004_portfolio_saved_houses",
+}
+
+
+def _adopt_legacy_history(connection) -> None:
+    from sqlalchemy import inspect, text
+
+    has_versions = inspect(connection).has_table("alembic_version")
+    current = (
+        set(connection.execute(text("SELECT version_num FROM alembic_version")).scalars())
+        if has_versions
+        else set()
+    )
+    if current == {LEGACY_HEAD}:
+        connection.execute(text("UPDATE alembic_version SET version_num = '0001_baseline'"))
+    # End this check's transaction so Alembic starts (and commits) its own
+    connection.commit()
+    if current & LEGACY_PARTIAL:
+        raise RuntimeError(
+            f"This database is at legacy revision {', '.join(sorted(current))}. Upgrade it to 005_open_data "
+            "with a release before the migration squash (git checkout 47c4131), then run this again."
+        )
 
 
 def run_migrations_offline():
@@ -47,7 +81,7 @@ def run_migrations_offline():
     Calls to context.execute() here emit the given string to the
     script output.
     """
-    url = config.get_main_option("sqlalchemy.url")
+    url = _database_url()
     context.configure(
         url=url,
         target_metadata=target_metadata,
@@ -63,14 +97,15 @@ def run_migrations_online():
     """Run migrations in 'online' mode."""
     # Use sync driver for alembic
     from sqlalchemy import create_engine
+
     connectable = create_engine(
-        config.get_section(config.config_ini_section).get("sqlalchemy.url").replace("asyncpg", "psycopg2"),
+        _database_url(),
         poolclass=pool.NullPool,
     )
 
     with connectable.connect() as connection:
-        context.configure(connection=connection,
-                          target_metadata=target_metadata)
+        _adopt_legacy_history(connection)
+        context.configure(connection=connection, target_metadata=target_metadata)
 
         with context.begin_transaction():
             context.run_migrations()

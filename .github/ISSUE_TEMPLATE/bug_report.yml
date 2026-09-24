@@ -1,0 +1,49 @@
+name: Bug report
+description: Something does not work or a number looks wrong
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, what you saw instead.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. docker compose up -d
+        2. Open /listings/42
+        3. …
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Fair value / comparables
+        - Cash flow
+        - Neighbourhood / open data
+        - Maps
+        - Search and filters
+        - Portfolio
+        - Auth / admin
+        - Deployment / Docker
+        - Documentation
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Commit or version
+      placeholder: e.g. eb3c878
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: "Output of `docker compose logs api` (or the relevant service). Remove secrets."
+      render: shell

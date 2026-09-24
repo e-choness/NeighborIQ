@@ -1,12 +1,13 @@
-import { createApp } from 'vue'
+import { PiniaColada } from '@pinia/colada'
 import { createPinia } from 'pinia'
+import { createApp } from 'vue'
 import App from './App.vue'
 import router from './router'
-import './style.css'
+import './lib/theme'
+import './styles/app.css'
 
-const app = createApp(App)
-
-app.use(createPinia())
-app.use(router)
-
-app.mount('#app')
+createApp(App)
+  .use(createPinia())
+  .use(PiniaColada, { queryOptions: { staleTime: 60_000 } })
+  .use(router)
+  .mount('#app')

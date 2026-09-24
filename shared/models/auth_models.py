@@ -4,9 +4,10 @@ SQLAlchemy ORM models for auth domain.
 Tables are prefixed with 'auth_' to maintain domain separation in the shared PostgreSQL instance.
 """
 
-from sqlalchemy import Column, Integer, String, DateTime, Enum, Index
-from sqlalchemy.sql import func
 import enum
+
+from sqlalchemy import Column, DateTime, Enum, ForeignKey, Index, Integer, String
+from sqlalchemy.sql import func
 
 from shared.database.postgres import Base
 
@@ -44,9 +45,7 @@ class User(Base):
     )
     # SQLite compatibility
     is_active = Column(Integer, default=1, nullable=False)
-    created_at = Column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(
         DateTime(timezone=True),
         server_default=func.now(),
@@ -87,11 +86,8 @@ class JWTKeyPair(Base):
     # Metadata
     algorithm = Column(String(10), default="RS256", nullable=False)
     key_id = Column(String(64), nullable=False, index=True)
-    created_at = Column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
-    expires_at = Column(DateTime(timezone=True),
-                        nullable=True)  # For key rotation
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    expires_at = Column(DateTime(timezone=True), nullable=True)  # For key rotation
     is_active = Column(Integer, default=1, nullable=False)
 
     def __repr__(self):
@@ -114,15 +110,12 @@ class RefreshToken(Base):
     # Primary key
     id = Column(Integer, primary_key=True)
 
-    # Foreign key
-    user_id = Column(Integer, nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("auth_users.id", ondelete="CASCADE"), nullable=False, index=True)
 
     # Token metadata
     token_hash = Column(String(255), unique=True, nullable=False, index=True)
     expires_at = Column(DateTime(timezone=True), nullable=False)
-    created_at = Column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     is_revoked = Column(Integer, default=0, nullable=False)
     revoked_at = Column(DateTime(timezone=True), nullable=True)
 

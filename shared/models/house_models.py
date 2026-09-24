@@ -6,13 +6,14 @@ Tables are prefixed with 'house_' to maintain domain separation in the shared Po
 
 from sqlalchemy import (
     Column,
-    Integer,
-    String,
     DateTime,
-    Numeric,
-    Text,
     ForeignKey,
     Index,
+    Integer,
+    Numeric,
+    String,
+    Text,
+    UniqueConstraint,
 )
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -35,32 +36,49 @@ class House(Base):
 
     # Basic info
     title = Column(String(255), nullable=False, index=True)
-    community = Column(String(255), nullable=True, index=True)
+    community = Column(String(255), nullable=True, index=True)  # Neighbourhood
     city = Column(String(100), nullable=False, index=True)
-    region = Column(String(100), nullable=False, index=True)
+    region = Column(String(100), nullable=False, index=True)  # District / borough
     street = Column(String(255), nullable=True, index=True)
+    postal_code = Column(String(7), nullable=True, index=True)  # e.g. "M5V 2T6"
 
     # Property details
-    price = Column(Integer, nullable=False, index=True)  # In yuan
-    area = Column(Numeric(10, 2), nullable=True)  # m²
-    rooms = Column(Integer, nullable=True)
+    property_type = Column(String(30), nullable=True, index=True)  # condo|townhouse|semi|detached
+    price = Column(Integer, nullable=False, index=True)  # Asking price, CAD
+    sqft = Column(Integer, nullable=True)  # Interior living area, ft²
+    area = Column(Numeric(10, 2), nullable=True)  # Same area in m² (derived from sqft)
+    rooms = Column(Integer, nullable=True)  # Bedrooms (0 = bachelor/studio)
+    bathrooms = Column(Numeric(3, 1), nullable=True)
+    parking = Column(Integer, nullable=True)
     floor = Column(Integer, nullable=True)
-    decoration = Column(String(50), nullable=True)  # 精装, 简装, etc.
-    age = Column(Integer, nullable=True)  # Years
+    decoration = Column(String(50), nullable=True)  # original|standard|renovated|luxury
+    age = Column(Integer, nullable=True)  # Years since construction
+
+    # Carrying costs — required for an honest cash-flow estimate
+    condo_fee = Column(Integer, nullable=True)  # Monthly maintenance fee, CAD
+    property_tax = Column(Integer, nullable=True)  # Annual, CAD
+
+    # Listing lifecycle
+    status = Column(String(20), nullable=False, default="active", server_default="active")
+    listed_at = Column(DateTime(timezone=True), nullable=True)
+
+    # Neighbourhood polygon (od_areas.id; FK lives in migration 005 — od_* tables are not ORM-mapped)
+    area_id = Column(Integer, nullable=True, index=True)
 
     # Location (WGS-84 coordinates for OpenStreetMap)
     latitude = Column(Numeric(10, 8), nullable=True)
     longitude = Column(Numeric(11, 8), nullable=True)
 
     # Source
-    url = Column(String(512), nullable=True, unique=True, index=True)
+    url = Column(String(512), nullable=True, unique=True, index=True)  # Stable listing key
     images = Column(Text, nullable=True)  # JSON list stored as text
+    source = Column(String(30), nullable=False, default="seed", server_default="seed")
+    # 1 = generated demo data. The UI must label these listings as synthetic.
+    is_synthetic = Column(Integer, nullable=False, default=0, server_default="0")
 
     # Metadata
     is_active = Column(Integer, default=1, nullable=False)
-    created_at = Column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(
         DateTime(timezone=True),
         server_default=func.now(),
@@ -69,9 +87,7 @@ class House(Base):
     )
 
     # Relationships
-    price_history = relationship(
-        "HousePriceHistory", back_populates="house", cascade="all, delete-orphan"
-    )
+    price_history = relationship("HousePriceHistory", back_populates="house", cascade="all, delete-orphan")
 
     # Indexes
     __table_args__ = (
@@ -79,6 +95,7 @@ class House(Base):
         Index("idx_house_houses_price", "price"),
         Index("idx_house_houses_location", "latitude", "longitude"),
         Index("idx_house_houses_composite", "city", "region", "price"),
+        Index("idx_house_houses_comps", "city", "property_type", "rooms"),
     )
 
     def __repr__(self):
@@ -103,17 +120,13 @@ class HousePriceHistory(Base):
         nullable=False,
         index=True,
     )
-    price = Column(Integer, nullable=False)  # In yuan
-    recorded_at = Column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
+    price = Column(Integer, nullable=False)  # CAD
+    recorded_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     # Relationship
     house = relationship("House", back_populates="price_history")
 
-    __table_args__ = (
-        Index("idx_house_price_history_house_recorded", "house_id", "recorded_at"),
-    )
+    __table_args__ = (Index("idx_house_price_history_house_recorded", "house_id", "recorded_at"),)
 
     def __repr__(self):
         return f"<HousePriceHistory(house_id={self.house_id}, price={self.price}, recorded_at={self.recorded_at})>"
@@ -145,9 +158,7 @@ class Community(Base):
     max_price = Column(Integer, nullable=True)
 
     # Metadata
-    created_at = Column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(
         DateTime(timezone=True),
         server_default=func.now(),
@@ -180,12 +191,11 @@ class School(Base):
     region = Column(String(100), nullable=True)
     latitude = Column(Numeric(10, 8), nullable=True)
     longitude = Column(Numeric(11, 8), nullable=True)
-    level = Column(String(50), nullable=True)  # 小学, 中学, 高中, 大学
+    level = Column(String(50), nullable=True)  # elementary|secondary|college|university
+    osm_id = Column(String(32), nullable=True, unique=True)  # "node/123" — idempotent reloads
     address = Column(String(512), nullable=True)
 
-    created_at = Column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     __table_args__ = (
         Index("idx_house_schools_city", "city"),
@@ -210,11 +220,10 @@ class Hospital(Base):
     latitude = Column(Numeric(10, 8), nullable=True)
     longitude = Column(Numeric(11, 8), nullable=True)
     hospital_type = Column(String(50), nullable=True)
+    osm_id = Column(String(32), nullable=True, unique=True)
     address = Column(String(512), nullable=True)
 
-    created_at = Column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     __table_args__ = (
         Index("idx_house_hospitals_city", "city"),
@@ -238,11 +247,13 @@ class BusStop(Base):
     region = Column(String(100), nullable=True)
     latitude = Column(Numeric(10, 8), nullable=True)
     longitude = Column(Numeric(11, 8), nullable=True)
-    routes = Column(Text, nullable=True)  # JSON list of bus route numbers
+    routes = Column(Text, nullable=True)  # JSON list of route numbers
+    # bus|streetcar|subway|rail — the table holds all transit stops, not only buses
+    mode = Column(String(20), nullable=True)
+    osm_id = Column(String(64), nullable=True, unique=True)  # External id: "node/123" or "gtfs:<feed>:<stop>"
+    weekday_departures = Column(Integer, nullable=True)  # GTFS scheduled departures on a weekday
 
-    created_at = Column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     __table_args__ = (
         Index("idx_house_bus_stops_city", "city"),
@@ -342,3 +353,27 @@ class HouseBusLink(Base):
         Index("idx_house_bus_links_house", "house_id"),
         Index("idx_house_bus_links_bus", "bus_stop_id"),
     )
+
+
+class RentBenchmark(Base):
+    """
+    Reference average monthly rent by city and bedroom count.
+
+    Loaded from data/reference/rent_benchmarks.csv (CMHC Rental Market Survey
+    format). Used as the default rent in valuation and cash-flow estimates; the
+    user can always override it.
+
+    Domain: house
+    Prefix: house_
+    """
+
+    __tablename__ = "house_rent_benchmarks"
+
+    id = Column(Integer, primary_key=True)
+    city = Column(String(100), nullable=False)
+    bedrooms = Column(Integer, nullable=False)  # 0 = bachelor; 3 = 3+
+    avg_rent = Column(Integer, nullable=False)  # Monthly, CAD
+    source = Column(String(255), nullable=False)
+    survey_date = Column(String(20), nullable=True)  # e.g. "2024-10"
+
+    __table_args__ = (UniqueConstraint("city", "bedrooms", name="uq_rent_benchmark_city_beds"),)

@@ -1,63 +1,37 @@
-from shared.models.auth_models import User, JWTKeyPair, RefreshToken
-from shared.models.house_models import (
-    House,
-    HousePriceHistory,
-    Community,
-    School,
-    Hospital,
-    BusStop,
-    HouseSchoolLink,
-    HouseHospitalLink,
-    HouseBusLink,
-)
+"""SQLAlchemy models. Table names are prefixed by domain: auth_, house_, portfolio_."""
+
 from shared.models.ai_models import HousePricePrediction, HouseRentalYield, MarketInsight
-from shared.models.schemas import (
-    UserBase,
-    UserCreate,
-    UserLogin,
-    UserResponse,
-    HouseBase,
-    HouseCreate,
-    HouseResponse,
-    HouseListResponse,
-    CommunityBase,
-    CommunityResponse,
-    PricePrediction,
-    RentalYield,
-    HouseInsights,
+from shared.models.auth_models import JWTKeyPair, RefreshToken, User
+from shared.models.house_models import (
+    BusStop,
+    Community,
+    Hospital,
+    House,
+    HouseBusLink,
+    HouseHospitalLink,
+    HousePriceHistory,
+    HouseSchoolLink,
+    RentBenchmark,
+    School,
 )
+from shared.models.portfolio_models import SavedHouse
 
 __all__ = [
-    # Auth ORM
-    "User",
-    "JWTKeyPair",
-    "RefreshToken",
-    # House ORM
-    "House",
-    "HousePriceHistory",
-    "Community",
-    "School",
-    "Hospital",
     "BusStop",
-    "HouseSchoolLink",
-    "HouseHospitalLink",
+    "Community",
+    "Hospital",
+    "House",
     "HouseBusLink",
-    # AI ORM
+    "HouseHospitalLink",
+    "HousePriceHistory",
     "HousePricePrediction",
     "HouseRentalYield",
+    "HouseSchoolLink",
+    "JWTKeyPair",
     "MarketInsight",
-    # Pydantic schemas
-    "UserBase",
-    "UserCreate",
-    "UserLogin",
-    "UserResponse",
-    "HouseBase",
-    "HouseCreate",
-    "HouseResponse",
-    "HouseListResponse",
-    "CommunityBase",
-    "CommunityResponse",
-    "PricePrediction",
-    "RentalYield",
-    "HouseInsights",
+    "RefreshToken",
+    "RentBenchmark",
+    "SavedHouse",
+    "School",
+    "User",
 ]

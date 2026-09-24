@@ -1,351 +1,155 @@
+# NeighborIQ — local stack
+#
+#   docker compose up -d                       # api + workers + frontend on http://localhost
+#   docker compose --profile test up --abort-on-container-exit   # test containers
+#
+# Deployables (see docs/architecture/overview.md):
+#   api              — the single HTTP service (auth, listings, portfolio, insights, admin)
+#   ingestion-worker — Celery: seed, open data, OSM, partner feeds    (scales independently)
+#   insights-worker  — Celery: yields, ML, narratives                  (scales independently)
+#   *-beat           — one scheduler per worker queue
+#   migrate/bootstrap — one-shot: schema (Alembic), then first-run data
+#
+# Secrets: copy .env.example to .env and change them before any shared deployment.
+
+x-db-env: &db-env
+  DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-root}:${POSTGRES_PASSWORD:-root}@postgres:5432/${POSTGRES_DB:-house_discovery}
+  CELERY_BROKER_URL: redis://redis:6379/2
+  REDIS_URL: redis://redis:6379/0
+
+x-after-migrate: &after-migrate
+  migrate:
+    condition: service_completed_successfully
+  redis:
+    condition: service_healthy
+
 services:
   postgres:
-    # PostGIS image required for Phase 2A (CREATE EXTENSION postgis)
-    image: postgis/postgis:15-3.4-alpine
+    image: postgis/postgis:18-3.6-alpine
     environment:
-      POSTGRES_DB: house_discovery
-      POSTGRES_USER: root
-      POSTGRES_PASSWORD: root
+      POSTGRES_DB: ${POSTGRES_DB:-house_discovery}
+      POSTGRES_USER: ${POSTGRES_USER:-root}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-root}
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"  # localhost only, for psql during development
     volumes:
-      - postgres_data:/var/lib/postgresql/data
-    networks:
-      - neighbor_iq_net
+      # Postgres 18 keeps data in /var/lib/postgresql/18/docker; mount the parent.
+      # A new volume name: data from the Postgres 15 image needs a dump/restore (docs/operations.md).
+      - pg18_data:/var/lib/postgresql
+    networks: [neighbor_iq_net]
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U root -d house_discovery"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 10s
       timeout: 5s
       retries: 5
 
+  # Valkey: the BSD-licensed, Redis-compatible fork (Linux Foundation). Celery's broker only.
   redis:
-    image: redis:7-alpine
+    image: valkey/valkey:9-alpine
     ports:
-      - "6379:6379"
-    networks:
-      - neighbor_iq_net
+      - "127.0.0.1:6379:6379"
+    networks: [neighbor_iq_net]
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "valkey-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
 
-  elasticsearch:
-    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
-    environment:
-      - discovery.type=single-node
-      - xpack.security.enabled=false
-      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+  # One-shot: owns the schema. Everything that touches Postgres waits for it.
+  migrate:
+    build:
+      context: .
+      dockerfile: services/ingestion-worker/Dockerfile
+    command: ["alembic", "-c", "migrations/alembic.ini", "upgrade", "head"]
+    environment: *db-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+    networks: [neighbor_iq_net]
+
+  # One-shot: rent benchmarks + synthetic demo listings, on first start only.
+  bootstrap:
+    build:
+      context: .
+      dockerfile: services/ingestion-worker/Dockerfile
+    command: ["python", "-m", "ingestion", "bootstrap", "--if-empty"]
+    environment: *db-env
+    depends_on: *after-migrate
+    restart: "no"
+    networks: [neighbor_iq_net]
+
+  api:
+    build:
+      context: .
+      dockerfile: services/api/Dockerfile
     ports:
-      - "9200:9200"
-    networks:
-      - neighbor_iq_net
+      - "127.0.0.1:8000:8000"  # Swagger at http://localhost:8000/docs; browsers use the frontend proxy
+    environment:
+      <<: *db-env
+      AUTO_CREATE_SCHEMA: "0"  # schema is owned by the migrate service
+      CORS_ORIGINS: http://localhost:5173,http://localhost
+      # Comma-separated emails that sign up with role=admin (operator bootstrap)
+      ADMIN_EMAILS: ${ADMIN_EMAILS:-}
+      # Browsers treat http://localhost as a secure context; set 0 only for plain-http non-localhost hosts
+      SECURE_COOKIES: ${SECURE_COOKIES:-1}
+      # Production: provide PEM keys from your secret store (dev generates and stores a pair)
+      JWT_PRIVATE_KEY: ${JWT_PRIVATE_KEY:-}
+      JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:-}
+      FEED_ALLOWED_HOSTS: ${FEED_ALLOWED_HOSTS:-}
+      # Show XGBoost estimates next to comps only once backtest metrics are acceptable
+      ML_PREDICTIONS_ENABLED: ${ML_PREDICTIONS_ENABLED:-0}
+    depends_on: *after-migrate
+    networks: [neighbor_iq_net]
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://localhost:9200/_cluster/health || exit 1"]
-      interval: 20s
-      timeout: 10s
-      retries: 10
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2)"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
 
-  api-gateway:
+  ingestion-worker:
     build:
       context: .
-      dockerfile: services/api-gateway/Dockerfile
-    ports:
-      - "8000:8000"
+      dockerfile: services/ingestion-worker/Dockerfile
     environment:
-      - AUTH_SERVICE_URL=http://auth-service:8000
-      - HOUSE_SERVICE_URL=http://house-api-service:8000
-      - SEARCH_SERVICE_URL=http://search-service:8000
-      - PORTFOLIO_SERVICE_URL=http://portfolio-service:8000
-      - AI_INSIGHTS_SERVICE_URL=http://ai-insights-service:8000
-      - CORS_ORIGINS=http://localhost:5173,http://localhost:80,http://localhost,http://frontend:80
-    depends_on:
-      auth-service:
-        condition: service_started
-      house-api-service:
-        condition: service_started
-      search-service:
-        condition: service_started
-    networks:
-      - neighbor_iq_net
+      <<: *db-env
+      SCRAPY_SETTINGS_MODULE: scraper.settings
+      LISTING_FEED_URL: ${LISTING_FEED_URL:-}
+    volumes:
+      - opendata_cache:/app/data/cache  # downloaded open-data files
+    depends_on: *after-migrate
+    networks: [neighbor_iq_net]
 
-  auth-service:
+  ingestion-beat:
     build:
       context: .
-      dockerfile: services/auth-service/Dockerfile
-    ports:
-      - "8001:8000"
+      dockerfile: services/ingestion-worker/Dockerfile
+    command: ["celery", "-A", "tasks.celery_app", "beat", "--loglevel=info", "--schedule", "/app/state/celerybeat-schedule"]
+    environment: *db-env
+    depends_on: *after-migrate
+    networks: [neighbor_iq_net]
+
+  insights-worker:
+    build:
+      context: .
+      dockerfile: services/insights-worker/Dockerfile
     environment:
-      - DATABASE_URL=postgresql+asyncpg://root:root@postgres:5432/house_discovery
-      - REDIS_URL=redis://redis:6379/0
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    networks:
-      - neighbor_iq_net
+      <<: *db-env
+      NARRATIVE_PROVIDER: ${NARRATIVE_PROVIDER:-local}
+      MODEL_PATH: /app/models/price_prediction.joblib
+    volumes:
+      - ai_models:/app/models  # retrained model survives restarts
+    depends_on: *after-migrate
+    networks: [neighbor_iq_net]
 
-  house-api-service:
+  insights-beat:
     build:
       context: .
-      dockerfile: services/house-api-service/Dockerfile
-    ports:
-      - "8002:8000"
-    environment:
-      - DATABASE_URL=postgresql+asyncpg://root:root@postgres:5432/house_discovery
-      - REDIS_URL=redis://redis:6379/0
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    networks:
-      - neighbor_iq_net
-
-  portfolio-service:
-    build:
-      context: .
-      dockerfile: services/portfolio-service/Dockerfile
-    ports:
-      - "8006:8000"
-    environment:
-      - DATABASE_URL=postgresql+asyncpg://root:root@postgres:5432/house_discovery
-      - REDIS_URL=redis://redis:6379/0
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    networks:
-      - neighbor_iq_net
-
-  test-portfolio-service:
-    build:
-      context: .
-      dockerfile: services/portfolio-service/Dockerfile
-    command: ["pytest", "-v"]
-    environment:
-      - DATABASE_URL=postgresql+asyncpg://root:root@postgres:5432/house_discovery
-    depends_on:
-      postgres:
-        condition: service_healthy
-    profiles: ["test"]
-    networks:
-      - neighbor_iq_net
-
-  test-api-gateway:
-    build:
-      context: .
-      dockerfile: services/api-gateway/Dockerfile
-    command: ["pytest"]
-    profiles: ["test"]
-    networks:
-      - neighbor_iq_net
-
-  test-auth-service:
-    build:
-      context: .
-      dockerfile: services/auth-service/Dockerfile
-    command: ["pytest"]
-    environment:
-      - DATABASE_URL=postgresql+asyncpg://root:root@postgres:5432/house_discovery
-      - SECURE_COOKIES=0
-    depends_on:
-      postgres:
-        condition: service_healthy
-    profiles: ["test"]
-    networks:
-      - neighbor_iq_net
-
-  test-house-api-service:
-    build:
-      context: .
-      dockerfile: services/house-api-service/Dockerfile
-    command: ["pytest"]
-    environment:
-      - DATABASE_URL=postgresql+asyncpg://root:root@postgres:5432/house_discovery
-    depends_on:
-      postgres:
-        condition: service_healthy
-    profiles: ["test"]
-    networks:
-      - neighbor_iq_net
-
-  search-service:
-    build:
-      context: .
-      dockerfile: services/search-service/Dockerfile
-    ports:
-      - "8004:8000"
-    environment:
-      - ELASTICSEARCH_URL=http://elasticsearch:9200
-      - REDIS_URL=redis://redis:6379/0
-    depends_on:
-      elasticsearch:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    networks:
-      - neighbor_iq_net
-
-  test-search-service:
-    build:
-      context: .
-      dockerfile: services/search-service/Dockerfile
-    command: ["pytest"]
-    profiles: ["test"]
-    networks:
-      - neighbor_iq_net
-
-  ai-insights-service:
-    build:
-      context: .
-      dockerfile: services/ai-insights-service/Dockerfile
-    ports:
-      - "8003:8000"
-    environment:
-      - SCRAPER_DATABASE_URL=postgresql://root:root@postgres:5432/house_discovery
-      - CELERY_BROKER_URL=redis://redis:6379/2
-      - NARRATIVE_PROVIDER=local
-      - MODEL_PATH=/app/models/price_prediction.joblib
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    networks:
-      - neighbor_iq_net
-
-  ai-insights-worker:
-    build:
-      context: .
-      dockerfile: services/ai-insights-service/Dockerfile
-    command: ["celery", "-A", "tasks.celery_app", "worker", "--loglevel=info", "-Q", "insights,narratives"]
-    environment:
-      - SCRAPER_DATABASE_URL=postgresql://root:root@postgres:5432/house_discovery
-      - CELERY_BROKER_URL=redis://redis:6379/2
-      - NARRATIVE_PROVIDER=local
-      - MODEL_PATH=/app/models/price_prediction.joblib
-    depends_on:
-      redis:
-        condition: service_healthy
-      postgres:
-        condition: service_healthy
-    networks:
-      - neighbor_iq_net
-
-  ai-insights-beat:
-    build:
-      context: .
-      dockerfile: services/ai-insights-service/Dockerfile
-    command: ["celery", "-A", "tasks.celery_app", "beat", "--loglevel=info"]
-    environment:
-      - CELERY_BROKER_URL=redis://redis:6379/2
-    depends_on:
-      redis:
-        condition: service_healthy
-    networks:
-      - neighbor_iq_net
-
-  test-ai-insights-service:
-    build:
-      context: .
-      dockerfile: services/ai-insights-service/Dockerfile
-    command: ["pytest", "-v"]
-    environment:
-      - SCRAPER_DATABASE_URL=postgresql://root:root@postgres:5432/house_discovery
-      - CELERY_BROKER_URL=redis://redis:6379/2
-      - NARRATIVE_PROVIDER=local
-      - MODEL_PATH=/app/models/price_prediction.joblib
-    profiles: ["test"]
-    networks:
-      - neighbor_iq_net
-
-  test-data-layer:
-    build:
-      context: .
-      dockerfile: services/test-data-layer/Dockerfile
-    environment:
-      - DATABASE_URL=postgresql+asyncpg://root:root@postgres:5432/house_discovery
-      - REDIS_URL=redis://redis:6379/1
-      - ELASTICSEARCH_URL=http://elasticsearch:9200
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      elasticsearch:
-        condition: service_healthy
-    profiles: ["test"]
-    networks:
-      - neighbor_iq_net
-
-  # ---------------------------------------------------------------------------
-  # Phase 4: Scraper Service
-  # ---------------------------------------------------------------------------
-
-  scraper-service:
-    build:
-      context: .
-      dockerfile: services/scraper-service/Dockerfile
-    ports:
-      - "8005:8005"
-    environment:
-      - CELERY_BROKER_URL=redis://redis:6379/2
-      - REDIS_URL=redis://redis:6379/0
-      - SCRAPER_DATABASE_URL=postgresql://root:root@postgres:5432/house_discovery
-    depends_on:
-      redis:
-        condition: service_healthy
-      postgres:
-        condition: service_healthy
-    networks:
-      - neighbor_iq_net
-
-  scraper-worker:
-    build:
-      context: .
-      dockerfile: services/scraper-service/Dockerfile
-    command: ["celery", "-A", "tasks.celery_app", "worker", "--loglevel=info", "-Q", "scraper"]
-    environment:
-      - CELERY_BROKER_URL=redis://redis:6379/2
-      - REDIS_URL=redis://redis:6379/0
-      - SCRAPER_DATABASE_URL=postgresql://root:root@postgres:5432/house_discovery
-      - SCRAPY_SETTINGS_MODULE=scraper.settings
-    depends_on:
-      redis:
-        condition: service_healthy
-      postgres:
-        condition: service_healthy
-    networks:
-      - neighbor_iq_net
-
-  scraper-beat:
-    build:
-      context: .
-      dockerfile: services/scraper-service/Dockerfile
-    command: ["celery", "-A", "tasks.celery_app", "beat", "--loglevel=info"]
-    environment:
-      - CELERY_BROKER_URL=redis://redis:6379/2
-    depends_on:
-      redis:
-        condition: service_healthy
-    networks:
-      - neighbor_iq_net
-
-  test-scraper-service:
-    build:
-      context: .
-      dockerfile: services/scraper-service/Dockerfile
-    command: ["pytest", "-v"]
-    profiles: ["test"]
-    networks:
-      - neighbor_iq_net
-
-  # ---------------------------------------------------------------------------
-  # Phase 6: Vue 3 Frontend
-  # ---------------------------------------------------------------------------
+      dockerfile: services/insights-worker/Dockerfile
+    command: ["celery", "-A", "tasks.celery_app", "beat", "--loglevel=info", "--schedule", "/app/state/celerybeat-schedule"]
+    environment: *db-env
+    depends_on: *after-migrate
+    networks: [neighbor_iq_net]
 
   frontend:
     build:
@@ -354,22 +158,71 @@ services:
     ports:
       - "80:80"
     depends_on:
-      - api-gateway
-    networks:
-      - neighbor_iq_net
+      - api
+    networks: [neighbor_iq_net]
+
+  # ---------------------------------------------------------------------------
+  # Tests: docker compose --profile test up --abort-on-container-exit
+  # ---------------------------------------------------------------------------
+  test-api:
+    build:
+      context: .
+      dockerfile: services/api/Dockerfile
+    command: ["pytest", "-v", "-p", "no:cacheprovider"]
+    environment:
+      <<: *db-env
+      SECURE_COOKIES: "0"
+    depends_on: *after-migrate
+    profiles: ["test"]
+    networks: [neighbor_iq_net]
+
+  test-ingestion-worker:
+    build:
+      context: .
+      dockerfile: services/ingestion-worker/Dockerfile
+    command: ["pytest", "-v", "-p", "no:cacheprovider"]
+    environment: *db-env
+    depends_on: *after-migrate
+    profiles: ["test"]
+    networks: [neighbor_iq_net]
+
+  test-insights-worker:
+    build:
+      context: .
+      dockerfile: services/insights-worker/Dockerfile
+    command: ["pytest", "-v", "-p", "no:cacheprovider"]
+    environment: *db-env
+    depends_on: *after-migrate
+    profiles: ["test"]
+    networks: [neighbor_iq_net]
+
+  test-shared:
+    build:
+      context: .
+      dockerfile: shared/tests/Dockerfile
+    environment:
+      <<: *db-env
+      MIGRATIONS_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-root}:${POSTGRES_PASSWORD:-root}@postgres:5432/neighboriq_migration_test
+    depends_on:
+      postgres:
+        condition: service_healthy
+    profiles: ["test"]
+    networks: [neighbor_iq_net]
 
   test-frontend-build:
     build:
       context: .
       dockerfile: frontend/Dockerfile
+      target: builder
+    command: ["npm", "run", "build"]
     profiles: ["test"]
-    command: ["nginx", "-t"]
-    networks:
-      - neighbor_iq_net
+    networks: [neighbor_iq_net]
 
 networks:
   neighbor_iq_net:
     driver: bridge
 
 volumes:
-  postgres_data:
+  pg18_data:
+  ai_models:
+  opendata_cache:

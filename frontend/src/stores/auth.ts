@@ -1,77 +1,38 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
-import { authApi } from '@/services/api'
-import type { User, LoginCredentials, SignupCredentials } from '@/types'
+import { computed, ref } from 'vue'
+import { api } from '@/lib/api'
+import type { User } from '@/lib/types'
 
-export const useAuthStore = defineStore('auth', () => {
+export const useAuth = defineStore('auth', () => {
   const user = ref<User | null>(null)
-  const loading = ref(false)
-  const error = ref<string | null>(null)
+  const checked = ref(false)
 
   const isAuthenticated = computed(() => user.value !== null)
   const isAdmin = computed(() => user.value?.role === 'admin')
 
-  async function checkAuth() {
+  async function check() {
+    if (checked.value) return
     try {
-      const response = await authApi.me()
-      user.value = response.data
+      user.value = await api<User>('/auth/me')
     } catch {
       user.value = null
+    } finally {
+      checked.value = true
     }
   }
 
-  async function login(credentials: LoginCredentials) {
-    loading.value = true
-    error.value = null
-    try {
-      const response = await authApi.login(credentials)
-      user.value = response.data
-    } catch (err: unknown) {
-      const e = err as { response?: { data?: { detail?: string } } }
-      error.value = e.response?.data?.detail ?? 'Login failed'
-      throw err
-    } finally {
-      loading.value = false
-    }
+  async function login(email: string, password: string) {
+    user.value = await api<User>('/auth/login', { method: 'POST', body: { email, password } })
   }
 
-  async function signup(credentials: SignupCredentials) {
-    loading.value = true
-    error.value = null
-    try {
-      const response = await authApi.signup(credentials)
-      user.value = response.data
-    } catch (err: unknown) {
-      const e = err as { response?: { data?: { detail?: string } } }
-      error.value = e.response?.data?.detail ?? 'Signup failed'
-      throw err
-    } finally {
-      loading.value = false
-    }
+  async function signup(email: string, password: string, name?: string) {
+    user.value = await api<User>('/auth/signup', { method: 'POST', body: { email, password, name } })
   }
 
   async function logout() {
-    try {
-      await authApi.logout()
-    } finally {
-      user.value = null
-    }
+    await api('/auth/logout', { method: 'POST' }).catch(() => undefined)
+    user.value = null
   }
 
-  function clearError() {
-    error.value = null
-  }
-
-  return {
-    user,
-    loading,
-    error,
-    isAuthenticated,
-    isAdmin,
-    checkAuth,
-    login,
-    signup,
-    logout,
-    clearError,
-  }
+  return { user, checked, isAuthenticated, isAdmin, check, login, signup, logout }
 })

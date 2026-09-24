@@ -1,0 +1,34 @@
+# PLACEHOLDER VALUES — approximations of CMHC Rental Market Survey (Oct 2024) average rents,
+# purpose-built rental, all units. They are NOT official figures: replace this file with the
+# official CMHC table before relying on it (https://www.cmhc-schl.gc.ca/professionals/housing-markets-data-and-research/housing-data/data-tables/rental-market).
+# Averages include long-tenured units, so asking rents for a vacant unit are usually higher.
+# bedrooms: 0 = bachelor, 3 = three bedrooms or more. avg_rent is monthly CAD.
+city,bedrooms,avg_rent,source,survey_date
+Toronto,0,1390,Placeholder approximating CMHC RMS (not official),2024-10
+Toronto,1,1680,Placeholder approximating CMHC RMS (not official),2024-10
+Toronto,2,2050,Placeholder approximating CMHC RMS (not official),2024-10
+Toronto,3,2500,Placeholder approximating CMHC RMS (not official),2024-10
+Vancouver,0,1560,Placeholder approximating CMHC RMS (not official),2024-10
+Vancouver,1,1890,Placeholder approximating CMHC RMS (not official),2024-10
+Vancouver,2,2300,Placeholder approximating CMHC RMS (not official),2024-10
+Vancouver,3,2810,Placeholder approximating CMHC RMS (not official),2024-10
+Calgary,0,1220,Placeholder approximating CMHC RMS (not official),2024-10
+Calgary,1,1480,Placeholder approximating CMHC RMS (not official),2024-10
+Calgary,2,1800,Placeholder approximating CMHC RMS (not official),2024-10
+Calgary,3,2200,Placeholder approximating CMHC RMS (not official),2024-10
+Ottawa,0,1260,Placeholder approximating CMHC RMS (not official),2024-10
+Ottawa,1,1520,Placeholder approximating CMHC RMS (not official),2024-10
+Ottawa,2,1850,Placeholder approximating CMHC RMS (not official),2024-10
+Ottawa,3,2260,Placeholder approximating CMHC RMS (not official),2024-10
+Montreal,0,850,Placeholder approximating CMHC RMS (not official),2024-10
+Montreal,1,1020,Placeholder approximating CMHC RMS (not official),2024-10
+Montreal,2,1250,Placeholder approximating CMHC RMS (not official),2024-10
+Montreal,3,1520,Placeholder approximating CMHC RMS (not official),2024-10
+Edmonton,0,1050,Placeholder approximating CMHC RMS (not official),2024-10
+Edmonton,1,1270,Placeholder approximating CMHC RMS (not official),2024-10
+Edmonton,2,1550,Placeholder approximating CMHC RMS (not official),2024-10
+Edmonton,3,1890,Placeholder approximating CMHC RMS (not official),2024-10
+Winnipeg,0,1020,Placeholder approximating CMHC RMS (not official),2024-10
+Winnipeg,1,1230,Placeholder approximating CMHC RMS (not official),2024-10
+Winnipeg,2,1500,Placeholder approximating CMHC RMS (not official),2024-10
+Winnipeg,3,1830,Placeholder approximating CMHC RMS (not official),2024-10

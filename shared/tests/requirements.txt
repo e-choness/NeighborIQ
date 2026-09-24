@@ -1,0 +1,4 @@
+# Test dependencies for shared/ (analytics, calculator parity, migrations)
+-r ../requirements.txt
+alembic==1.20.0
+pytest==9.1.1

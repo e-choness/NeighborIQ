@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/e-choness/NeighborIQ/security/advisories/new
+    about: Report privately. Please do not open a public issue.
+  - name: Documentation
+    url: https://e-choness.github.io/NeighborIQ/
+    about: Setup, methodology, data sources and the API reference.

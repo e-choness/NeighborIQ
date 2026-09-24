@@ -6,12 +6,12 @@ Domain prefixes (e.g., auth_, house_, portfolio_) maintain logical separation.
 """
 
 import os
-from typing import AsyncGenerator
+from collections.abc import AsyncGenerator
 
 from sqlalchemy.ext.asyncio import (
-    create_async_engine,
     AsyncSession,
     async_sessionmaker,
+    create_async_engine,
 )
 from sqlalchemy.orm import declarative_base
 from sqlalchemy.pool import NullPool
@@ -51,7 +51,7 @@ AsyncSessionLocal = async_sessionmaker(
 Base = declarative_base()
 
 
-async def get_db() -> AsyncGenerator[AsyncSession, None]:
+async def get_db() -> AsyncGenerator[AsyncSession]:
     """
     Dependency for FastAPI to inject database session into route handlers.
 
@@ -69,7 +69,18 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
 
 
 async def init_db():
-    """Initialize database: create all tables."""
+    """
+    Create missing tables from the ORM metadata (dev/test convenience).
+
+    In Docker Compose the schema is owned by Alembic (the `migrate` service runs
+    `alembic upgrade head` before any API starts) and AUTO_CREATE_SCHEMA=0, so
+    this is a no-op there. Mixing both would leave tables Alembic doesn't know
+    about and make later migrations fail.
+    """
+    if os.getenv("AUTO_CREATE_SCHEMA", "1") != "1":
+        return
+    import shared.models  # noqa: F401 — register every table on Base.metadata
+
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
