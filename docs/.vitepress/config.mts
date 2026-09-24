@@ -90,6 +90,7 @@ export default withMermaid(
         {
           text: 'More',
           items: [
+            { text: 'License', link: '/guide/license' },
             { text: 'Changelog', link: `${REPO}/blob/${BRANCH}/CHANGELOG.md` },
             { text: 'Contributing', link: `${REPO}/blob/${BRANCH}/CONTRIBUTING.md` },
             { text: 'Security policy', link: `${REPO}/blob/${BRANCH}/SECURITY.md` },
@@ -106,6 +107,7 @@ export default withMermaid(
             { text: 'Deployment', link: '/DEPLOYMENT' },
             { text: 'Operations', link: '/operations' },
             { text: 'Testing', link: '/development/testing' },
+            { text: 'License', link: '/guide/license' },
           ],
         },
         {
@@ -146,6 +148,7 @@ export default withMermaid(
             { text: '0002 Search in PostgreSQL', link: '/adr/0002-search-in-postgres' },
             { text: '0003 Open data, no scraping', link: '/adr/0003-open-data-and-synthetic-listings' },
             { text: '0004 Keep Celery', link: '/adr/0004-keep-celery' },
+            { text: '0005 Licence (FSL)', link: '/adr/0005-license-fsl' },
           ],
         },
       ],
@@ -154,7 +157,7 @@ export default withMermaid(
       editLink: { pattern: `${REPO}/edit/${BRANCH}/docs/:path`, text: 'Edit this page on GitHub' },
       outline: { level: [2, 3] },
       footer: {
-        message: 'Code under the MIT License. Data licensed by its publishers. Not financial advice.',
+        message: 'Code under the Functional Source License (FSL-1.1-ALv2). Data licensed by its publishers. Not financial advice.',
         copyright: 'NeighborIQ contributors',
       },
     },

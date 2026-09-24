@@ -15,6 +15,10 @@ the API version is the one in [`services/api/openapi.json`](services/api/openapi
   defaults, data sources).
 
 ### Changed
+- **Licence:** NeighborIQ is now source-available under the Functional Source License 1.1, ALv2 Future License
+  (FSL-1.1-ALv2). Self-hosting and internal use, including analysing properties for your own business, remain
+  free; offering it as a competing commercial product or service is not. Each release becomes Apache-2.0 two
+  years after it ships. Code up to commit `4c7146f` remains MIT. See [ADR 0005](docs/adr/0005-license-fsl.md).
 - Migrations squashed into `0001_baseline` (the same schema, verified column-for-column). Databases
   at the old head `005_open_data` are adopted automatically on the next upgrade.
 - `shared/` now holds only code used by more than one deployable: models, database sessions, analytics.
@@ -62,7 +66,7 @@ Canada.
 - Alembic owns the schema, applied by a one-shot `migrate` service.
 - XGBoost estimates are backtested and hidden unless `ML_PREDICTIONS_ENABLED=1`.
 - Market narratives only use computed statistics.
-- License file updated (MIT, 2025–2026), with a NOTICE file for third-party data licences.
+- License file updated (MIT at the time, 2025–2026), with a NOTICE file for third-party data licences.
 
 ### Removed
 - The Lianjia scraper and Chinese-market data

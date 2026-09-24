@@ -2,7 +2,7 @@
 
 Revision ID: 0002_integrity
 Revises: 0001_baseline
-Create Date: 2026-09-25 00:00:01
+Create Date: 2026-09-24 00:00:01
 
 The legacy migrations never created some constraints the models declare:
 

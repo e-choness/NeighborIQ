@@ -18,7 +18,8 @@ assessment rolls, permits, transit schedules, crime and interest rates.
 - Load neighbourhood context from **public open data** through a source registry that records licence and
   attribution, logs every load, and fails loudly on schema changes.
 - Rent defaults come from a **CMHC-format benchmark file**, which users can always override.
-- Code is MIT-licensed. Data keeps its publishers' licences ([NOTICE](../../NOTICE)).
+- Code and data are licensed separately: code under FSL-1.1-ALv2 ([ADR 0005](0005-license-fsl.md)), data under
+  its publishers' licences ([NOTICE](../../NOTICE)).
 
 ## Consequences
 

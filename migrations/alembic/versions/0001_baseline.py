@@ -2,7 +2,7 @@
 
 Revision ID: 0001_baseline
 Revises:
-Create Date: 2026-09-25 00:00:00
+Create Date: 2026-09-24 00:00:00
 
 The whole schema as of release 0.3.0, in one step. It replaces revisions
 001_initial_schema … 005_open_data, which built the legacy (pre-Canada) schema

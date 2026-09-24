@@ -11,7 +11,7 @@
   <a href="https://github.com/e-choness/NeighborIQ/actions/workflows/ci-cd.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/e-choness/NeighborIQ/ci-cd.yml?branch=main&label=CI&style=flat-square"></a>
   <a href="https://github.com/e-choness/NeighborIQ/actions/workflows/docs.yml"><img alt="Docs" src="https://img.shields.io/github/actions/workflow/status/e-choness/NeighborIQ/docs.yml?branch=main&label=docs&style=flat-square"></a>
   <a href="https://e-choness.github.io/NeighborIQ/reference/api"><img alt="API version" src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fe-choness%2FNeighborIQ%2Fmain%2Fservices%2Fapi%2Fopenapi.json&query=%24.info.version&label=API&color=0d9488&style=flat-square"></a>
-  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-0d9488?style=flat-square"></a>
+  <a href="LICENSE.md"><img alt="License: FSL-1.1-ALv2" src="https://img.shields.io/badge/license-FSL--1.1--ALv2-0d9488?style=flat-square"></a>
   <a href="https://github.com/astral-sh/ruff"><img alt="Ruff" src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json&style=flat-square"></a>
   <a href="https://github.com/e-choness/NeighborIQ/commits/main"><img alt="Last commit" src="https://img.shields.io/github/last-commit/e-choness/NeighborIQ?style=flat-square"></a>
   <br>
@@ -150,5 +150,17 @@ see [SECURITY.md](SECURITY.md).
 
 ## License
 
-Code: [MIT](LICENSE). Third-party data is licensed by its publishers; see [NOTICE](NOTICE).
-Estimates rely on asking prices and public data. They are not appraisals or financial advice.
+NeighborIQ is **source-available** under the [Functional Source License 1.1, ALv2 Future License](LICENSE.md)
+(FSL-1.1-ALv2):
+
+- **You may** run it, change it and self-host it for any purpose except competing with it. That includes
+  analysing properties for your own rental business, internal use at a company, education and research.
+- **You may not** offer it, or something substantially similar built from it, as a commercial product or hosted
+  service.
+- **Two years after each release**, that release also becomes available under the Apache License 2.0, with no
+  restrictions.
+
+The plain-language summary is on the [licence page](https://e-choness.github.io/NeighborIQ/guide/license).
+Code up to commit `4c7146f` was released under MIT. Third-party data is licensed by its publishers;
+see [NOTICE](NOTICE). Estimates rely on asking prices and public data. They are not appraisals or financial
+advice.

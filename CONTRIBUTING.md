@@ -41,4 +41,6 @@ Thanks for helping. Start with [Getting started](docs/development/getting-starte
 
 ## Licence
 
-By contributing you agree that your contribution is licensed under the [MIT License](LICENSE).
+NeighborIQ is licensed under the [Functional Source License 1.1, ALv2 Future License](LICENSE.md)
+(FSL-1.1-ALv2). By contributing, you agree that your contribution is licensed under the same terms, including
+the grant of the Apache License 2.0 two years after the release it ships in. See [ADR 0005](docs/adr/0005-license-fsl.md).
