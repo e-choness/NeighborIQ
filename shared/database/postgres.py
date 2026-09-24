@@ -16,11 +16,10 @@ from sqlalchemy.ext.asyncio import (
 from sqlalchemy.orm import declarative_base
 from sqlalchemy.pool import NullPool
 
-# Environment
-DATABASE_URL = os.getenv(
-    "DATABASE_URL",
-    "postgresql+asyncpg://root:root@localhost:5432/house_discovery",
-)
+from shared.database.urls import async_database_url
+
+# Any libpq-style DATABASE_URL works (see shared/database/urls.py)
+DATABASE_URL = async_database_url()
 
 # Create async engine
 # NullPool: don't pool connections in development (simpler; each request gets fresh connection)

@@ -5,6 +5,13 @@ the API version is the one in [`services/api/openapi.json`](services/api/openapi
 
 ## [Unreleased]
 
+### Added
+- DigitalOcean App Platform spec (`.do/app.yaml`): static SPA, API, private Valkey, two workers with
+  their schedulers, and migrate/bootstrap jobs, on a managed PostgreSQL with PostGIS. Guide in
+  docs/DEPLOYMENT.md.
+- `DATABASE_URL` accepts any libpq form (`postgres://`, `postgresql://`, with `sslmode`) and is converted for
+  asyncpg and psycopg2, as managed platforms provide it.
+
 ### Security
 - Upgraded every dependency to its latest release. The previous pins carried 33 published advisories:
   python-multipart (12), PyJWT (8), cryptography (7), Scrapy (6). `pip-audit` and `npm audit` now report

@@ -1,0 +1,179 @@
+# DigitalOcean App Platform spec for NeighborIQ.
+#
+# App Platform can't auto-detect this repository (its Dockerfiles live in
+# services/*, not at the root), so create the app from this spec:
+#
+#   doctl apps create --spec .do/app.yaml          # first time
+#   doctl apps update <app-id> --spec .do/app.yaml # later changes
+#
+# or in the control panel: create the app from the repo, then
+# Settings → App Spec → Edit, and paste this file.
+#
+# Before the first deploy (docs/DEPLOYMENT.md#digitalocean-app-platform):
+#   1. Create a Managed PostgreSQL cluster named `neighboriq-db` in the same
+#      region and run `CREATE EXTENSION postgis;` in `defaultdb` as doadmin.
+#   2. Replace every REPLACE_ME value (secrets are encrypted once saved).
+name: neighboriq
+region: tor
+
+# One origin for the browser: /api → the API service, everything else → the SPA
+ingress:
+  rules:
+    - match:
+        path:
+          prefix: /api
+      component:
+        name: api
+        preserve_path_prefix: true
+    - match:
+        path:
+          prefix: /
+      component:
+        name: web
+
+# Shared by every component that runs the Python code
+envs:
+  - key: DATABASE_URL
+    scope: RUN_TIME
+    value: ${db.DATABASE_URL} # libpq URL; shared/database/urls.py adapts it per driver
+  - key: CELERY_BROKER_URL
+    scope: RUN_TIME
+    value: redis://valkey:6379/2
+  - key: REDIS_URL
+    scope: RUN_TIME
+    value: redis://valkey:6379/0
+  - key: AUTO_CREATE_SCHEMA # the migrate job owns the schema
+    scope: RUN_TIME
+    value: "0"
+
+databases:
+  - name: db
+    engine: PG
+    production: true
+    cluster_name: neighboriq-db
+    db_name: defaultdb
+    db_user: doadmin
+
+static_sites:
+  # The Vue SPA. Static sites don't need a container instance.
+  - name: web
+    github:
+      repo: e-choness/NeighborIQ
+      branch: main
+      deploy_on_push: true
+    source_dir: frontend
+    environment_slug: node-js
+    build_command: npm run build
+    output_dir: dist
+    catchall_document: index.html
+
+services:
+  - name: api
+    github:
+      repo: e-choness/NeighborIQ
+      branch: main
+      deploy_on_push: true
+    source_dir: /
+    dockerfile_path: services/api/Dockerfile
+    http_port: 8000
+    instance_size_slug: apps-s-1vcpu-0.5gb
+    instance_count: 1
+    health_check:
+      http_path: /health
+      initial_delay_seconds: 15
+    envs:
+      - key: CORS_ORIGINS
+        scope: RUN_TIME
+        value: ${APP_URL}
+      - key: SECURE_COOKIES
+        scope: RUN_TIME
+        value: "1"
+      - key: ADMIN_EMAILS
+        scope: RUN_TIME
+        value: REPLACE_ME@example.com
+      - key: JWT_PRIVATE_KEY # PEM on one line with \n escapes (docs/DEPLOYMENT.md#2-secrets)
+        scope: RUN_TIME
+        type: SECRET
+        value: REPLACE_ME
+      - key: JWT_PUBLIC_KEY
+        scope: RUN_TIME
+        type: SECRET
+        value: REPLACE_ME
+      - key: ML_PREDICTIONS_ENABLED
+        scope: RUN_TIME
+        value: "0"
+
+  # Celery broker: a private Valkey container, reachable only inside the app as
+  # valkey:6379. It only holds queued jobs, so it needs no persistent storage.
+  - name: valkey
+    image:
+      registry_type: DOCKER_HUB
+      registry: valkey
+      repository: valkey
+      tag: 9-alpine
+    internal_ports:
+      - 6379
+    instance_size_slug: apps-s-1vcpu-0.5gb
+    instance_count: 1
+
+workers:
+  # Each worker runs its own Celery beat (-B): exactly one instance of each.
+  - name: ingestion-worker
+    github:
+      repo: e-choness/NeighborIQ
+      branch: main
+      deploy_on_push: true
+    source_dir: /
+    dockerfile_path: services/ingestion-worker/Dockerfile
+    run_command: celery -A tasks.celery_app worker -B --schedule /app/state/celerybeat-schedule --loglevel=info -Q scraper
+    instance_size_slug: apps-s-1vcpu-1gb
+    instance_count: 1
+    envs:
+      - key: FEED_ALLOWED_HOSTS
+        scope: RUN_TIME
+        value: ""
+
+  - name: insights-worker
+    github:
+      repo: e-choness/NeighborIQ
+      branch: main
+      deploy_on_push: true
+    source_dir: /
+    dockerfile_path: services/insights-worker/Dockerfile
+    run_command: celery -A tasks.celery_app worker -B --schedule /app/state/celerybeat-schedule --loglevel=info -Q insights,narratives
+    instance_size_slug: apps-s-1vcpu-1gb
+    instance_count: 1
+    envs:
+      - key: MODEL_PATH # container storage: the weekly retrain rebuilds it after a redeploy
+        scope: RUN_TIME
+        value: /app/models/price_prediction.joblib
+      - key: NARRATIVE_PROVIDER
+        scope: RUN_TIME
+        value: local
+
+jobs:
+  # Applies Alembic migrations before each new version goes live
+  - name: migrate
+    kind: PRE_DEPLOY
+    github:
+      repo: e-choness/NeighborIQ
+      branch: main
+      deploy_on_push: true
+    source_dir: /
+    dockerfile_path: services/ingestion-worker/Dockerfile
+    run_command: alembic -c migrations/alembic.ini upgrade head
+    instance_size_slug: apps-s-1vcpu-0.5gb
+    instance_count: 1
+
+  # Loads rent benchmarks and demo listings once, when the database is empty
+  - name: bootstrap
+    kind: POST_DEPLOY
+    github:
+      repo: e-choness/NeighborIQ
+      branch: main
+      deploy_on_push: true
+    source_dir: /
+    dockerfile_path: services/ingestion-worker/Dockerfile
+    run_command: python -m ingestion bootstrap --if-empty
+    instance_size_slug: apps-s-1vcpu-0.5gb
+    instance_count: 1
