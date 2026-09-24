@@ -1,11 +1,12 @@
 """
-Phase 2A — PostgreSQL schema migration tests.
+Alembic migrations against a real PostgreSQL + PostGIS.
 
 Verifies:
-- Alembic upgrade head runs without error
-- All Phase 1 + Phase 2 tables exist after migration
-- PostGIS extension is installed
-- Alembic downgrade + upgrade round-trips cleanly
+- upgrade head runs, and is a no-op when repeated
+- every table, key column and foreign key the ORM declares exists
+- deleting a listing cascades to its dependent rows
+- databases migrated before the squash (at 005_open_data) are adopted
+- downgrade base + upgrade head round-trips cleanly
 
 Requires a real PostgreSQL instance (postgres service in docker-compose).
 DATABASE_URL env var must point to it.
@@ -93,13 +94,11 @@ def test_alembic_upgrade_head_succeeds():
 
 
 def test_all_expected_tables_exist(sync_engine):
-    """Every table defined in migrations must be present after upgrade head."""
-    expected_tables = [
-        # Auth domain
+    """Every application table is present after upgrade head."""
+    expected_tables = {
         "auth_users",
         "auth_jwt_keys",
         "auth_refresh_tokens",
-        # House domain
         "house_houses",
         "house_communities",
         "house_price_history",
@@ -109,46 +108,46 @@ def test_all_expected_tables_exist(sync_engine):
         "house_school_links",
         "house_hospital_links",
         "house_bus_links",
-        # AI domain (migration 002)
         "house_price_predictions",
         "house_rental_yields",
         "house_market_insights",
-        # Canadian listing model (migration 003)
         "house_rent_benchmarks",
-    ]
-    inspector = inspect(sync_engine)
-    existing = set(inspector.get_table_names())
-
-    missing = [t for t in expected_tables if t not in existing]
+        "portfolio_saved_houses",
+        "od_areas",
+        "od_area_stats",
+        "od_census_points",
+        "od_properties",
+        "od_permits",
+        "od_indicators",
+        "od_load_log",
+    }
+    missing = expected_tables - set(inspect(sync_engine).get_table_names())
     assert not missing, f"Missing tables after upgrade head: {missing}"
 
 
 def test_postgis_extension_installed(sync_engine):
-    """PostGIS extension must be installed (migration 002)."""
     with sync_engine.connect() as conn:
-        result = conn.execute(text("SELECT extname FROM pg_extension WHERE extname = 'postgis'"))
-        row = result.fetchone()
+        row = conn.execute(text("SELECT extname FROM pg_extension WHERE extname = 'postgis'")).fetchone()
     assert row is not None, "PostGIS extension is not installed"
 
 
 def test_house_houses_indexes(sync_engine):
-    """Critical indexes on house_houses must exist."""
-    inspector = inspect(sync_engine)
-    indexes = {idx["name"] for idx in inspector.get_indexes("house_houses")}
+    """Indexes the listing search and comparables query rely on."""
+    indexes = {idx["name"] for idx in inspect(sync_engine).get_indexes("house_houses")}
     required = {
-        "idx_house_houses_city_region",
+        "idx_house_houses_url",
         "idx_house_houses_price",
         "idx_house_houses_location",
         "idx_house_houses_composite",
+        "idx_house_houses_comps",
     }
     missing = required - indexes
     assert not missing, f"Missing indexes on house_houses: {missing}"
 
 
 def test_canadian_listing_columns(sync_engine):
-    """Migration 003 must add the columns valuation and cash flow depend on."""
-    inspector = inspect(sync_engine)
-    columns = {c["name"] for c in inspector.get_columns("house_houses")}
+    """Columns valuation and cash flow depend on."""
+    columns = {c["name"] for c in inspect(sync_engine).get_columns("house_houses")}
     required = {
         "property_type",
         "sqft",
@@ -161,13 +160,14 @@ def test_canadian_listing_columns(sync_engine):
         "listed_at",
         "source",
         "is_synthetic",
+        "area_id",
     }
     missing = required - columns
     assert not missing, f"Missing Canadian listing columns: {missing}"
 
 
 def test_alembic_schema_matches_orm(sync_engine):
-    """create_all (used at service startup) and Alembic must agree on columns."""
+    """create_all (tests, throwaway databases) and Alembic must agree on columns and foreign keys."""
     import shared.models  # noqa: F401 — registers every table on Base.metadata
     from shared.database.postgres import Base
 
@@ -181,14 +181,88 @@ def test_alembic_schema_matches_orm(sync_engine):
         orm_cols = {c.name for c in table.columns}
         if orm_cols - db_cols:
             drift[table.name] = sorted(orm_cols - db_cols)
-    assert not drift, f"ORM columns missing from Alembic schema: {drift}"
+        db_fks = {
+            (tuple(fk["constrained_columns"]), fk["referred_table"])
+            for fk in inspector.get_foreign_keys(table.name)
+        }
+        orm_fks = {((fk.parent.name,), fk.column.table.name) for fk in table.foreign_keys}
+        if orm_fks - db_fks:
+            drift[f"{table.name} foreign keys"] = sorted(orm_fks - db_fks)
+    assert not drift, f"ORM declarations missing from the Alembic schema: {drift}"
 
 
-def test_alembic_downgrade_base_succeeds():
-    """downgrade base must remove all Alembic-managed tables without error."""
+def test_unique_email(sync_engine):
+    uniques = {tuple(u["column_names"]) for u in inspect(sync_engine).get_unique_constraints("auth_users")}
+    assert ("email",) in uniques
+
+
+def test_deleting_a_listing_cascades(sync_engine):
+    """Price history, amenity links and derived rows go with the listing."""
+    with sync_engine.begin() as conn:
+        house_id = conn.execute(
+            text("""
+            INSERT INTO house_houses (title, city, region, price, url, is_active)
+            VALUES ('cascade test', 'Toronto', 'Old Toronto', 500000, 'test://cascade', 1) RETURNING id
+        """)
+        ).scalar()
+        school_id = conn.execute(
+            text("INSERT INTO house_schools (name, city) VALUES ('cascade school', 'Toronto') RETURNING id")
+        ).scalar()
+        conn.execute(
+            text("INSERT INTO house_price_history (house_id, price) VALUES (:h, 510000)"), {"h": house_id}
+        )
+        conn.execute(
+            text("INSERT INTO house_school_links (house_id, school_id, distance_m) VALUES (:h, :s, 300)"),
+            {"h": house_id, "s": school_id},
+        )
+        conn.execute(text("DELETE FROM house_houses WHERE id = :h"), {"h": house_id})
+        left = conn.execute(
+            text("""
+            SELECT (SELECT count(*) FROM house_price_history WHERE house_id = :h)
+                 + (SELECT count(*) FROM house_school_links WHERE house_id = :h)
+        """),
+            {"h": house_id},
+        ).scalar()
+        conn.execute(text("DELETE FROM house_schools WHERE id = :s"), {"s": school_id})
+    assert left == 0
+
+
+def _set_version(sync_engine, version: str) -> None:
+    with sync_engine.begin() as conn:
+        conn.execute(text("UPDATE alembic_version SET version_num = :v"), {"v": version})
+
+
+def test_legacy_database_is_adopted(sync_engine):
+    """A database migrated to 005_open_data (same schema as 0001_baseline) upgrades without manual steps."""
+    down = run_alembic(["downgrade", "0001_baseline"])
+    assert down.returncode == 0, down.stderr
+    _set_version(sync_engine, "005_open_data")
+
+    up = run_alembic(["upgrade", "head"])
+    assert up.returncode == 0, f"legacy database was not adopted:\n{up.stderr}"
+    with sync_engine.connect() as conn:
+        assert conn.execute(text("SELECT version_num FROM alembic_version")).scalar() == "0002_integrity"
+
+
+def test_partially_migrated_legacy_database_is_refused(sync_engine):
+    _set_version(sync_engine, "003_canadian_listing_model")
+    try:
+        result = run_alembic(["upgrade", "head"])
+        assert result.returncode != 0
+        assert "legacy revision 003_canadian_listing_model" in result.stderr
+    finally:
+        _set_version(sync_engine, "0002_integrity")
+
+
+def test_alembic_downgrade_base_succeeds(sync_engine):
+    """downgrade base removes every Alembic-managed table."""
     result = run_alembic(["downgrade", "base"])
     assert result.returncode == 0, f"downgrade base failed:\n{result.stderr}"
+    left = {
+        t for t in inspect(sync_engine).get_table_names() if t not in ("spatial_ref_sys", "alembic_version")
+    }
+    assert not left, f"Tables left after downgrade base: {left}"
 
-    # Re-apply so subsequent tests (if any) still have a working schema
+    # Re-apply so later tests (if any) still have a working schema
     up = run_alembic(["upgrade", "head"])
     assert up.returncode == 0

@@ -11,6 +11,31 @@ the API version is the one in [`services/api/openapi.json`](services/api/openapi
   generated from the OpenAPI snapshot.
 - Animated README banner in light and dark variants, and a social preview card.
 - Issue and pull-request templates, security policy, Dependabot configuration.
+- `scripts/smoke-test.sh` checks a running stack (web app, API health, listings, markets, calculator
+  defaults, data sources).
+
+### Changed
+- Migrations squashed into `0001_baseline` (the same schema, verified column-for-column). Databases
+  at the old head `005_open_data` are adopted automatically on the next upgrade.
+- `shared/` now holds only code used by more than one deployable: models, database sessions, analytics.
+  Token, password and schema code used only by the API moved into `services/api/app`. Shared-layer
+  tests and their Docker image moved to `shared/tests` (Compose service `test-shared`).
+- Partner feeds are fetched with an honest `NeighborIQ/…` user agent instead of rotating browser strings.
+
+### Fixed
+- `0002_integrity` adds the foreign keys the legacy migrations never created: deleting a listing or user now
+  removes its price history, amenity links and refresh tokens instead of leaving orphans. Orphans already
+  present are removed first.
+- `auth_users.email` is now unique in the database, not only in application code.
+- Alembic log output (the format string was printed literally) and the missing `script.py.mako` template,
+  without which `alembic revision` failed.
+
+### Removed
+- Dead code: the unused Redis cache layer, a second session factory and settings class, unused DTOs and
+  schemas, the no-op coordinate pipeline, the stale insights-worker OpenAPI file, and the deployment
+  script for the retired seven-service stack.
+- Redundant indexes that duplicated another index or a unique constraint.
+- The retired lavender banners and the old modernisation plan (both remain in git history).
 
 ## [0.3.0] — 2026-09
 
@@ -53,6 +78,6 @@ Canada.
 ## [0.2.0] — 2026-06
 
 Microservices phases 1–7: auth, house, search, portfolio, AI insights and scraper services behind a
-gateway; Vue frontend; CI/CD. Superseded by 0.3.0. Its plan is kept in
-[docs/history](docs/history/MODERNIZATION_PLAN.md).
+gateway; Vue frontend; CI/CD. Superseded by 0.3.0. The plan for that design is in git history
+(`docs/history/MODERNIZATION_PLAN.md` as of commit 47c4131).
 

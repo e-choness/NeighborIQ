@@ -1,0 +1,4 @@
+# Test dependencies for shared/ (analytics, calculator parity, migrations)
+-r ../requirements.txt
+alembic
+pytest

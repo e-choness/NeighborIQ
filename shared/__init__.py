@@ -1,19 +1,15 @@
 """
-Shared utilities and models for all services.
+Code used by more than one deployable (the API and the two workers):
 
-This is a modular monolith shared layer:
-- All services use the same PostgreSQL database
-- Domain separation via table prefixes (auth_, house_, etc.)
-- Shared Pydantic schemas, SQLAlchemy models, and utility functions
+- shared.models     SQLAlchemy models for every application table
+- shared.database   async (API) and sync (workers) sessions
+- shared.analytics  fair value from comparables and the cash-flow calculator
+
+Code used by a single service lives in that service. The schema itself is
+owned by Alembic (migrations/).
 """
 
-from shared.database.postgres import (
-    AsyncSessionLocal,
-    Base,
-    dispose_db,
-    get_db,
-    init_db,
-)
+from shared.database.postgres import AsyncSessionLocal, Base, dispose_db, get_db, init_db
 from shared.models import (
     BusStop,
     Community,
@@ -28,85 +24,33 @@ from shared.models import (
     JWTKeyPair,
     MarketInsight,
     RefreshToken,
+    RentBenchmark,
     SavedHouse,
     School,
     User,
 )
-from shared.models.schemas import (
-    CommunityBase,
-    CommunityResponse,
-    HouseBase,
-    HouseCreate,
-    HouseInsights,
-    HouseListResponse,
-    HouseResponse,
-    PricePrediction,
-    RentalYield,
-    UserBase,
-    UserCreate,
-    UserLogin,
-    UserResponse,
-)
-from shared.utils.jwt_utils import (
-    create_access_token,
-    create_refresh_token,
-    generate_rsa_keypair,
-    get_jwks_from_public_key,
-    get_key_id,
-    hash_token,
-    verify_token,
-)
-from shared.utils.password_utils import hash_password, verify_password
 
 __all__ = [
-    # Database
-    "Base",
     "AsyncSessionLocal",
-    "get_db",
-    "init_db",
-    "dispose_db",
-    # Pydantic schemas
-    "UserBase",
-    "UserCreate",
-    "UserLogin",
-    "UserResponse",
-    "HouseBase",
-    "HouseCreate",
-    "HouseResponse",
-    "CommunityBase",
-    "CommunityResponse",
-    "HouseListResponse",
-    "PricePrediction",
-    "RentalYield",
-    "HouseInsights",
-    # Auth ORM models
-    "User",
-    "JWTKeyPair",
-    "RefreshToken",
-    # House ORM models
-    "House",
-    "HousePriceHistory",
-    "Community",
-    "School",
-    "Hospital",
+    "Base",
     "BusStop",
-    "HouseSchoolLink",
-    "HouseHospitalLink",
+    "Community",
+    "Hospital",
+    "House",
     "HouseBusLink",
-    "SavedHouse",
-    # AI ORM models
+    "HouseHospitalLink",
+    "HousePriceHistory",
     "HousePricePrediction",
     "HouseRentalYield",
+    "HouseSchoolLink",
+    "JWTKeyPair",
     "MarketInsight",
-    # JWT
-    "create_access_token",
-    "create_refresh_token",
-    "verify_token",
-    "generate_rsa_keypair",
-    "get_key_id",
-    "get_jwks_from_public_key",
-    "hash_token",
-    # Password
-    "hash_password",
-    "verify_password",
+    "RefreshToken",
+    "RentBenchmark",
+    "SavedHouse",
+    "School",
+    "User",
+    "dispose_db",
+    "get_db",
+    "init_db",
 ]

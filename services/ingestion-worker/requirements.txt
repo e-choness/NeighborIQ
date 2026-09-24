@@ -1,5 +1,6 @@
 -r ../../shared/requirements.txt
 celery[redis]
+redis  # listing-feed dedup set
 scrapy==2.11.2
 alembic
 pytest

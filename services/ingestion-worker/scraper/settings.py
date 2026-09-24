@@ -1,10 +1,14 @@
 """
-Scrapy project settings for NeighborIQ house scraper.
+Scrapy settings for licensed partner listing feeds (scraper/spiders/feed_spider.py).
+The crawler identifies itself honestly and only fetches allow-listed feed URLs.
 """
 
 import os
 
-BOT_NAME = "neighboriq_scraper"
+BOT_NAME = "neighboriq_feeds"
+
+# Identify ourselves to feed providers (same string as the open-data fetcher)
+USER_AGENT = "NeighborIQ/0.3 (+https://github.com/e-choness/NeighborIQ)"
 
 SPIDER_MODULES = ["scraper.spiders"]
 NEWSPIDER_MODULE = "scraper.spiders"
@@ -24,12 +28,8 @@ AUTOTHROTTLE_TARGET_CONCURRENCY = 2.0
 # Obey robots.txt
 ROBOTSTXT_OBEY = True
 
-# Middleware ordering
 DOWNLOADER_MIDDLEWARES = {
-    "scraper.middlewares.useragent.RotatingUserAgentMiddleware": 400,
     "scraper.middlewares.ratelimit.RateLimitMiddleware": 500,
-    # Disable built-in user-agent middleware
-    "scrapy.downloadermiddlewares.useragent.UserAgentMiddleware": None,
 }
 
 # Pipeline ordering (lower number = runs first)

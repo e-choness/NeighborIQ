@@ -19,7 +19,7 @@ All paths are under `/api/v1`. `GET /health` and `/api/v1/health` check the data
 
 ## Authentication
 
-- RS256 JWTs. The access token lasts 15 minutes, the refresh token 7 days and is rotated on every use, and
+- RS256 JWTs (`app/tokens.py`; passwords hashed with bcrypt in `app/passwords.py`). The access token lasts 15 minutes, the refresh token 7 days and is rotated on every use, and
   only a hash of it is stored. Both are set as `HttpOnly`, `SameSite=Strict` cookies (`Secure` unless
   `SECURE_COOKIES=0`). An `Authorization: Bearer` header is also accepted.
 - Every protected route verifies the token in-process through dependencies in `app/security.py`

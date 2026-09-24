@@ -73,10 +73,10 @@ the [API reference](../reference/api.md) from `services/api/openapi.json`, and t
 ## Repository layout
 
 ```
-services/api/                FastAPI app: app/routers/*, app/security.py, tests/
+services/api/                FastAPI app: app/routers/*, security, tokens, schemas, tests/
 services/ingestion-worker/   ingestion/ (CLI, seed, writer, OSM, opendata/), scraper/ (feed spider), tasks/
 services/insights-worker/    insights/ (features, model, narrative), tasks/
-shared/                      models, database sessions, analytics (valuation, cash flow), utils
+shared/                      code used by more than one deployable: models, database sessions, analytics
 migrations/                  Alembic revisions
 frontend/                    Vue 3 + Vite SPA
 data/reference/              rent benchmarks CSV

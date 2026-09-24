@@ -39,6 +39,37 @@ def _database_url() -> str:
     return url.replace("+asyncpg", "+psycopg2")
 
 
+# Revisions 001–005 were squashed into 0001_baseline (same schema). Databases
+# migrated before the squash still record the old ids, which no longer exist.
+LEGACY_HEAD = "005_open_data"
+LEGACY_PARTIAL = {
+    "001_initial_schema",
+    "002_ai_tables_and_postgis",
+    "003_canadian_listing_model",
+    "004_portfolio_saved_houses",
+}
+
+
+def _adopt_legacy_history(connection) -> None:
+    from sqlalchemy import inspect, text
+
+    has_versions = inspect(connection).has_table("alembic_version")
+    current = (
+        set(connection.execute(text("SELECT version_num FROM alembic_version")).scalars())
+        if has_versions
+        else set()
+    )
+    if current == {LEGACY_HEAD}:
+        connection.execute(text("UPDATE alembic_version SET version_num = '0001_baseline'"))
+    # End this check's transaction so Alembic starts (and commits) its own
+    connection.commit()
+    if current & LEGACY_PARTIAL:
+        raise RuntimeError(
+            f"This database is at legacy revision {', '.join(sorted(current))}. Upgrade it to 005_open_data "
+            "with a release before the migration squash (git checkout 47c4131), then run this again."
+        )
+
+
 def run_migrations_offline():
     """Run migrations in 'offline' mode.
 
@@ -73,6 +104,7 @@ def run_migrations_online():
     )
 
     with connectable.connect() as connection:
+        _adopt_legacy_history(connection)
         context.configure(connection=connection, target_metadata=target_metadata)
 
         with context.begin_transaction():

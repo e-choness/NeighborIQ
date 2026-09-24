@@ -12,10 +12,10 @@ const SITE = (process.env.DOCS_SITE_URL ?? 'https://e-choness.github.io') + BASE
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const ROOT = resolve(SRC, '..')
-const EXCLUDE = ['history/**', 'scripts/**', '**/node_modules/**']
+const EXCLUDE = ['scripts/**', '**/node_modules/**']
 const excluded = (abs: string) => {
   const rel = relative(SRC, abs).split(sep).join('/')
-  return rel.startsWith('history/') || rel.startsWith('scripts/')
+  return rel.startsWith('scripts/')
 }
 
 /**

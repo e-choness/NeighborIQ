@@ -11,9 +11,9 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.schemas import HouseResponse
 from app.security import CurrentUser, current_user
 from shared import House, SavedHouse, get_db
-from shared.models.schemas import HouseResponse
 
 router = APIRouter(prefix="/api/v1/portfolio", tags=["portfolio"])
 

@@ -13,7 +13,7 @@ import jwt as pyjwt
 from fastapi import Depends, HTTPException, Request
 
 from app.keys import keys
-from shared.utils.jwt_utils import verify_token
+from app.tokens import verify_token
 
 
 @dataclass(frozen=True)

@@ -13,13 +13,13 @@ database. Check it with `docker compose logs migrate`.
 ## Schema changes
 
 ```bash
-# create a revision (from a dev shell with DATABASE_URL set)
-alembic -c migrations/alembic.ini revision -m "add something"
+# create a revision (from a dev shell with DATABASE_URL set); the id doubles as the file name
+alembic -c migrations/alembic.ini revision --rev-id 0003_add_something -m "add something"
 # apply on a running stack
 docker compose run --rm migrate
 ```
 
-Write migrations by hand, in the style of `005_open_data.py`, and include a `downgrade`. Services do not create
+Write migrations by hand as SQL, in the style of `0001_baseline.py`, and include a `downgrade`. Services do not create
 tables in Compose (`AUTO_CREATE_SCHEMA=0`).
 
 ## Admins

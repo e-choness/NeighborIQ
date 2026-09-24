@@ -1,8 +1,8 @@
 """
-JWT utilities for RS256 signing and verification.
+RS256 JWTs: key generation, signing, verification, JWKS.
 
-Implements asymmetric RS256 JWT generation and validation.
-The auth-service owns the private key; other services verify using the public key.
+The API signs with the private key and verifies with the public key in-process
+(app/security.py); the public key is published at /api/v1/auth/.well-known/jwks.json.
 """
 
 import hashlib

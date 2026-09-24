@@ -193,18 +193,15 @@ services:
     profiles: ["test"]
     networks: [neighbor_iq_net]
 
-  test-data-layer:
+  test-shared:
     build:
       context: .
-      dockerfile: services/test-data-layer/Dockerfile
+      dockerfile: shared/tests/Dockerfile
     environment:
       <<: *db-env
-      REDIS_URL: redis://redis:6379/1
       MIGRATIONS_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-root}:${POSTGRES_PASSWORD:-root}@postgres:5432/neighboriq_migration_test
     depends_on:
       postgres:
-        condition: service_healthy
-      redis:
         condition: service_healthy
     profiles: ["test"]
     networks: [neighbor_iq_net]

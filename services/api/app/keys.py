@@ -14,7 +14,8 @@ import os
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from shared import JWTKeyPair, generate_rsa_keypair, get_key_id
+from app.tokens import generate_rsa_keypair, get_key_id
+from shared import JWTKeyPair
 
 logger = logging.getLogger(__name__)
 
@@ -56,5 +57,5 @@ async def load_signing_keys(db: AsyncSession) -> None:
 
     keys.private_pem, keys.public_pem = private_pem, public_pem
     keys.key_id = get_key_id(public_pem)
-    # jwt_utils reads these when no key is passed explicitly
+    # app.tokens reads these when no key is passed explicitly
     os.environ["JWT_PRIVATE_KEY"], os.environ["JWT_PUBLIC_KEY"] = private_pem, public_pem

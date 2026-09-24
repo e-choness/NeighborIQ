@@ -21,7 +21,7 @@ from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
 
-USER_AGENT = "NeighborIQ/0.3 (+https://github.com/e-choness/neighboriq)"
+USER_AGENT = "NeighborIQ/0.3 (+https://github.com/e-choness/NeighborIQ)"
 CACHE_DIR = Path(os.getenv("DATA_DIR", Path(__file__).resolve().parents[2] / "data")) / "cache"
 
 

@@ -1,8 +1,6 @@
 """
-Pydantic request/response schemas (DTOs).
-
-These are separate from SQLAlchemy ORM models to maintain a clean API contract.
-Schemas are used for validation and serialization.
+Request/response schemas for the auth and listings routers, kept separate from
+the SQLAlchemy models so the API contract is explicit.
 """
 
 import json
@@ -53,15 +51,6 @@ class UserResponse(UserBase):
     updated_at: Optional[datetime]
 
     model_config = ConfigDict(from_attributes=True)
-
-
-class TokenResponse(BaseModel):
-    """DTO for token endpoints (for API contracts; actual JWT sent via HttpOnly cookie)."""
-
-    access_token: str
-    refresh_token: str
-    token_type: str = "bearer"
-    expires_in: int  # seconds
 
 
 # ============================================================================
@@ -219,62 +208,3 @@ class CommunityResponse(CommunityBase):
     avg_price: Optional[float]
 
     model_config = ConfigDict(from_attributes=True)
-
-
-# ============================================================================
-# AI Insights DTOs
-# ============================================================================
-
-
-class PricePrediction(BaseModel):
-    """Price prediction with confidence interval."""
-
-    predicted_price: int
-    price_low: int
-    price_high: int
-    confidence: float  # 0.0-1.0
-    model_version: str
-
-
-class RentalYield(BaseModel):
-    """Rental yield estimation."""
-
-    annual_rent: int
-    gross_yield: float  # percentage
-    net_yield: float  # percentage
-
-
-class HouseInsights(BaseModel):
-    """Complete insights for a house."""
-
-    house_id: int
-    price_prediction: Optional[PricePrediction] = None
-    rental_yield: Optional[RentalYield] = None
-    market_score: Optional[float] = None  # 0-100
-
-
-# ============================================================================
-# Error DTOs
-# ============================================================================
-
-
-class ErrorResponse(BaseModel):
-    """Standard error response."""
-
-    error: str
-    detail: Optional[str] = None
-    request_id: Optional[str] = None
-
-
-# ============================================================================
-# Health DTOs
-# ============================================================================
-
-
-class HealthResponse(BaseModel):
-    """Health check response."""
-
-    status: str  # "ok" or "degraded"
-    service: str
-    version: str
-    timestamp: datetime

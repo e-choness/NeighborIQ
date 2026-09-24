@@ -15,23 +15,19 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.keys import keys
 from app.limits import limiter
+from app.passwords import hash_password, verify_password
+from app.schemas import UserCreate, UserLogin, UserResponse
 from app.security import CurrentUser, current_user
-from shared import (
-    RefreshToken,
-    User,
-    UserCreate,
-    UserLogin,
-    UserResponse,
+from app.tokens import (
+    ACCESS_TOKEN_EXPIRE_MINUTES,
+    REFRESH_TOKEN_EXPIRE_DAYS,
     create_access_token,
     create_refresh_token,
-    get_db,
     get_jwks_from_public_key,
-    hash_password,
     hash_token,
-    verify_password,
     verify_token,
 )
-from shared.utils.jwt_utils import ACCESS_TOKEN_EXPIRE_MINUTES, REFRESH_TOKEN_EXPIRE_DAYS
+from shared import RefreshToken, User, get_db
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 

@@ -6,7 +6,7 @@ Tables are prefixed with 'auth_' to maintain domain separation in the shared Pos
 
 import enum
 
-from sqlalchemy import Column, DateTime, Enum, Index, Integer, String
+from sqlalchemy import Column, DateTime, Enum, ForeignKey, Index, Integer, String
 from sqlalchemy.sql import func
 
 from shared.database.postgres import Base
@@ -110,8 +110,7 @@ class RefreshToken(Base):
     # Primary key
     id = Column(Integer, primary_key=True)
 
-    # Foreign key
-    user_id = Column(Integer, nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("auth_users.id", ondelete="CASCADE"), nullable=False, index=True)
 
     # Token metadata
     token_hash = Column(String(255), unique=True, nullable=False, index=True)

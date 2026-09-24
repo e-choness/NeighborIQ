@@ -75,7 +75,7 @@ jobs:
         run: pytest -v --tb=short
 
   test-shared:
-    name: Test shared (migrations, analytics)
+    name: Test shared (analytics, calculator parity, migrations)
     runs-on: ubuntu-latest
     needs: lint
     services:
@@ -87,21 +87,17 @@ jobs:
           POSTGRES_PASSWORD: root
         ports: ["5432:5432"]
         options: --health-cmd "pg_isready -U root" --health-interval 5s --health-retries 10
-      redis:
-        image: redis:7-alpine
-        ports: ["6379:6379"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
           cache: pip
-      - run: pip install -r services/test-data-layer/requirements.txt -r services/insights-worker/requirements.txt
+      - run: pip install -r shared/tests/requirements.txt
       - name: Test
         env:
           DATABASE_URL: postgresql+asyncpg://root:root@localhost:5432/house_discovery
           MIGRATIONS_DATABASE_URL: postgresql+asyncpg://root:root@localhost:5432/neighboriq_migration_test
-          REDIS_URL: redis://localhost:6379/1
           PYTHONPATH: ${{ github.workspace }}
           ALEMBIC_INI: ${{ github.workspace }}/migrations/alembic.ini
         run: pytest -v --tb=short shared/tests

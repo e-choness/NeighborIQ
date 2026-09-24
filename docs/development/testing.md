@@ -13,7 +13,7 @@
 
 ```bash
 docker compose --profile test up --build --abort-on-container-exit \
-  test-api test-ingestion-worker test-insights-worker test-data-layer test-frontend-build
+  test-api test-ingestion-worker test-insights-worker test-shared test-frontend-build
 ```
 
 ## On the host

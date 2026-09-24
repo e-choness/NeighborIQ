@@ -11,9 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import and_, func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.security import admin_user
-from shared import Community, House, HousePriceHistory, HouseRentalYield, get_db
-from shared.models.schemas import (
+from app.schemas import (
     CommunityResponse,
     HouseCreate,
     HouseListResponse,
@@ -21,6 +19,8 @@ from shared.models.schemas import (
     HouseUpdate,
     PricePoint,
 )
+from app.security import admin_user
+from shared import Community, House, HousePriceHistory, HouseRentalYield, get_db
 
 router = APIRouter(tags=["listings"])
 

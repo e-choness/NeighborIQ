@@ -5,13 +5,15 @@ One PostgreSQL 15 database with PostGIS. Alembic owns the schema
 in [`shared/models`](../../shared/models). The open-data tables (`od_*`) are written with SQL by the ingestion
 worker and read with SQL by the API, so they have no ORM classes.
 
-| Migration | Adds |
+| Migration | Does |
 |---|---|
-| `001_initial_schema` | auth, listings, communities, amenities and their link tables |
-| `002_ai_tables_and_postgis` | predictions, rental yields, market insights; PostGIS extension |
-| `003_canadian_listing_model` | Canadian listing fields (postal code, type, sq ft, fees, tax, status, source, `is_synthetic`), price history, rent benchmarks |
-| `004_portfolio_saved_houses` | saved listings with notes and cash-flow assumptions |
-| `005_open_data` | `od_*` tables, `house_houses.area_id`, GTFS frequency on stops |
+| `0001_baseline` | The whole schema as of 0.3.0: every table, key and index below, plus the PostGIS extension |
+| `0002_integrity` | Adds the foreign keys the old migrations missed (price history, amenity links, refresh tokens → cascade on delete) and a unique constraint on `auth_users.email`; drops redundant indexes |
+
+`0001_baseline` replaced the legacy chain `001_initial_schema` … `005_open_data`, which built the pre-Canada
+schema and then rewrote it. A database already at `005_open_data` is re-stamped automatically by
+`migrations/alembic/env.py` on its next `upgrade`; one stuck partway through the old chain is refused with
+instructions.
 
 ```mermaid
 erDiagram

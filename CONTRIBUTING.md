@@ -23,6 +23,8 @@ Thanks for helping. Start with [Getting started](docs/development/getting-starte
 ## Conventions
 
 - **Python 3.11**, formatted and linted by Ruff (`pyproject.toml`, 110 columns).
+- **`shared/`** holds only code used by more than one deployable (models, database sessions, analytics).
+  Code used by one service lives in that service.
 - **Money** in whole CAD integers. **Rates** as decimals in storage and percentages in API inputs named
   `*_pct`.
 - **Numbers shown to users** must be traceable: document the method in [docs/methodology.md](docs/methodology.md)
