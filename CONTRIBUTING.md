@@ -15,6 +15,7 @@ Thanks for helping. Start with [Getting started](docs/development/getting-starte
    python scripts/export_openapi.py --check
    # tests for what you touched — see docs/development/testing.md
    (cd frontend && npm run build)     # if you changed the frontend
+   (cd docs && npm run build)         # if you changed docs or the cash-flow maths
    ```
 
 4. Open a pull request describing what changed and why. CI must be green.
@@ -32,6 +33,8 @@ Thanks for helping. Start with [Getting started](docs/development/getting-starte
   from headers other than the token. Outbound fetches triggered by users go through an allow-list.
 - **Frontend**: colours come from `src/theme/palette.ts` and `src/styles/app.css` tokens, never hex values
   in components. Colour is never the only encoding.
+- **Docs** are Markdown in `docs/` that must read on GitHub and on the [site](https://e-choness.github.io/NeighborIQ/).
+  Link to code with relative paths. Update the docs in the same PR as the behaviour they describe.
 - **Decisions** that change architecture get an ADR in [docs/adr](docs/adr/).
 
 ## Licence

@@ -7,6 +7,7 @@
 | Insights | `services/insights-worker/tests` | Postgres |
 | Shared | `shared/tests` | Postgres; a second database for migration tests |
 | Frontend | `frontend` | `npm run build` (type check + build) |
+| Docs | `docs` | `npm run build`: cash-flow parity check, dead-link check, build |
 
 ## In Docker
 
@@ -45,7 +46,19 @@ python scripts/export_openapi.py               # regenerate after changing endpo
 
 CI ([`.github/workflows/ci-cd.yml`](../../.github/workflows/ci-cd.yml)) runs the same steps: lint and
 OpenAPI check, the three service suites and the shared suite against PostGIS, the frontend build, and a Trivy
-scan. Images are pushed to GHCR only from `main`.
+scan. Images are pushed to GHCR only from `main`. [`docs.yml`](../../.github/workflows/docs.yml) builds the
+documentation site on pull requests and deploys it to GitHub Pages from `main`.
+
+## Calculator parity
+
+The docs site runs the cash-flow calculator in the browser, using a JavaScript port of
+`shared/analytics/cashflow.py`. `docs/.vitepress/theme/lib/cashflow.fixtures.json` pins both implementations:
+
+- `shared/tests/test_cashflow_fixtures.py` fails if the Python output changes;
+- `docs/scripts/check-cashflow.mjs` (run by `npm run build` in `docs/`) fails if the JavaScript disagrees.
+
+After an intended change to the maths, update the JavaScript port, then regenerate the fixtures with
+`python scripts/export_cashflow_fixtures.py`.
 
 ## Writing tests
 

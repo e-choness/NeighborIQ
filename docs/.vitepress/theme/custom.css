@@ -1,0 +1,103 @@
+/*
+ * Brand tokens shared with the app (frontend/src/styles/app.css): teal accent,
+ * near-black surfaces in dark mode. Light-mode link colour is one step darker
+ * than the app accent so body links meet 4.5:1 on white.
+ */
+:root {
+  --vp-font-family-base: 'Geist Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --vp-font-family-mono: 'Geist Mono Variable', ui-monospace, 'SFMono-Regular', monospace;
+
+  --vp-c-brand-1: #0f766e;
+  --vp-c-brand-2: #0d9488;
+  --vp-c-brand-3: #0d9488;
+  --vp-c-brand-soft: rgb(13 148 136 / 0.12);
+
+  --vp-home-hero-name-color: transparent;
+  --vp-home-hero-name-background: linear-gradient(100deg, #0b0f14 30%, #0d9488);
+  --vp-home-hero-image-background-image: none;
+
+  --niq-subject: #2a78d6;
+  --niq-good: #0a7d0a;
+  --niq-bad: #c43434;
+}
+
+.dark {
+  --vp-c-bg: #0b0f14;
+  --vp-c-bg-alt: #07090d;
+  --vp-c-bg-elv: #111823;
+  --vp-c-bg-soft: #111823;
+  --vp-c-divider: rgb(255 255 255 / 0.08);
+  --vp-c-gutter: #07090d;
+
+  --vp-c-brand-1: #2dd4bf;
+  --vp-c-brand-2: #5eead4;
+  --vp-c-brand-3: #14b8a6;
+  --vp-c-brand-soft: rgb(45 212 191 / 0.12);
+
+  --vp-home-hero-name-background: linear-gradient(100deg, #e8eef5 30%, #5eead4);
+
+  --niq-subject: #3987e5;
+  --niq-good: #3ecf6e;
+  --niq-bad: #f06a6a;
+}
+
+.VPButton.brand {
+  color: #04120f;
+}
+.dark .VPButton.brand {
+  background-color: #2dd4bf;
+  border-color: #2dd4bf;
+}
+.dark .VPButton.brand:hover {
+  background-color: #5eead4;
+  border-color: #5eead4;
+}
+:root:not(.dark) .VPButton.brand {
+  color: #fff;
+}
+
+.VPHero .name {
+  letter-spacing: -0.03em;
+}
+.VPHero .image-container {
+  transform: none;
+  width: 100%;
+  height: 100%;
+}
+@media (min-width: 960px) {
+  .VPHero .image {
+    margin-right: -48px;
+  }
+  .VPHero .image-container {
+    width: 520px;
+    height: 400px;
+  }
+}
+
+.VPFeature .title {
+  font-weight: 600;
+}
+
+/* Tabular numbers everywhere numbers are compared */
+.niq-num,
+.vp-doc table td {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Diagrams: centred, never wider than the column */
+.vp-doc .mermaid {
+  display: flex;
+  justify-content: center;
+  margin: 24px 0;
+}
+.vp-doc .mermaid svg {
+  max-width: 100%;
+  height: auto;
+}
+/* Mermaid measures labels at its own line-height; stop .vp-doc's from leaking in */
+.vp-doc .mermaid p,
+.vp-doc .mermaid .nodeLabel,
+.vp-doc .mermaid .edgeLabel {
+  line-height: 1.5;
+  margin: 0;
+}

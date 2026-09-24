@@ -14,6 +14,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Shared layer and tests
 COPY shared ./shared
 COPY migrations ./migrations
+# Cash-flow fixtures shared with the docs' JavaScript calculator
+COPY docs/.vitepress/theme/lib/cashflow.fixtures.json ./docs/.vitepress/theme/lib/cashflow.fixtures.json
 COPY services/test-data-layer/pytest.ini ./pytest.ini
 
 ENV PYTHONPATH=/app

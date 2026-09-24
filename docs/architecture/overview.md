@@ -3,7 +3,7 @@
 NeighborIQ is one HTTP service plus two background workers, sharing one PostgreSQL database.
 
 ```mermaid
-flowchart LR
+flowchart TB
     subgraph edge["Edge"]
         Caddy["Caddy (prod)<br/>TLS"] --> Web["frontend<br/>nginx: SPA + /api proxy + /tiles"]
     end

@@ -32,7 +32,7 @@ unit — the UI says this and asks for the user's own figure. The shipped CSV ho
 
 ## Cash flow
 
-[`shared/analytics/cashflow.py`](../shared/analytics/cashflow.py). Every input is editable in the UI; the
+[`shared/analytics/cashflow.py`](../shared/analytics/cashflow.py). [Try it in the browser](guide/calculator.md). Every input is editable in the UI; the
 defaults come from the listing and `GET /api/v1/cashflow/defaults`.
 
 **Mortgage.** Canadian fixed-rate mortgages compound semi-annually, so the monthly rate is

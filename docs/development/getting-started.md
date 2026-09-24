@@ -52,6 +52,24 @@ cd services/insights-worker
 PYTHONPATH=../..:. celery -A tasks.celery_app worker -Q insights,narratives -l info
 ```
 
+## Documentation site
+
+The docs are a VitePress site built from `docs/` and published to GitHub Pages by
+[`.github/workflows/docs.yml`](../../.github/workflows/docs.yml) (enable it once under **Settings → Pages →
+Source: GitHub Actions**).
+
+```bash
+cd docs && npm install
+npm run dev        # http://localhost:5173/NeighborIQ/ with hot reload
+npm run build      # checks the calculator against the Python fixtures, then builds to .vitepress/dist
+npm run banner     # regenerate the README banners and social card
+```
+
+Write pages as plain Markdown that also reads on GitHub. Link to source files with relative paths
+(`../../services/api`); the build turns links that leave `docs/` into GitHub links. Two pages are generated:
+the [API reference](../reference/api.md) from `services/api/openapi.json`, and the
+[calculator](../guide/calculator.md) from `docs/.vitepress/theme/lib/cashflow.js`.
+
 ## Repository layout
 
 ```
@@ -62,7 +80,7 @@ shared/                      models, database sessions, analytics (valuation, ca
 migrations/                  Alembic revisions
 frontend/                    Vue 3 + Vite SPA
 data/reference/              rent benchmarks CSV
-docs/                        this documentation; docs/adr/ for decisions
+docs/                        documentation site (VitePress); docs/adr/ for decisions
 ```
 
 ## Where to change things

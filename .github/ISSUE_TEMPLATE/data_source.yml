@@ -1,0 +1,31 @@
+name: Data source
+description: Propose an open-data source, or report one that fails to load
+labels: [data]
+body:
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Request
+      options:
+        - Add a new source
+        - A registered source fails to load
+    validations:
+      required: true
+  - type: input
+    id: source
+    attributes:
+      label: Source key or dataset URL
+      placeholder: e.g. calgary_permits, or https://open.canada.ca/…
+    validations:
+      required: true
+  - type: input
+    id: licence
+    attributes:
+      label: Licence
+      description: New sources must be published under an open licence that allows redistribution with attribution.
+  - type: textarea
+    id: error
+    attributes:
+      label: Error output
+      description: "For failures: the output of `python -m ingestion opendata --sources <key>`. A SchemaError lists the columns found."
+      render: shell

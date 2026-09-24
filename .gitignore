@@ -370,3 +370,6 @@ node_modules/
 frontend/dist/
 # Open-data download cache
 data/cache/
+# Docs site build output
+docs/.vitepress/dist/
+docs/.vitepress/cache/
