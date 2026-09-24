@@ -164,7 +164,7 @@ def value_from_comps(subject: dict, comps: list[Comp], radius_m: int) -> Optiona
 
 _SUBJECT_SQL = text("""
     SELECT id, title, city, region, community, property_type, price, sqft, rooms,
-           bathrooms, age, condo_fee, property_tax, latitude, longitude, is_synthetic
+           bathrooms, age, condo_fee, property_tax, latitude, longitude, is_synthetic, area_id
     FROM house_houses WHERE id = :id
 """)
 

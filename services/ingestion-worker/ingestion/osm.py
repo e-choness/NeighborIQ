@@ -177,8 +177,14 @@ def store_pois(session: Session, city: str, pois: list[Poi]) -> dict[str, int]:
     return ids
 
 
-def link_listings(session: Session, city: str, pois: list[Poi], poi_ids: dict[str, int]) -> int:
-    """Replace this city's listing→POI links with the nearest POIs. Returns links written."""
+def link_listings(
+    session: Session,
+    city: str,
+    pois: list[Poi],
+    poi_ids: dict[str, int],
+    categories: tuple[str, ...] = tuple(_TABLES),
+) -> int:
+    """Replace this city's listing→POI links for `categories` with the nearest POIs. Returns links written."""
     houses = session.execute(
         text("""
             SELECT id, latitude, longitude FROM house_houses
@@ -193,6 +199,8 @@ def link_listings(session: Session, city: str, pois: list[Poi], poi_ids: dict[st
     written = 0
     house_ids = [h.id for h in houses]
     for category, (_, link_table, fk) in _TABLES.items():
+        if category not in categories:
+            continue
         session.execute(
             text(f"DELETE FROM {link_table} WHERE house_id = ANY(:ids)"), {"ids": house_ids}
         )

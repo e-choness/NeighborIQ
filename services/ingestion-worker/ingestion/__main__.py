@@ -6,6 +6,7 @@ Ingestion CLI.
   python -m ingestion rents [data/reference/rent_benchmarks.csv]
   python -m ingestion osm [--cities Toronto,...]
   python -m ingestion bootstrap          # rents + seed (the demo stack's first run)
+  python -m ingestion opendata --list | --city Vancouver | --sources a,b [--url U | --file F]
 
 Every listing write goes through canonical.normalize/validate and writer.upsert_listings,
 then enqueues ai_insights.tasks.compute_insights for the affected houses.
@@ -69,6 +70,7 @@ def ingest(items: list[dict], dispatch: bool = True) -> dict:
     try:
         ids = writer.upsert_listings(session, accepted)
         communities = writer.refresh_communities(session)
+        _assign_areas(session, {item["city"] for item in accepted})
         session.commit()
     except Exception:
         session.rollback()
@@ -81,6 +83,31 @@ def ingest(items: list[dict], dispatch: bool = True) -> dict:
     for r in rejected[:20]:
         logger.warning("Rejected %s: %s", r["url"], "; ".join(r["errors"]))
     return {"accepted": len(ids), "rejected": len(rejected), "communities": communities}
+
+
+def _assign_areas(session, cities: set[str]) -> None:
+    """Attach listings to neighbourhood polygons when open-data boundaries are loaded."""
+    from sqlalchemy import text
+
+    from ingestion.opendata.areas import assign_areas
+
+    loaded = {
+        r[0].lower()
+        for r in session.execute(text("SELECT DISTINCT city FROM od_areas"))
+    } if session.execute(text("SELECT to_regclass('od_areas')")).scalar() else set()
+    for city in cities:
+        if city.lower() in loaded:
+            assign_areas(session, city)
+
+
+def run_opendata(keys: list[str], url: str | None = None, file: str | None = None) -> list[dict]:
+    from ingestion.opendata.runner import load_source
+
+    session = _session()
+    try:
+        return [load_source(session, key, url=url, file=file) for key in keys]
+    finally:
+        session.close()
 
 
 def read_file(path: Path, source: str) -> list[dict]:
@@ -154,6 +181,13 @@ def main(argv: list[str] | None = None) -> int:
     p_osm = sub.add_parser("osm", help="Load OpenStreetMap POIs and link listings")
     p_osm.add_argument("--cities", default=",".join(c.name for c in seed.CITIES))
 
+    p_od = sub.add_parser("opendata", help="Load public open data (boundaries, assessments, census, transit…)")
+    p_od.add_argument("--list", action="store_true", help="show available sources")
+    p_od.add_argument("--sources", default="", help="comma-separated source keys")
+    p_od.add_argument("--city", default="", help="every source for these comma-separated cities, in dependency order")
+    p_od.add_argument("--url", default=None, help="override the download URL (single source)")
+    p_od.add_argument("--file", default=None, help="load a local file instead of downloading (single source)")
+
     p_boot = sub.add_parser("bootstrap", help="rents + seed — first run of the demo stack")
     p_boot.add_argument("--if-empty", action="store_true",
                         help="do nothing when listings already exist (safe on every start)")
@@ -169,6 +203,22 @@ def main(argv: list[str] | None = None) -> int:
         result = {"benchmarks": load_rents(args.path)}
     elif args.command == "osm":
         result = {"cities": load_osm(cities)}
+    elif args.command == "opendata":
+        from ingestion.opendata.sources import SOURCES, for_city
+
+        if args.list:
+            result = {k: {"city": s.city or "national", "kind": s.kind, "licence": s.licence,
+                          "verified": s.verified} for k, s in SOURCES.items()}
+        else:
+            keys = [k.strip() for k in args.sources.split(",") if k.strip()]
+            for city in [c.strip() for c in args.city.split(",") if c.strip()]:
+                keys += [s.key for s in for_city(city)]
+            unknown = [k for k in keys if k not in SOURCES]
+            if unknown or not keys:
+                parser.error(f"unknown or missing sources: {unknown or '(none)'} — see --list")
+            if (args.url or args.file) and len(keys) != 1:
+                parser.error("--url/--file apply to exactly one source")
+            result = {"loads": run_opendata(keys, args.url, args.file)}
     elif args.if_empty and _listing_count() > 0:
         result = {"skipped": "listings already present"}
     else:  # bootstrap

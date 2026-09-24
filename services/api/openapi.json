@@ -1,6 +1,30 @@
 {
   "components": {
     "schemas": {
+      "AreaContext": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "stats": {
+            "additionalProperties": true,
+            "title": "Stats",
+            "type": "object"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "stats"
+        ],
+        "title": "AreaContext",
+        "type": "object"
+      },
       "CashFlowInput": {
         "properties": {
           "amortization_years": {
@@ -645,6 +669,16 @@
             ],
             "title": "Annual Rent"
           },
+          "area": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AreaContext"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "cash_flow": {
             "anyOf": [
               {
@@ -750,6 +784,16 @@
               }
             ],
             "title": "Price Low"
+          },
+          "rate": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RateContext"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "rent": {
             "anyOf": [
@@ -1594,6 +1638,39 @@
         "title": "NeighborhoodAnalysisResponse",
         "type": "object"
       },
+      "RateContext": {
+        "properties": {
+          "date": {
+            "title": "Date",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "note": {
+            "default": "Bank of Canada posted 5-year conventional rate \u2014 a conservative default. Negotiated rates are usually lower; enter yours.",
+            "title": "Note",
+            "type": "string"
+          },
+          "rate_pct": {
+            "title": "Rate Pct",
+            "type": "number"
+          },
+          "series": {
+            "title": "Series",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rate_pct",
+          "series",
+          "label",
+          "date"
+        ],
+        "title": "RateContext",
+        "type": "object"
+      },
       "RentEstimate": {
         "properties": {
           "bedrooms": {
@@ -2084,6 +2161,143 @@
         ]
       }
     },
+    "/api/v1/areas": {
+      "get": {
+        "description": "Neighbourhoods in a city with their latest metrics (no geometry).",
+        "operationId": "list_areas_api_v1_areas_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "city",
+            "required": true,
+            "schema": {
+              "title": "City",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Areas",
+        "tags": [
+          "places"
+        ]
+      }
+    },
+    "/api/v1/areas/geojson": {
+      "get": {
+        "description": "Simplified polygons with every latest metric as properties \u2014 for choropleths.",
+        "operationId": "areas_geojson_api_v1_areas_geojson_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "city",
+            "required": true,
+            "schema": {
+              "title": "City",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Simplification in degrees",
+            "in": "query",
+            "name": "tolerance",
+            "required": false,
+            "schema": {
+              "default": 0.0002,
+              "description": "Simplification in degrees",
+              "maximum": 0.01,
+              "minimum": 0,
+              "title": "Tolerance",
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Areas Geojson",
+        "tags": [
+          "places"
+        ]
+      }
+    },
+    "/api/v1/areas/{area_id}": {
+      "get": {
+        "description": "Everything known about one neighbourhood: metrics over time, properties, supply.",
+        "operationId": "area_detail_api_v1_areas__area_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "area_id",
+            "required": true,
+            "schema": {
+              "title": "Area Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Area Detail",
+        "tags": [
+          "places"
+        ]
+      }
+    },
     "/api/v1/auth/.well-known/jwks.json": {
       "get": {
         "description": "Public key for third parties that need to verify NeighborIQ tokens.",
@@ -2405,6 +2619,26 @@
         "summary": "Get Community Stats",
         "tags": [
           "listings"
+        ]
+      }
+    },
+    "/api/v1/data-sources": {
+      "get": {
+        "description": "What public data is loaded, when, and the attribution each licence requires.",
+        "operationId": "data_sources_api_v1_data_sources_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Data Sources",
+        "tags": [
+          "places"
         ]
       }
     },
@@ -3320,6 +3554,26 @@
         ]
       }
     },
+    "/api/v1/indicators": {
+      "get": {
+        "description": "Latest value and last-12-observation history for each loaded series.",
+        "operationId": "indicators_api_v1_indicators_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Indicators",
+        "tags": [
+          "places"
+        ]
+      }
+    },
     "/api/v1/markets": {
       "get": {
         "description": "Per-city market snapshot computed from active listings.",
@@ -3623,6 +3877,66 @@
         "summary": "Update Saved",
         "tags": [
           "portfolio"
+        ]
+      }
+    },
+    "/api/v1/properties/lookup": {
+      "get": {
+        "description": "Assessment-roll facts for an address \u2014 pre-fills the deal analyzer.",
+        "operationId": "property_lookup_api_v1_properties_lookup_get",
+        "parameters": [
+          {
+            "description": "Start of a street address",
+            "in": "query",
+            "name": "q",
+            "required": true,
+            "schema": {
+              "description": "Start of a street address",
+              "minLength": 3,
+              "title": "Q",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "city",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "City"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Property Lookup",
+        "tags": [
+          "places"
         ]
       }
     },

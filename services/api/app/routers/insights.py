@@ -54,9 +54,28 @@ class CashFlowSummary(BaseModel):
     result: CashFlowResult
 
 
+class RateContext(BaseModel):
+    rate_pct: float
+    series: str
+    label: str
+    date: str
+    note: str = (
+        "Bank of Canada posted 5-year conventional rate — a conservative default. "
+        "Negotiated rates are usually lower; enter yours."
+    )
+
+
+class AreaContext(BaseModel):
+    id: int
+    name: str
+    stats: dict
+
+
 class HouseInsightsResponse(BaseModel):
     house_id: int
     is_synthetic: bool = False
+    area: Optional[AreaContext] = None
+    rate: Optional[RateContext] = None
     valuation: Optional[Valuation] = None
     rent: Optional[RentEstimate] = None
     cash_flow: Optional[CashFlowSummary] = None
@@ -83,10 +102,44 @@ class NeighborhoodAnalysisResponse(BaseModel):
     avg_price_per_sqm: float = 0.0  # legacy field
 
 
-def default_cash_flow_inputs(subject: dict, rent: Optional[RentEstimate]) -> CashFlowInput:
+MORTGAGE_RATE_SERIES = "boc:V80691335"
+
+
+def latest_mortgage_rate(db: Session) -> Optional[RateContext]:
+    if not db.execute(text("SELECT to_regclass('od_indicators')")).scalar():
+        return None
+    row = db.execute(text("""
+        SELECT value, label, date FROM od_indicators WHERE series = :s ORDER BY date DESC LIMIT 1
+    """), {"s": MORTGAGE_RATE_SERIES}).fetchone()
+    if row is None:
+        return None
+    return RateContext(rate_pct=row.value, series=MORTGAGE_RATE_SERIES, label=row.label or "", date=row.date.isoformat())
+
+
+def area_context(db: Session, area_id: Optional[int]) -> Optional[AreaContext]:
+    if not area_id:
+        return None
+    name = db.execute(text("SELECT name FROM od_areas WHERE id = :id"), {"id": area_id}).scalar()
+    if name is None:
+        return None
+    stats = {
+        r.metric: {"value": r.value, "period": r.period or None}
+        for r in db.execute(text("""
+            SELECT DISTINCT ON (metric) metric, period, value FROM od_area_stats
+            WHERE area_id = :id ORDER BY metric, period DESC
+        """), {"id": area_id})
+    }
+    return AreaContext(id=area_id, name=name, stats=stats)
+
+
+def default_cash_flow_inputs(
+    subject: dict, rent: Optional[RentEstimate], rate: Optional[RateContext] = None
+) -> CashFlowInput:
     """Investor defaults for a listing — every value is editable in the UI."""
     ptype = subject.get("property_type")
+    rate_kwargs = {"interest_rate_pct": rate.rate_pct} if rate else {}
     return CashFlowInput(
+        **rate_kwargs,
         price=subject["price"],
         monthly_rent=rent.monthly_rent if rent else 0,
         city=subject.get("city") or "",
@@ -135,13 +188,16 @@ def get_house_insights(house_id: int, db: Session = Depends(get_sync_db)):
 
     valuation = valuation_for(db, subject)
     rent = rent_estimate_for(db, subject["city"], subject.get("rooms"))
-    inputs = default_cash_flow_inputs(subject, rent)
+    rate = latest_mortgage_rate(db)
+    inputs = default_cash_flow_inputs(subject, rent, rate)
     cash_flow = CashFlowSummary(inputs=inputs, result=compute_cash_flow(inputs)) if rent else None
     ml = _latest_ml_prediction(db, house_id)
 
     return HouseInsightsResponse(
         house_id=house_id,
         is_synthetic=bool(subject.get("is_synthetic")),
+        area=area_context(db, subject.get("area_id")),
+        rate=rate,
         valuation=valuation,
         rent=rent,
         cash_flow=cash_flow,

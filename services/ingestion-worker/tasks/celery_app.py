@@ -22,6 +22,11 @@ LISTING_FEED_URL = os.getenv("LISTING_FEED_URL", "")
 app = Celery("scraper_worker", broker=BROKER_URL, include=["tasks.scraper_tasks"])
 
 beat_schedule = {
+    "daily-rates": {
+        "task": "scraper.tasks.run_ingestion",
+        "schedule": crontab(hour=6, minute=15),
+        "kwargs": {"command": "opendata", "sources": ["bank_of_canada"]},
+    },
     "weekly-osm-refresh": {
         "task": "scraper.tasks.run_ingestion",
         "schedule": crontab(hour=3, minute=30, day_of_week="sunday"),

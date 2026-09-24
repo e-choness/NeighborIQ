@@ -20,7 +20,7 @@ from sqlalchemy import text
 
 from app.keys import load_signing_keys
 from app.limits import limiter
-from app.routers import admin, auth, insights, listings, portfolio
+from app.routers import admin, auth, insights, listings, places, portfolio
 from shared import AsyncSessionLocal, dispose_db, init_db
 
 logging.basicConfig(level=logging.INFO)
@@ -54,7 +54,7 @@ app.add_middleware(
     allow_headers=["Content-Type", "Authorization"],
 )
 
-for module in (auth, listings, portfolio, insights, admin):
+for module in (auth, listings, portfolio, insights, places, admin):
     app.include_router(module.router)
 
 

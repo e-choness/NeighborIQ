@@ -62,6 +62,9 @@ class House(Base):
     status = Column(String(20), nullable=False, default="active", server_default="active")
     listed_at = Column(DateTime(timezone=True), nullable=True)
 
+    # Neighbourhood polygon (od_areas.id; FK lives in migration 005 — od_* tables are not ORM-mapped)
+    area_id = Column(Integer, nullable=True, index=True)
+
     # Location (WGS-84 coordinates for OpenStreetMap)
     latitude = Column(Numeric(10, 8), nullable=True)
     longitude = Column(Numeric(11, 8), nullable=True)
@@ -261,7 +264,8 @@ class BusStop(Base):
     routes = Column(Text, nullable=True)  # JSON list of route numbers
     # bus|streetcar|subway|rail — the table holds all transit stops, not only buses
     mode = Column(String(20), nullable=True)
-    osm_id = Column(String(32), nullable=True, unique=True)
+    osm_id = Column(String(64), nullable=True, unique=True)  # External id: "node/123" or "gtfs:<feed>:<stop>"
+    weekday_departures = Column(Integer, nullable=True)  # GTFS scheduled departures on a weekday
 
     created_at = Column(
         DateTime(timezone=True), server_default=func.now(), nullable=False

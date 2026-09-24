@@ -25,6 +25,28 @@ Policy: https://operations.osmfoundation.org/policies/tiles/ — heavy or
 commercial use requires your own tile source.
 
 --------------------------------------------------------------------------------
+Municipal, provincial and federal open data — `python -m ingestion opendata`
+--------------------------------------------------------------------------------
+The loaders in services/ingestion-worker/ingestion/opendata fetch public data
+under each publisher's open licence. Each load is recorded in od_load_log with
+its licence and required attribution, and the UI lists them (/api/v1/data-sources).
+  - City of Toronto, City of Vancouver, City of Calgary, City of Ottawa:
+    Open Government Licence (municipal variants) — "Contains information
+    licensed under the Open Government Licence – <City>".
+  - City of Edmonton: Open Data Terms of Use.
+  - Ville de Montréal: Creative Commons Attribution 4.0.
+  - Statistics Canada (Census 2021, data tables): Statistics Canada Open
+    Licence — "Source: Statistics Canada".
+  - Bank of Canada (Valet API): attribution to the Bank of Canada required.
+  - Transit agencies (TTC, TransLink, Calgary Transit, ETS, OC Transpo, STM):
+    each agency's GTFS terms of use.
+  - Toronto Police Service Public Safety Data Portal: its open data licence.
+    Only per-neighbourhood counts are stored, not incident records.
+Assessment-roll records describe real properties. They are public, but the app
+shows them only as property facts (value, year built, tax); it does not attach
+owner information, which these datasets do not contain.
+
+--------------------------------------------------------------------------------
 Rent benchmarks — data/reference/rent_benchmarks.csv
 --------------------------------------------------------------------------------
 The file shipped in this repository contains PLACEHOLDER values that
