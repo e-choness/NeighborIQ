@@ -1,16 +1,21 @@
 from contextlib import asynccontextmanager
 from decimal import Decimal
-from uuid import UUID
-from typing import Optional, List
+from typing import Optional
 from datetime import datetime
 
-from fastapi import FastAPI, Query, Depends, HTTPException
+from fastapi import FastAPI, Query, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, or_, and_
-from pydantic import BaseModel, Field
+from sqlalchemy import select, func, or_, and_, text
 
 from shared import get_db, House, Community, HousePriceHistory, init_db, dispose_db
-from shared.models.schemas import HouseResponse, HouseListResponse, CommunityResponse
+from shared.models.schemas import (
+    CommunityResponse,
+    HouseCreate,
+    HouseListResponse,
+    HouseResponse,
+    HouseUpdate,
+    PricePoint,
+)
 
 
 @asynccontextmanager
@@ -22,15 +27,41 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="NeighborIQ House API Service",
-    version="0.1.0",
-    description="House, community, and POI read/write contract for discovery workflows.",
+    version="0.2.0",
+    description="Listing, community, price-history and neighbourhood (POI) read/write contract.",
     lifespan=lifespan,
     openapi_tags=[
         {"name": "health", "description": "Service health checks"},
-        {"name": "houses", "description": "House discovery contract"},
+        {"name": "houses", "description": "Listing discovery contract"},
         {"name": "communities", "description": "Community contract"},
     ],
 )
+
+
+def require_admin(request: Request) -> None:
+    """Defence in depth: the gateway already enforces this, but never trust the edge alone."""
+    if request.headers.get("X-User-Role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin role required")
+
+
+# First recorded asking price — lets clients show "price cut from $X" badges
+_ORIGINAL_PRICE = (
+    select(HousePriceHistory.price)
+    .where(HousePriceHistory.house_id == House.id)
+    .order_by(HousePriceHistory.recorded_at.asc(), HousePriceHistory.id.asc())
+    .limit(1)
+    .correlate(House)
+    .scalar_subquery()
+)
+
+
+def _with_original_price(rows) -> list[HouseResponse]:
+    out = []
+    for house, original_price in rows:
+        response = HouseResponse.model_validate(house)
+        response.original_price = original_price
+        out.append(response)
+    return out
 
 
 # ============================================================================
@@ -50,48 +81,65 @@ async def health() -> dict[str, str]:
 
 @app.get("/api/v1/houses", tags=["houses"])
 async def list_houses(
-    city: Optional[str] = Query(default=None, description="Filter by city"),
-    region: Optional[str] = Query(default=None, description="Filter by region"),
+    q: Optional[str] = Query(default=None, description="Text search: title, neighbourhood, street, postal code"),
+    city: Optional[str] = Query(default=None, description="Filter by city (case-insensitive)"),
+    region: Optional[str] = Query(default=None, description="Filter by district / borough"),
     street: Optional[str] = Query(default=None, description="Filter by street"),
-    community: Optional[str] = Query(default=None, description="Filter by community"),
-    price_min: Optional[int] = Query(default=None, description="Minimum price (yuan)"),
-    price_max: Optional[int] = Query(default=None, description="Maximum price (yuan)"),
-    rooms_min: Optional[int] = Query(
-        default=None, description="Minimum number of rooms"
+    community: Optional[str] = Query(default=None, description="Filter by neighbourhood"),
+    property_type: Optional[str] = Query(
+        default=None, description="Comma-separated: condo,townhouse,semi,detached"
     ),
-    rooms_max: Optional[int] = Query(
-        default=None, description="Maximum number of rooms"
-    ),
-    area_min: Optional[Decimal] = Query(default=None, description="Minimum area (sqm)"),
-    area_max: Optional[Decimal] = Query(default=None, description="Maximum area (sqm)"),
+    price_min: Optional[int] = Query(default=None, description="Minimum asking price (CAD)"),
+    price_max: Optional[int] = Query(default=None, description="Maximum asking price (CAD)"),
+    rooms_min: Optional[int] = Query(default=None, description="Minimum bedrooms"),
+    rooms_max: Optional[int] = Query(default=None, description="Maximum bedrooms"),
+    baths_min: Optional[float] = Query(default=None, description="Minimum bathrooms"),
+    sqft_min: Optional[int] = Query(default=None, description="Minimum interior ft²"),
+    sqft_max: Optional[int] = Query(default=None, description="Maximum interior ft²"),
+    area_min: Optional[Decimal] = Query(default=None, description="Minimum area (m²)"),
+    area_max: Optional[Decimal] = Query(default=None, description="Maximum area (m²)"),
+    min_lat: Optional[float] = Query(default=None, description="Map viewport south edge"),
+    min_lon: Optional[float] = Query(default=None, description="Map viewport west edge"),
+    max_lat: Optional[float] = Query(default=None, description="Map viewport north edge"),
+    max_lon: Optional[float] = Query(default=None, description="Map viewport east edge"),
+    price_cut: bool = Query(default=False, description="Only listings whose asking price has dropped"),
     page: int = Query(default=1, ge=1, description="Page number"),
-    page_size: int = Query(default=50, ge=1, le=100, description="Page size"),
+    page_size: int = Query(default=50, ge=1, le=500, description="Page size"),
     sort: str = Query(
-        default="created_at", description="Sort field (price, created_at, area)"
+        default="created_at",
+        description="Sort field (price, created_at, listed_at, area, sqft, price_per_sqft)",
     ),
     order: str = Query(default="desc", description="Sort order (asc, desc)"),
     db: AsyncSession = Depends(get_db),
 ) -> HouseListResponse:
     """
-    List houses with filtering and pagination.
+    List active listings with filtering and pagination.
 
-    Filters:
-    - Geographic: city, region, street, community
-    - Price range: price_min, price_max
-    - Property: rooms, area
-
-    Returns paginated results.
+    Each item carries price_per_sqft, days_on_market and original_price (first
+    recorded asking price) so clients can surface price cuts.
     """
-    # Build shared filter conditions
     conditions = [House.is_active == 1]
+    if q:
+        pattern = f"%{q.strip()}%"
+        conditions.append(
+            or_(
+                House.title.ilike(pattern),
+                House.community.ilike(pattern),
+                House.street.ilike(pattern),
+                House.postal_code.ilike(pattern),
+            )
+        )
     if city:
-        conditions.append(House.city == city)
+        conditions.append(func.lower(House.city) == city.lower())
     if region:
-        conditions.append(House.region == region)
+        conditions.append(func.lower(House.region) == region.lower())
     if street:
-        conditions.append(House.street.contains(street))
+        conditions.append(House.street.ilike(f"%{street}%"))
     if community:
-        conditions.append(House.community.contains(community))
+        conditions.append(House.community.ilike(f"%{community}%"))
+    if property_type:
+        types = [t.strip().lower() for t in property_type.split(",") if t.strip()]
+        conditions.append(House.property_type.in_(types))
     if price_min is not None:
         conditions.append(House.price >= price_min)
     if price_max is not None:
@@ -100,84 +148,180 @@ async def list_houses(
         conditions.append(House.rooms >= rooms_min)
     if rooms_max is not None:
         conditions.append(House.rooms <= rooms_max)
+    if baths_min is not None:
+        conditions.append(House.bathrooms >= baths_min)
+    if sqft_min is not None:
+        conditions.append(House.sqft >= sqft_min)
+    if sqft_max is not None:
+        conditions.append(House.sqft <= sqft_max)
     if area_min is not None:
         conditions.append(House.area >= area_min)
     if area_max is not None:
         conditions.append(House.area <= area_max)
+    if None not in (min_lat, min_lon, max_lat, max_lon):
+        conditions.append(House.latitude.between(min_lat, max_lat))
+        conditions.append(House.longitude.between(min_lon, max_lon))
+    if price_cut:
+        conditions.append(_ORIGINAL_PRICE > House.price)
 
     # Count total using a dedicated scalar query (not add_columns which produces tuple rows)
     count_result = await db.execute(select(func.count(House.id)).where(*conditions))
     total = count_result.scalar() or 0
 
-    # Build data query with the same conditions
-    query = select(House).where(*conditions)
+    query = select(House, _ORIGINAL_PRICE.label("original_price")).where(*conditions)
 
-    # Apply sorting
     sort_field_map = {
         "price": House.price,
         "created_at": House.created_at,
+        "listed_at": House.listed_at,
         "area": House.area,
+        "sqft": House.sqft,
+        "price_per_sqft": House.price / func.nullif(House.sqft, 0),
     }
     sort_field = sort_field_map.get(sort, House.created_at)
-    if order == "desc":
-        query = query.order_by(sort_field.desc())
-    else:
-        query = query.order_by(sort_field.asc())
+    sort_field = sort_field.desc() if order == "desc" else sort_field.asc()
+    query = query.order_by(sort_field.nulls_last(), House.id)
 
-    # Apply pagination
     offset = (page - 1) * page_size
-    query = query.offset(offset).limit(page_size)
-
-    # Execute
-    result = await db.execute(query)
-    houses = result.scalars().all()
+    result = await db.execute(query.offset(offset).limit(page_size))
 
     return HouseListResponse(
         total=total,
         page=page,
         page_size=page_size,
-        items=[HouseResponse.model_validate(h) for h in houses],
+        items=_with_original_price(result.all()),
     )
+
+
+# Declared before /{house_id} — otherwise "search" is parsed as an int id (422)
+@app.get("/api/v1/houses/search", tags=["houses"])
+async def search_houses(
+    q: Optional[str] = Query(default=None, description="Full-text search query"),
+    city: Optional[str] = Query(default=None, description="Filter by city"),
+    region: Optional[str] = Query(default=None, description="Filter by region"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Quick search (typeahead): up to 50 matches by keyword and location."""
+    query = select(House, _ORIGINAL_PRICE.label("original_price")).where(House.is_active == 1)
+
+    if q:
+        pattern = f"%{q.strip()}%"
+        query = query.where(
+            or_(
+                House.title.ilike(pattern),
+                House.community.ilike(pattern),
+                House.street.ilike(pattern),
+                House.postal_code.ilike(pattern),
+            )
+        )
+    if city:
+        query = query.where(func.lower(House.city) == city.lower())
+    if region:
+        query = query.where(func.lower(House.region) == region.lower())
+
+    result = await db.execute(query.order_by(House.id).limit(50))
+    return {"items": _with_original_price(result.all())}
 
 
 @app.get("/api/v1/houses/{house_id}", tags=["houses"])
 async def get_house(house_id: int, db: AsyncSession = Depends(get_db)) -> HouseResponse:
-    """
-    Get house details by ID.
-    """
+    """Get listing details by ID."""
     result = await db.execute(
-        select(House).where(House.id == house_id, House.is_active == 1)
+        select(House, _ORIGINAL_PRICE.label("original_price")).where(
+            House.id == house_id, House.is_active == 1
+        )
     )
-    house = result.scalar_one_or_none()
-    if not house:
+    row = result.first()
+    if not row:
         raise HTTPException(status_code=404, detail="House not found")
-    return HouseResponse.model_validate(house)
+    return _with_original_price([row])[0]
 
 
-@app.post("/api/v1/houses", tags=["houses"])
+@app.get("/api/v1/houses/{house_id}/price-history", tags=["houses"])
+async def get_price_history(house_id: int, db: AsyncSession = Depends(get_db)) -> dict:
+    """Asking-price changes over time, oldest first."""
+    exists = await db.scalar(select(House.id).where(House.id == house_id))
+    if not exists:
+        raise HTTPException(status_code=404, detail="House not found")
+    result = await db.execute(
+        select(HousePriceHistory)
+        .where(HousePriceHistory.house_id == house_id)
+        .order_by(HousePriceHistory.recorded_at.asc(), HousePriceHistory.id.asc())
+    )
+    points = [PricePoint.model_validate(p) for p in result.scalars().all()]
+    return {"house_id": house_id, "items": points}
+
+
+_POI_QUERIES = {
+    "schools": """
+        SELECT s.name, s.level AS detail, l.distance_m, s.latitude, s.longitude
+        FROM house_school_links l JOIN house_schools s ON s.id = l.school_id
+        WHERE l.house_id = :id ORDER BY l.distance_m
+    """,
+    "transit": """
+        SELECT b.name, b.mode AS detail, l.distance_m, b.latitude, b.longitude
+        FROM house_bus_links l JOIN house_bus_stops b ON b.id = l.bus_stop_id
+        WHERE l.house_id = :id ORDER BY l.distance_m
+    """,
+    "hospitals": """
+        SELECT h.name, h.hospital_type AS detail, l.distance_m, h.latitude, h.longitude
+        FROM house_hospital_links l JOIN house_hospitals h ON h.id = l.hospital_id
+        WHERE l.house_id = :id ORDER BY l.distance_m
+    """,
+}
+
+
+@app.get("/api/v1/houses/{house_id}/neighbourhood", tags=["houses"])
+async def get_neighbourhood(house_id: int, db: AsyncSession = Depends(get_db)) -> dict:
+    """
+    Nearest schools, transit stops and hospitals (OpenStreetMap, linked by the
+    ingestion `osm` loader). Empty lists mean POIs have not been loaded yet.
+    """
+    exists = await db.scalar(select(House.id).where(House.id == house_id))
+    if not exists:
+        raise HTTPException(status_code=404, detail="House not found")
+
+    out: dict = {"house_id": house_id, "attribution": "© OpenStreetMap contributors (ODbL)"}
+    for key, sql in _POI_QUERIES.items():
+        rows = (await db.execute(text(sql), {"id": house_id})).mappings().all()
+        out[key] = [
+            {
+                "name": r["name"],
+                "detail": r["detail"],
+                "distance_m": r["distance_m"],
+                "latitude": float(r["latitude"]) if r["latitude"] is not None else None,
+                "longitude": float(r["longitude"]) if r["longitude"] is not None else None,
+            }
+            for r in rows
+        ]
+    out["loaded"] = any(out[k] for k in _POI_QUERIES)
+    return out
+
+
+@app.post("/api/v1/houses", tags=["houses"], dependencies=[Depends(require_admin)])
 async def create_house(
-    house: HouseResponse,
+    house: HouseCreate,
     db: AsyncSession = Depends(get_db),
 ) -> HouseResponse:
-    """
-    Create a new house listing (admin only).
-    """
-    new_house = House(**house.model_dump(exclude={"id", "created_at", "updated_at"}))
+    """Create a listing (admin only)."""
+    data = house.model_dump()
+    data["is_synthetic"] = int(data["is_synthetic"])
+    new_house = House(**data)
     db.add(new_house)
     await db.commit()
     await db.refresh(new_house)
+    db.add(HousePriceHistory(house_id=new_house.id, price=new_house.price))
+    await db.commit()
     return HouseResponse.model_validate(new_house)
 
 
-@app.put("/api/v1/houses/{house_id}", tags=["houses"])
+@app.put("/api/v1/houses/{house_id}", tags=["houses"], dependencies=[Depends(require_admin)])
 async def update_house(
     house_id: int,
-    house_update: HouseResponse,
+    house_update: HouseUpdate,
     db: AsyncSession = Depends(get_db),
 ) -> HouseResponse:
-    """
-    Update a house listing (admin only).
-    """
+    """Partially update a listing (admin only). Price changes are recorded in price history."""
     result = await db.execute(
         select(House).where(House.id == house_id, House.is_active == 1)
     )
@@ -185,9 +329,11 @@ async def update_house(
     if not house:
         raise HTTPException(status_code=404, detail="House not found")
 
-    for key, value in house_update.model_dump(exclude_unset=True).items():
-        if hasattr(house, key):
-            setattr(house, key, value)
+    changes = house_update.model_dump(exclude_unset=True)
+    if "price" in changes and changes["price"] != house.price:
+        db.add(HousePriceHistory(house_id=house.id, price=changes["price"]))
+    for key, value in changes.items():
+        setattr(house, key, value)
 
     house.updated_at = datetime.now()
     await db.commit()
@@ -195,14 +341,12 @@ async def update_house(
     return HouseResponse.model_validate(house)
 
 
-@app.delete("/api/v1/houses/{house_id}", tags=["houses"])
+@app.delete("/api/v1/houses/{house_id}", tags=["houses"], dependencies=[Depends(require_admin)])
 async def delete_house(
     house_id: int,
     db: AsyncSession = Depends(get_db),
 ) -> dict:
-    """
-    Soft-delete a house (admin only).
-    """
+    """Soft-delete a listing (admin only)."""
     result = await db.execute(
         select(House).where(House.id == house_id, House.is_active == 1)
     )
@@ -217,44 +361,6 @@ async def delete_house(
 
 
 # ============================================================================
-# Search
-# ============================================================================
-
-
-@app.get("/api/v1/houses/search", tags=["houses"])
-async def search_houses(
-    q: Optional[str] = Query(default=None, description="Full-text search query"),
-    city: Optional[str] = Query(default=None, description="Filter by city"),
-    region: Optional[str] = Query(default=None, description="Filter by region"),
-    db: AsyncSession = Depends(get_db),
-):
-    """
-    Search houses by keyword and filters.
-    """
-    query = select(House).where(House.is_active == 1)
-
-    if q:
-        search_pattern = f"%{q}%"
-        query = query.where(
-            or_(
-                House.title.ilike(search_pattern),
-                House.community.ilike(search_pattern),
-                House.street.ilike(search_pattern),
-            )
-        )
-
-    if city:
-        query = query.where(House.city == city)
-    if region:
-        query = query.where(House.region == region)
-
-    result = await db.execute(query.limit(50))
-    houses = result.scalars().all()
-
-    return {"items": [HouseResponse.model_validate(h) for h in houses]}
-
-
-# ============================================================================
 # Communities
 # ============================================================================
 
@@ -265,17 +371,15 @@ async def list_communities(
     region: Optional[str] = Query(default=None, description="Filter by region"),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
-    """
-    List communities with aggregated statistics.
-    """
+    """List neighbourhoods with aggregated statistics."""
     query = select(Community).where(Community.house_count > 0)
 
     if city:
-        query = query.where(Community.city == city)
+        query = query.where(func.lower(Community.city) == city.lower())
     if region:
-        query = query.where(Community.region == region)
+        query = query.where(func.lower(Community.region) == region.lower())
 
-    result = await db.execute(query)
+    result = await db.execute(query.order_by(Community.city, Community.name))
     communities = result.scalars().all()
 
     return {"items": [CommunityResponse.model_validate(c) for c in communities]}
@@ -286,21 +390,19 @@ async def get_community_stats(
     community_id: int,
     db: AsyncSession = Depends(get_db),
 ) -> dict:
-    """
-    Get aggregated statistics for a community.
-    """
+    """Get aggregated statistics for a neighbourhood."""
     result = await db.execute(select(Community).where(Community.id == community_id))
     community = result.scalar_one_or_none()
     if not community:
         raise HTTPException(status_code=404, detail="Community not found")
 
-    # Get house stats
     house_query = select(
         func.count(House.id),
         func.avg(House.price),
         func.min(House.price),
         func.max(House.price),
         func.avg(House.area),
+        func.percentile_cont(0.5).within_group(House.price / func.nullif(House.sqft, 0)),
     ).where(
         and_(
             House.community == community.name,
@@ -319,4 +421,5 @@ async def get_community_stats(
         "min_price": house_stats[2],
         "max_price": house_stats[3],
         "avg_area": float(house_stats[4]) if house_stats[4] else None,
+        "median_price_per_sqft": float(house_stats[5]) if house_stats[5] else None,
     }

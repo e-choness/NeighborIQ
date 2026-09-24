@@ -82,8 +82,8 @@ async def search(
     q: Optional[str] = Query(default=None, description="Full-text query"),
     city: Optional[str] = Query(default=None, description="Filter by city (keyword)"),
     region: Optional[str] = Query(default=None, description="Filter by region (keyword)"),
-    price_min: Optional[float] = Query(default=None, description="Minimum price (yuan)"),
-    price_max: Optional[float] = Query(default=None, description="Maximum price (yuan)"),
+    price_min: Optional[float] = Query(default=None, description="Minimum price (CAD)"),
+    price_max: Optional[float] = Query(default=None, description="Maximum price (CAD)"),
     sort_by_ai_score: bool = Query(default=False, description="Sort by ai_score descending"),
     size: int = Query(default=50, ge=1, le=200, description="Max results"),
 ):

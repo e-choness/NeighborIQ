@@ -20,6 +20,16 @@ from fastapi import FastAPI, HTTPException, Depends, Response, Request
 
 # Secure cookies require HTTPS — disable in local/test environments
 SECURE_COOKIES: bool = os.environ.get("SECURE_COOKIES", "1").strip() == "1"
+# Bootstrap operators: accounts signing up with these emails get role=admin.
+ADMIN_EMAILS: set[str] = {
+    e.strip().lower() for e in os.environ.get("ADMIN_EMAILS", "").split(",") if e.strip()
+}
+
+
+def _role(user) -> str:
+    """Role string for the JWT claim (column is an Enum on Postgres, str on SQLite)."""
+    return getattr(user.role, "value", user.role) or "user"
+
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -196,7 +206,7 @@ async def signup(
         email=user_create.email,
         name=user_create.name,
         password_hash=hash_password(user_create.password),
-        role="user",
+        role="admin" if user_create.email.lower() in ADMIN_EMAILS else "user",
         is_active=1,
     )
     db.add(new_user)
@@ -204,7 +214,7 @@ async def signup(
     await db.refresh(new_user)
 
     # Generate tokens
-    access_token = create_access_token(subject=str(new_user.id))
+    access_token = create_access_token(subject=str(new_user.id), role=_role(new_user))
     refresh_token = create_refresh_token(subject=str(new_user.id))
 
     # Store refresh token hash (for revocation tracking)
@@ -267,7 +277,7 @@ async def login(
         raise HTTPException(status_code=403, detail="User account is disabled")
 
     # Generate tokens
-    access_token = create_access_token(subject=str(user.id))
+    access_token = create_access_token(subject=str(user.id), role=_role(user))
     refresh_token = create_refresh_token(subject=str(user.id))
 
     # Store refresh token hash
@@ -401,7 +411,10 @@ async def refresh_access_token(
 
     # Create new access and refresh tokens
     user_id = payload["sub"]
-    new_access_token = create_access_token(subject=user_id)
+    user = (await db.execute(select(User).where(User.id == int(user_id)))).scalar_one_or_none()
+    if not user or user.is_active == 0:
+        raise HTTPException(status_code=401, detail="User not found or disabled")
+    new_access_token = create_access_token(subject=user_id, role=_role(user))
     new_refresh_token = create_refresh_token(subject=user_id)
 
     # Store the new refresh token hash

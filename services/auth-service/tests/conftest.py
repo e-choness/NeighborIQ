@@ -7,6 +7,10 @@ runs once before all tests in the session.
 import asyncio
 import os
 
+# TestClient talks plain http; Secure cookies would never be sent back.
+os.environ.setdefault("SECURE_COOKIES", "0")
+os.environ.setdefault("ADMIN_EMAILS", "admin_bootstrap_test@example.com")
+
 import asyncpg
 import pytest
 from fastapi.testclient import TestClient
@@ -14,7 +18,12 @@ from fastapi.testclient import TestClient
 from app.main import app
 
 # Emails created by logout/signup tests — cleaned up before each run
-_TEST_EMAILS = ["logout_test@example.com", "logout_cookies_test@example.com"]
+_TEST_EMAILS = [
+    "logout_test@example.com",
+    "logout_cookies_test@example.com",
+    "role_claim_test@example.com",
+    "admin_bootstrap_test@example.com",
+]
 
 
 @pytest.fixture(scope="module", autouse=True)

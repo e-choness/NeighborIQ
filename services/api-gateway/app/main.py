@@ -1,10 +1,25 @@
 """
-API Gateway Service - Boundary for authentication, rate limiting, and routing.
+API Gateway Service - Boundary for authentication, authorization, rate limiting, and routing.
+
+Every /api/v1/* request is resolved against ROUTES to an upstream service and an
+access policy:
+
+  public — no token required (a valid token is still decoded if present)
+  user   — valid access token required
+  admin  — valid access token with role=admin required
+
+Identity is forwarded downstream as X-User-ID / X-User-Role. Any client-supplied
+X-User-* header is stripped first, so downstream services can trust these headers
+as long as they are only reachable through the gateway (see docker-compose.yml:
+internal services publish no host ports).
 """
 
 import os
+import re
 import time
-from typing import Any, Dict
+from contextlib import asynccontextmanager
+from dataclasses import dataclass
+from typing import Any, Dict, Optional
 
 import httpx
 import jwt as pyjwt
@@ -19,10 +34,21 @@ from slowapi.util import get_remote_address
 # which the gateway does not need and does not install
 from shared.utils.jwt_utils import verify_token
 
+# One pooled client for every upstream call.
+_client = httpx.AsyncClient(timeout=httpx.Timeout(30.0, connect=5.0))
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    yield
+    await _client.aclose()
+
+
 app = FastAPI(
     title="NeighborIQ API Gateway",
-    version="0.1.0",
-    description="Reverse proxy boundary for authentication, rate limiting, and routing.",
+    version="0.2.0",
+    description="Reverse proxy boundary for authentication, authorization, rate limiting, and routing.",
+    lifespan=lifespan,
     openapi_tags=[
         {"name": "health", "description": "Service health checks"},
         {"name": "gateway", "description": "Gateway routing contract"},
@@ -53,6 +79,7 @@ HOUSE_SERVICE_URL = os.getenv("HOUSE_SERVICE_URL", "http://house-api-service:800
 SEARCH_SERVICE_URL = os.getenv("SEARCH_SERVICE_URL", "http://search-service:8000")
 PORTFOLIO_SERVICE_URL = os.getenv("PORTFOLIO_SERVICE_URL", "http://portfolio-service:8000")
 AI_INSIGHTS_SERVICE_URL = os.getenv("AI_INSIGHTS_SERVICE_URL", "http://ai-insights-service:8000")
+SCRAPER_SERVICE_URL = os.getenv("SCRAPER_SERVICE_URL", "http://scraper-service:8000")
 
 # Cache for JWKS (public key)
 _jwks_cache = None
@@ -68,24 +95,21 @@ async def get_jwks():
     if _jwks_cache is not None and (now - _jwks_cache_time) < JWKS_CACHE_TTL:
         return _jwks_cache
 
-    async with httpx.AsyncClient() as client:
-        try:
-            response = await client.get(
-                f"{AUTH_SERVICE_URL}/api/v1/auth/.well-known/jwks.json"
-            )
-            response.raise_for_status()
-            jwks_data = response.json()
+    try:
+        response = await _client.get(
+            f"{AUTH_SERVICE_URL}/api/v1/auth/.well-known/jwks.json"
+        )
+        response.raise_for_status()
+        jwks_data = response.json()
 
-            _jwks_cache = jwks_data
-            _jwks_cache_time = now
-            return jwks_data
-        except Exception as e:
-            # If we have cached data, use it even if expired
-            if _jwks_cache is not None:
-                return _jwks_cache
-            raise HTTPException(
-                status_code=503, detail=f"Unable to fetch JWKS: {str(e)}"
-            )
+        _jwks_cache = jwks_data
+        _jwks_cache_time = now
+        return jwks_data
+    except Exception as e:
+        # If we have cached data, use it even if expired
+        if _jwks_cache is not None:
+            return _jwks_cache
+        raise HTTPException(status_code=503, detail=f"Unable to fetch JWKS: {str(e)}")
 
 
 def get_signing_key_from_jwks(jwks_data: Dict[str, Any], token: str) -> str:
@@ -140,93 +164,181 @@ def get_signing_key_from_jwks(jwks_data: Dict[str, Any], token: str) -> str:
         )
 
 
-# Public auth endpoints that do not require a JWT (login/signup generate tokens;
-# refresh uses refresh cookie; jwks is the public key endpoint; logout clears cookies)
-_PUBLIC_AUTH_PATHS = {
-    "/api/v1/auth/login",
-    "/api/v1/auth/signup",
-    "/api/v1/auth/refresh",
-    "/api/v1/auth/logout",
-    "/api/v1/auth/.well-known/jwks.json",
-}
+# ============================================================================
+# Routing table
+# ============================================================================
 
-# Admin service health check endpoints (bypass JWT verification)
-_ADMIN_HEALTH_PATHS = {
-    "/api/v1/admin/health",
-    "/api/v1/auth/health",
-    "/api/v1/houses/health",
-    "/api/v1/ai/health",
-    "/api/v1/search/health",
-}
+PUBLIC, USER, ADMIN = "public", "user", "admin"
 
-# Public read-only routes — accessible without authentication (Phase 6: public search)
-_PUBLIC_READ_PREFIXES = (
-    "/api/v1/houses",
-    "/api/v1/communities",
-    "/api/v1/search",
-)
+
+@dataclass(frozen=True)
+class Route:
+    pattern: re.Pattern
+    upstream: str
+    read_policy: str  # GET/HEAD
+    write_policy: str  # everything else
+
+
+def _r(pattern: str, upstream: str, read: str, write: str) -> Route:
+    return Route(re.compile(pattern), upstream, read, write)
+
+
+# First match wins — keep specific patterns above their prefixes.
+ROUTES: list[Route] = [
+    # Auth: login/signup/refresh/logout/jwks are public, everything else needs a token
+    _r(r"^/api/v1/auth/(login|signup|refresh|logout|\.well-known/jwks\.json)$",
+       AUTH_SERVICE_URL, PUBLIC, PUBLIC),
+    _r(r"^/api/v1/auth/", AUTH_SERVICE_URL, USER, USER),
+    # Per-listing analytics live in ai-insights-service
+    _r(r"^/api/v1/houses/\d+/(insights|valuation)$", AI_INSIGHTS_SERVICE_URL, PUBLIC, ADMIN),
+    _r(r"^/api/v1/(neighborhoods|markets)(/|$)", AI_INSIGHTS_SERVICE_URL, PUBLIC, ADMIN),
+    # Stateless calculator — the POST body carries only the user's assumptions
+    _r(r"^/api/v1/cashflow$", AI_INSIGHTS_SERVICE_URL, PUBLIC, PUBLIC),
+    _r(r"^/api/v1/ai/", AI_INSIGHTS_SERVICE_URL, ADMIN, ADMIN),
+    # Listing catalogue: public reads, admin-only writes
+    _r(r"^/api/v1/(houses|communities)(/|$)", HOUSE_SERVICE_URL, PUBLIC, ADMIN),
+    _r(r"^/api/v1/search(/|$)", SEARCH_SERVICE_URL, PUBLIC, ADMIN),
+    _r(r"^/api/v1/portfolio/", PORTFOLIO_SERVICE_URL, USER, USER),
+    # Ingestion control is an operator function
+    _r(r"^/api/v1/scraper/", SCRAPER_SERVICE_URL, ADMIN, ADMIN),
+]
+
+
+def resolve_route(path: str) -> Optional[Route]:
+    for route in ROUTES:
+        if route.pattern.match(path):
+            return route
+    return None
+
+
+def policy_for(route: Route, method: str) -> str:
+    return route.read_policy if method in ("GET", "HEAD") else route.write_policy
+
+
+_HEALTH_PATH = re.compile(r"^/api/v1/[a-z]+/health$")
+
+
+# ============================================================================
+# Authentication / authorization middleware
+# ============================================================================
+
+
+def _extract_token(request: Request) -> Optional[str]:
+    token = request.cookies.get("access_token")
+    if token:
+        return token
+    auth_header = request.headers.get("Authorization")
+    if auth_header and auth_header.startswith("Bearer "):
+        return auth_header[7:]
+    return None
+
+
+async def _decode(token: str) -> dict:
+    jwks_data = await get_jwks()
+    public_key_pem = get_signing_key_from_jwks(jwks_data, token)
+    return verify_token(token, public_key_pem=public_key_pem, token_type="access")
 
 
 @app.middleware("http")
 async def verify_jwt_middleware(request: Request, call_next):
-    """Middleware to verify JWT tokens for protected routes."""
+    """Authenticate the caller and enforce the route's access policy."""
     path = request.url.path
 
-    # Skip verification for OPTIONS preflight (CORS), health, gateway info, docs, and public auth
     if (
         request.method == "OPTIONS"
-        or path in ["/health", "/api/v1/routes"]
-        or path in _PUBLIC_AUTH_PATHS
-        or path in _ADMIN_HEALTH_PATHS
+        or path in ("/health", "/api/v1/routes")
+        or _HEALTH_PATH.match(path)
         or path.startswith("/docs")
         or path.startswith("/openapi.json")
     ):
         return await call_next(request)
 
-    # Allow unauthenticated GET requests to public read-only endpoints (Phase 6 search page)
-    if request.method == "GET" and any(path.startswith(p) for p in _PUBLIC_READ_PREFIXES):
-        return await call_next(request)
+    route = resolve_route(path)
+    if route is None:
+        return JSONResponse(status_code=404, content={"detail": "Not found"})
+    policy = policy_for(route, request.method)
 
-    # Get token from cookie
-    token = request.cookies.get("access_token")
-    if not token:
-        # Also check Authorization header as fallback
-        auth_header = request.headers.get("Authorization")
-        if auth_header and auth_header.startswith("Bearer "):
-            token = auth_header[7:]
+    token = _extract_token(request)
+    error: Optional[JSONResponse] = None
+    if token:
+        try:
+            payload = await _decode(token)
+            request.state.user_id = payload["sub"]
+            request.state.user_role = payload.get("role", "user")
+        except HTTPException as e:
+            error = JSONResponse(status_code=e.status_code, content={"detail": e.detail})
+        except pyjwt.InvalidTokenError as e:
+            error = JSONResponse(status_code=401, content={"detail": f"Invalid token: {str(e)}"})
+        except Exception as e:
+            error = JSONResponse(
+                status_code=401, content={"detail": f"Token verification failed: {str(e)}"}
+            )
 
-    if not token:
-        # Return JSONResponse directly — raising HTTPException from middleware is unreliable
-        # across Starlette versions; a direct Response is always safe.
-        return JSONResponse(status_code=401, content={"detail": "Missing access token"})
+    if policy != PUBLIC:
+        if error is not None:
+            return error
+        if not hasattr(request.state, "user_id"):
+            # Return JSONResponse directly — raising HTTPException from middleware is
+            # unreliable across Starlette versions; a direct Response is always safe.
+            return JSONResponse(status_code=401, content={"detail": "Missing access token"})
+        if policy == ADMIN and request.state.user_role != "admin":
+            return JSONResponse(status_code=403, content={"detail": "Admin role required"})
 
+    return await call_next(request)
+
+
+# ============================================================================
+# Proxy
+# ============================================================================
+
+# RFC 7230 hop-by-hop headers plus headers httpx recomputes itself.
+_HOP_BY_HOP = {
+    "connection", "keep-alive", "proxy-authenticate", "proxy-authorization",
+    "te", "trailers", "transfer-encoding", "upgrade", "host", "content-length",
+}
+# httpx transparently decompresses, so the upstream encoding no longer applies.
+_RESPONSE_DROP = _HOP_BY_HOP | {"content-encoding"}
+
+
+def _forward_headers(request: Request) -> dict[str, str]:
+    headers = {
+        k: v
+        for k, v in request.headers.items()
+        if k.lower() not in _HOP_BY_HOP and not k.lower().startswith("x-user-")
+    }
+    if hasattr(request.state, "user_id"):
+        headers["X-User-ID"] = str(request.state.user_id)
+        headers["X-User-Role"] = str(request.state.user_role)
+    return headers
+
+
+def _to_response(resp: httpx.Response) -> Response:
+    out = Response(content=resp.content, status_code=resp.status_code)
+    # Iterate raw pairs so repeated headers (Set-Cookie for access + refresh) survive;
+    # dict(resp.headers) would comma-join them into one unparseable cookie.
+    for key, value in resp.headers.multi_items():
+        if key.lower() not in _RESPONSE_DROP:
+            out.headers.append(key, value)
+    return out
+
+
+async def proxy(request: Request, upstream: str) -> Response:
     try:
-        # Get JWKS and verify token
-        jwks_data = await get_jwks()
-        public_key_pem = get_signing_key_from_jwks(jwks_data, token)
-
-        # Verify token
-        payload = verify_token(
-            token, public_key_pem=public_key_pem, token_type="access"
+        resp = await _client.request(
+            method=request.method,
+            url=f"{upstream}{request.url.path}",
+            headers=_forward_headers(request),
+            content=await request.body(),
+            params=request.query_params,
         )
+    except httpx.HTTPError as e:
+        return JSONResponse(status_code=502, content={"detail": f"Upstream unavailable: {e}"})
+    return _to_response(resp)
 
-        # Store user info in request.state — proxy functions inject this into outgoing headers
-        request.state.user_id = payload["sub"]
-        request.state.user_email = payload.get("email", "")
 
-    except pyjwt.ExpiredSignatureError:
-        return JSONResponse(status_code=401, content={"detail": "Token has expired"})
-    except pyjwt.InvalidTokenError as e:
-        return JSONResponse(
-            status_code=401, content={"detail": f"Invalid token: {str(e)}"}
-        )
-    except Exception as e:
-        return JSONResponse(
-            status_code=401, content={"detail": f"Token verification failed: {str(e)}"}
-        )
-
-    response = await call_next(request)
-    return response
+# ============================================================================
+# Gateway endpoints
+# ============================================================================
 
 
 @app.get("/health", tags=["health"])
@@ -236,234 +348,45 @@ async def health() -> dict[str, str]:
 
 @app.get("/api/v1/routes", tags=["gateway"])
 async def routes() -> dict[str, list[str]]:
-    return {"routes": ["/api/v1/auth", "/api/v1/houses", "/api/v1/search"]}
+    return {"routes": [
+        "/api/v1/auth", "/api/v1/houses", "/api/v1/communities", "/api/v1/search",
+        "/api/v1/portfolio", "/api/v1/neighborhoods", "/api/v1/cashflow",
+        "/api/v1/ai", "/api/v1/scraper",
+    ]}
 
 
-@app.get("/api/v1/admin/health", tags=["health"])
-async def admin_health():
-    """Admin health check - proxies to auth service health."""
-    async with httpx.AsyncClient() as client:
-        url = f"{AUTH_SERVICE_URL}/health"
-        resp = await client.get(url)
-        return Response(
-            content=resp.content,
-            status_code=resp.status_code,
-            headers=dict(resp.headers),
-            media_type=resp.headers.get("content-type"),
-        )
+_HEALTH_UPSTREAMS = {
+    "admin": f"{AUTH_SERVICE_URL}/health",
+    "auth": f"{AUTH_SERVICE_URL}/health",
+    "houses": f"{HOUSE_SERVICE_URL}/health",
+    "ai": f"{AI_INSIGHTS_SERVICE_URL}/api/v1/health",
+    "search": f"{SEARCH_SERVICE_URL}/health",
+    "portfolio": f"{PORTFOLIO_SERVICE_URL}/health",
+    "scraper": f"{SCRAPER_SERVICE_URL}/api/v1/scraper/health",
+}
 
 
-@app.get("/api/v1/auth/health", tags=["health"])
-async def auth_service_health():
-    """Proxy auth-service health check."""
-    async with httpx.AsyncClient() as client:
-        resp = await client.get(f"{AUTH_SERVICE_URL}/health", timeout=3.0)
-        return Response(
-            content=resp.content,
-            status_code=resp.status_code,
-            headers=dict(resp.headers),
-            media_type=resp.headers.get("content-type"),
-        )
+@app.get("/api/v1/{service}/health", tags=["health"])
+async def service_health(service: str) -> Response:
+    """Proxy a downstream service's health check (used by the admin dashboard)."""
+    url = _HEALTH_UPSTREAMS.get(service)
+    if url is None:
+        return JSONResponse(status_code=404, content={"detail": "Unknown service"})
+    try:
+        resp = await _client.get(url, timeout=3.0)
+    except httpx.HTTPError as e:
+        return JSONResponse(status_code=503, content={"status": "down", "detail": str(e)})
+    return _to_response(resp)
 
 
-@app.get("/api/v1/houses/health", tags=["health"])
-async def house_service_health():
-    """Proxy house-api-service health check."""
-    async with httpx.AsyncClient() as client:
-        resp = await client.get(f"{HOUSE_SERVICE_URL}/health", timeout=3.0)
-        return Response(
-            content=resp.content,
-            status_code=resp.status_code,
-            headers=dict(resp.headers),
-            media_type=resp.headers.get("content-type"),
-        )
-
-
-@app.get("/api/v1/ai/health", tags=["health"])
-async def ai_service_health():
-    """Proxy ai-insights-service health check."""
-    async with httpx.AsyncClient() as client:
-        resp = await client.get(f"{AI_INSIGHTS_SERVICE_URL}/api/v1/health", timeout=3.0)
-        return Response(
-            content=resp.content,
-            status_code=resp.status_code,
-            headers=dict(resp.headers),
-            media_type=resp.headers.get("content-type"),
-        )
-
-
-@app.get("/api/v1/search/health", tags=["health"])
-async def search_service_health():
-    """Proxy search-service health check."""
-    async with httpx.AsyncClient() as client:
-        resp = await client.get(f"{SEARCH_SERVICE_URL}/health", timeout=3.0)
-        return Response(
-            content=resp.content,
-            status_code=resp.status_code,
-            headers=dict(resp.headers),
-            media_type=resp.headers.get("content-type"),
-        )
-
-
-@app.api_route(
-    "/api/v1/auth/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH"]
-)
+@app.api_route("/api/v1/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH"])
 @limiter.limit("100/minute")
-async def auth_proxy(request: Request, path: str):
-    """Proxy requests to auth service."""
-    async with httpx.AsyncClient() as client:
-        url = f"{AUTH_SERVICE_URL}/api/v1/auth/{path}"
-        headers = dict(request.headers)
-        headers.pop("host", None)
-        # Inject authenticated user ID for downstream use (e.g. /me endpoint)
-        if hasattr(request.state, "user_id"):
-            headers["X-User-ID"] = str(request.state.user_id)
-
-        body = await request.body()
-
-        resp = await client.request(
-            method=request.method,
-            url=url,
-            headers=headers,
-            content=body,
-            params=request.query_params,
-        )
-
-        return Response(
-            content=resp.content,
-            status_code=resp.status_code,
-            headers=dict(resp.headers),
-            media_type=resp.headers.get("content-type"),
-        )
-
-
-@app.api_route(
-    "/api/v1/houses", methods=["GET", "POST", "PUT", "DELETE", "PATCH"]
-)
-@app.api_route(
-    "/api/v1/houses/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH"]
-)
-@limiter.limit("100/minute")
-async def houses_proxy(request: Request, path: str = ""):
-    """Proxy requests to house service."""
-    async with httpx.AsyncClient() as client:
-        url = f"{HOUSE_SERVICE_URL}/api/v1/houses/{path}".rstrip("/")
-        headers = dict(request.headers)
-        headers.pop("host", None)
-        if hasattr(request.state, "user_id"):
-            headers["X-User-ID"] = str(request.state.user_id)
-
-        body = await request.body()
-
-        resp = await client.request(
-            method=request.method,
-            url=url,
-            headers=headers,
-            content=body,
-            params=request.query_params,
-        )
-
-        return Response(
-            content=resp.content,
-            status_code=resp.status_code,
-            headers=dict(resp.headers),
-            media_type=resp.headers.get("content-type"),
-        )
-
-
-@app.api_route(
-    "/api/v1/communities", methods=["GET"]
-)
-@app.api_route(
-    "/api/v1/communities/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH"]
-)
-@limiter.limit("100/minute")
-async def communities_proxy(request: Request, path: str = ""):
-    """Proxy community requests to house service."""
-    async with httpx.AsyncClient() as client:
-        url = f"{HOUSE_SERVICE_URL}/api/v1/communities/{path}".rstrip("/")
-        headers = dict(request.headers)
-        headers.pop("host", None)
-        if hasattr(request.state, "user_id"):
-            headers["X-User-ID"] = str(request.state.user_id)
-
-        body = await request.body()
-        resp = await client.request(
-            method=request.method,
-            url=url,
-            headers=headers,
-            content=body,
-            params=request.query_params,
-        )
-        return Response(
-            content=resp.content,
-            status_code=resp.status_code,
-            headers=dict(resp.headers),
-            media_type=resp.headers.get("content-type"),
-        )
-
-
-@app.api_route(
-    "/api/v1/search/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH"]
-)
-@limiter.limit("100/minute")
-async def search_proxy(request: Request, path: str):
-    """Proxy requests to search service."""
-    async with httpx.AsyncClient() as client:
-        url = f"{SEARCH_SERVICE_URL}/api/v1/search/{path}"
-        headers = dict(request.headers)
-        headers.pop("host", None)
-        if hasattr(request.state, "user_id"):
-            headers["X-User-ID"] = str(request.state.user_id)
-
-        # Get request body
-        body = await request.body()
-
-        resp = await client.request(
-            method=request.method,
-            url=url,
-            headers=headers,
-            content=body,
-            params=request.query_params,
-        )
-
-        return Response(
-            content=resp.content,
-            status_code=resp.status_code,
-            headers=dict(resp.headers),
-        media_type=resp.headers.get("content-type"),
-    )
-
-
-@app.api_route(
-    "/api/v1/portfolio/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH"]
-)
-@limiter.limit("100/minute")
-async def portfolio_proxy(request: Request, path: str):
-    """Proxy requests to portfolio service."""
-    async with httpx.AsyncClient() as client:
-        url = f"{PORTFOLIO_SERVICE_URL}/api/v1/portfolio/{path}"
-        headers = dict(request.headers)
-        headers.pop("host", None)
-        if hasattr(request.state, "user_id"):
-            headers["X-User-ID"] = str(request.state.user_id)
-
-        body = await request.body()
-
-        resp = await client.request(
-            method=request.method,
-            url=url,
-            headers=headers,
-            content=body,
-            params=request.query_params,
-        )
-
-        return Response(
-            content=resp.content,
-            status_code=resp.status_code,
-            headers=dict(resp.headers),
-            media_type=resp.headers.get("content-type"),
-        )
+async def gateway_proxy(request: Request, path: str) -> Response:
+    """Forward to the upstream resolved from the routing table."""
+    route = resolve_route(request.url.path)
+    if route is None:
+        return JSONResponse(status_code=404, content={"detail": "Not found"})
+    return await proxy(request, route.upstream)
 
 
 if __name__ == "__main__":

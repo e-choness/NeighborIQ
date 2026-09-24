@@ -1,8 +1,10 @@
 """
 Redis-backed URL deduplication pipeline.
 
-Hashes each house URL and stores it in Redis with a 7-day TTL.
-Items whose URL hash is already present are dropped (already processed recently).
+Hashes each listing's (url, price, status) and stores it in Redis with a 7-day TTL.
+An unchanged listing seen again within the window is dropped; a price or status
+change produces a new fingerprint, so it reaches the writer and lands in
+house_price_history.
 """
 import hashlib
 import logging
@@ -15,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 class RedisDedupPipeline:
     """
-    Drops items whose URL was seen within the last 7 days.
+    Drops items whose (url, price, status) was seen within the last 7 days.
     Uses Redis SET with TTL for O(1) membership check.
     """
 
@@ -46,13 +48,14 @@ class RedisDedupPipeline:
             # No URL to dedup on — let through
             return item
 
-        key = self._make_key(url)
+        key = self._make_key(url, item.get("price"), item.get("status"))
         if self.client.exists(key):
-            raise DropItem(f"Duplicate URL (seen within 7 days): {url}")
+            raise DropItem(f"Unchanged listing (seen within 7 days): {url}")
 
         self.client.setex(key, self.ttl_seconds, "1")
         return item
 
-    def _make_key(self, url: str) -> str:
-        url_hash = hashlib.sha256(url.encode()).hexdigest()
+    def _make_key(self, url: str, price=None, status=None) -> str:
+        fingerprint = f"{url}|{price}|{status or 'active'}"
+        url_hash = hashlib.sha256(fingerprint.encode()).hexdigest()
         return f"{self.REDIS_KEY_PREFIX}{url_hash}"

@@ -9,6 +9,7 @@ from shared.models.house_models import (
     HouseSchoolLink,
     HouseHospitalLink,
     HouseBusLink,
+    RentBenchmark,
 )
 from shared.models.ai_models import HousePricePrediction, HouseRentalYield, MarketInsight
 from shared.models.schemas import (
@@ -42,6 +43,7 @@ __all__ = [
     "HouseSchoolLink",
     "HouseHospitalLink",
     "HouseBusLink",
+    "RentBenchmark",
     # AI ORM
     "HousePricePrediction",
     "HouseRentalYield",

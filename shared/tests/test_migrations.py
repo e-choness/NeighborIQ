@@ -94,6 +94,8 @@ def test_all_expected_tables_exist(sync_engine):
         "house_price_predictions",
         "house_rental_yields",
         "house_market_insights",
+        # Canadian listing model (migration 003)
+        "house_rent_benchmarks",
     ]
     inspector = inspect(sync_engine)
     existing = set(inspector.get_table_names())
@@ -124,6 +126,36 @@ def test_house_houses_indexes(sync_engine):
     }
     missing = required - indexes
     assert not missing, f"Missing indexes on house_houses: {missing}"
+
+
+def test_canadian_listing_columns(sync_engine):
+    """Migration 003 must add the columns valuation and cash flow depend on."""
+    inspector = inspect(sync_engine)
+    columns = {c["name"] for c in inspector.get_columns("house_houses")}
+    required = {
+        "property_type", "sqft", "bathrooms", "parking", "postal_code",
+        "condo_fee", "property_tax", "status", "listed_at", "source", "is_synthetic",
+    }
+    missing = required - columns
+    assert not missing, f"Missing Canadian listing columns: {missing}"
+
+
+def test_alembic_schema_matches_orm(sync_engine):
+    """create_all (used at service startup) and Alembic must agree on columns."""
+    from shared.database.postgres import Base
+    import shared.models  # noqa: F401 — registers every table on Base.metadata
+
+    inspector = inspect(sync_engine)
+    drift = {}
+    for table in Base.metadata.sorted_tables:
+        if table.name not in inspector.get_table_names():
+            drift[table.name] = "missing table"
+            continue
+        db_cols = {c["name"] for c in inspector.get_columns(table.name)}
+        orm_cols = {c.name for c in table.columns}
+        if orm_cols - db_cols:
+            drift[table.name] = sorted(orm_cols - db_cols)
+    assert not drift, f"ORM columns missing from Alembic schema: {drift}"
 
 
 def test_alembic_downgrade_base_succeeds():

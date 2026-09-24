@@ -69,6 +69,8 @@ jobs:
           - house-api-service
           - search-service
           - portfolio-service
+          - scraper-service
+          - ai-insights-service
     steps:
       - uses: actions/checkout@v4
 
@@ -80,22 +82,29 @@ jobs:
 
       - name: Start Docker services (postgres, redis, elasticsearch)
         run: |
-          docker-compose up -d postgres redis elasticsearch
-          docker-compose exec -T postgres pg_isready -U root
-          sleep 10
+          docker compose up -d --wait postgres redis elasticsearch
 
       - name: Install service dependencies
         run: |
           pip install --upgrade pip
           pip install -r services/${{ matrix.service }}/requirements.txt
+          pip install alembic psycopg2-binary
+
+      - name: Apply database migrations
+        env:
+          DATABASE_URL: postgresql+asyncpg://root:root@localhost:5432/house_discovery
+        run: alembic -c migrations/alembic.ini upgrade head
 
       - name: Run pytest
         env:
           DATABASE_URL: postgresql+asyncpg://root:root@localhost:5432/house_discovery
+          SCRAPER_DATABASE_URL: postgresql://root:root@localhost:5432/house_discovery
           REDIS_URL: redis://localhost:6379/0
           ELASTICSEARCH_URL: http://localhost:9200
+          PYTHONPATH: ${{ github.workspace }}:${{ github.workspace }}/services/${{ matrix.service }}
         run: |
           cd services/${{ matrix.service }}
+          pip install pytest-cov
           pytest -v --cov=app --cov-report=xml --tb=short
 
       - name: Upload coverage
@@ -107,7 +116,7 @@ jobs:
 
       - name: Stop Docker services
         if: always()
-        run: docker-compose down
+        run: docker compose down
 
   # === DOCKER BUILD ===
   build:

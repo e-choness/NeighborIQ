@@ -1,188 +1,120 @@
 """
-ML models for price prediction and rental yield estimation (Phase 5B).
+XGBoost price model with an honest, backtested error band.
 
-Price Prediction:
-  Algorithm : XGBoost regression wrapped in a scikit-learn Pipeline
-  Features  : area, rooms, floor, age, decoration, price_per_sqm_regional
-  Output    : predicted_price (point) + 80% CI (±15% heuristic until quantile
-              regression is warranted by data volume)
-  Persistence: joblib serialisation to MODEL_PATH
+Training holds out 20% of listings, measures the model's relative error on
+them, then refits on everything. The 10th/90th percentiles of that held-out
+error define the displayed range, so "80%" means "on unseen listings, the
+asking price fell inside this band 80% of the time" — an empirical claim we can
+check, not a hard-coded ±15%.
 
-Rental Yield:
-  Pure formula — no ML needed:
-    annual_rent = area × regional_rate_per_sqm_per_year
-    gross_yield = annual_rent / purchase_price
-    net_yield   = (annual_rent − management_costs) / purchase_price
+The model is off in the UI by default (ML_PREDICTIONS_ENABLED=0): comparable
+listings are the primary valuation. Turn it on only once the backtest metrics
+(stored with the model) are good enough for your market.
 """
 import logging
 import os
 
 import joblib
 import numpy as np
-from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import StandardScaler
 import xgboost as xgb
 
 logger = logging.getLogger(__name__)
 
 MODEL_PATH = os.getenv("MODEL_PATH", "/app/models/price_prediction.joblib")
-MODEL_VERSION = "v1.0.0-xgboost"
-
-# CI half-width: 80% CI approximated as ±15% of the point estimate.
-# Replace with quantile regression (XGBRegressor objective="reg:quantileerror")
-# once sufficient data has accumulated (1 000+ houses).
-CI_HALF_WIDTH = 0.15
-
-# ---------------------------------------------------------------------------
-# Regional rental rates (CAD per m² per year) — update from market benchmarks
-# ---------------------------------------------------------------------------
-DEFAULT_RENTAL_RATES_PER_SQM_YEAR: dict[str, float] = {
-    "toronto": 350.0,
-    "vancouver": 400.0,
-    "calgary": 220.0,
-    "ottawa": 240.0,
-    "montreal": 200.0,
-    "edmonton": 190.0,
-    "winnipeg": 170.0,
-}
-FALLBACK_RENTAL_RATE = 250.0
-MANAGEMENT_COST_RATIO = 0.10   # 10% of annual rent
+MODEL_VERSION = "v2.0.0-xgboost"
+MIN_TRAINING_ROWS = 100
+HOLDOUT_SHARE = 0.2
+INTERVAL_QUANTILES = (0.10, 0.90)
 
 
-# ---------------------------------------------------------------------------
-# Model training
-# ---------------------------------------------------------------------------
+def ml_predictions_enabled() -> bool:
+    return os.getenv("ML_PREDICTIONS_ENABLED", "0") == "1"
 
-def train_model(X: np.ndarray, y: np.ndarray) -> Pipeline:
-    """
-    Train an XGBoost regression pipeline on (X, y).
 
-    Minimum recommended training set: 1 000 rows. For smaller sets the model
-    still trains but predictions may be unreliable — the API consumer is
-    responsible for communicating this via the confidence field.
+def _regressor() -> xgb.XGBRegressor:
+    # Trees are scale-invariant, so no StandardScaler is needed.
+    return xgb.XGBRegressor(
+        n_estimators=300,
+        max_depth=5,
+        learning_rate=0.05,
+        subsample=0.8,
+        colsample_bytree=0.8,
+        random_state=42,
+        verbosity=0,
+        tree_method="hist",
+    )
 
-    Args:
-        X: Feature matrix of shape (n_samples, n_features).
-        y: Target vector of shape (n_samples,) — house prices.
 
-    Returns:
-        Fitted scikit-learn Pipeline (StandardScaler + XGBRegressor).
-    """
+def train_model(X: np.ndarray, y: np.ndarray) -> xgb.XGBRegressor:
+    """Fit on all rows. Raises on empty input."""
     if len(X) == 0:
         raise ValueError("Cannot train on an empty dataset.")
-
-    pipeline = Pipeline([
-        ("scaler", StandardScaler()),
-        ("model", xgb.XGBRegressor(
-            n_estimators=100,
-            max_depth=4,
-            learning_rate=0.1,
-            subsample=0.8,
-            colsample_bytree=0.8,
-            random_state=42,
-            verbosity=0,
-            tree_method="hist",   # fast on CPU
-        )),
-    ])
-    pipeline.fit(X, y)
+    model = _regressor()
+    model.fit(X, y)
     logger.info("Model trained on %d samples.", len(X))
-    return pipeline
+    return model
 
 
-def save_model(pipeline: Pipeline, path: str = MODEL_PATH) -> None:
+def backtest(X: np.ndarray, y: np.ndarray, seed: int = 42) -> dict:
+    """
+    Held-out evaluation. Relative error e = (actual − predicted) / predicted, so
+    actual ≈ predicted × (1 + e). Returns MAPE and the e quantiles used for the band.
+    """
+    if len(X) < MIN_TRAINING_ROWS:
+        raise ValueError(f"Need at least {MIN_TRAINING_ROWS} rows to backtest, got {len(X)}.")
+    rng = np.random.default_rng(seed)
+    idx = rng.permutation(len(X))
+    n_test = max(1, int(len(X) * HOLDOUT_SHARE))
+    test, train = idx[:n_test], idx[n_test:]
+
+    model = train_model(X[train], y[train])
+    predicted = np.maximum(model.predict(X[test]), 1.0)
+    rel_error = (y[test] - predicted) / predicted
+    low_q, high_q = np.quantile(rel_error, INTERVAL_QUANTILES)
+    return {
+        "n_train": int(len(train)),
+        "n_test": int(n_test),
+        "mape_pct": round(float(np.mean(np.abs(y[test] - predicted) / y[test]) * 100), 2),
+        "rel_error_low": float(low_q),
+        "rel_error_high": float(high_q),
+        "coverage": INTERVAL_QUANTILES[1] - INTERVAL_QUANTILES[0],
+    }
+
+
+def save_model(model, metrics: dict, city_medians: dict[str, float], path: str = MODEL_PATH) -> None:
     os.makedirs(os.path.dirname(path), exist_ok=True)
-    joblib.dump({"pipeline": pipeline, "version": MODEL_VERSION}, path)
-    logger.info("Model saved to %s", path)
+    joblib.dump(
+        {"model": model, "version": MODEL_VERSION, "metrics": metrics, "city_medians": city_medians},
+        path,
+    )
+    logger.info("Model saved to %s (MAPE %.1f%%)", path, metrics.get("mape_pct", float("nan")))
 
 
-def load_model(path: str = MODEL_PATH) -> Pipeline | None:
-    """Return the fitted pipeline, or None if no model file exists yet."""
+def load_model(path: str = MODEL_PATH) -> dict | None:
+    """
+    Return {"model", "version", "metrics", "city_medians"} or None if there is no
+    usable model (missing file, or an older payload without backtest metrics).
+    """
     if not os.path.exists(path):
         logger.info("No model file at %s — skipping price prediction.", path)
         return None
     payload = joblib.load(path)
-    return payload["pipeline"]
+    if not isinstance(payload, dict) or "metrics" not in payload:
+        logger.warning("Model at %s has no backtest metrics — retrain before use.", path)
+        return None
+    return payload
 
 
-# ---------------------------------------------------------------------------
-# Inference
-# ---------------------------------------------------------------------------
-
-def predict_price(pipeline: Pipeline, feature_vector: np.ndarray) -> dict:
-    """
-    Predict house price for a single feature vector.
-
-    Args:
-        pipeline: Fitted scikit-learn Pipeline from train_model().
-        feature_vector: 1-D numpy array of shape (n_features,).
-
-    Returns:
-        Dict with predicted_price, price_low, price_high, confidence, model_version.
-    """
+def predict_price(bundle: dict, feature_vector: np.ndarray) -> dict:
+    """Point prediction plus the backtested band."""
     if feature_vector.ndim == 1:
         feature_vector = feature_vector.reshape(1, -1)
-
-    predicted = float(pipeline.predict(feature_vector)[0])
-    predicted = max(0.0, predicted)   # prices can't be negative
-    low = predicted * (1 - CI_HALF_WIDTH)
-    high = predicted * (1 + CI_HALF_WIDTH)
-
+    predicted = max(0.0, float(bundle["model"].predict(feature_vector)[0]))
+    metrics = bundle["metrics"]
     return {
         "predicted_price": int(predicted),
-        "price_low": int(low),
-        "price_high": int(high),
-        "confidence": 0.80,
-        "model_version": MODEL_VERSION,
-    }
-
-
-# ---------------------------------------------------------------------------
-# Rental yield formula
-# ---------------------------------------------------------------------------
-
-def compute_rental_yield(
-    house_id: int,
-    area: float,
-    purchase_price: int,
-    city: str,
-    regional_rate: float | None = None,
-) -> dict:
-    """
-    Compute formula-based rental yield for a house.
-
-    annual_rent = area (m²) × rate (CAD/m²/year)
-    gross_yield = annual_rent / purchase_price
-    net_yield   = (annual_rent − management_costs) / purchase_price
-
-    Args:
-        house_id       : DB primary key.
-        area           : Floor area in m².
-        purchase_price : Listing price.
-        city           : City name (used to look up regional rate).
-        regional_rate  : Override rate in CAD/m²/year; uses city default if None.
-
-    Returns:
-        Dict with house_id, annual_rent, gross_yield, net_yield.
-    """
-    if area <= 0 or purchase_price <= 0:
-        return {
-            "house_id": house_id,
-            "annual_rent": 0,
-            "gross_yield": 0.0,
-            "net_yield": 0.0,
-        }
-
-    rate = regional_rate if regional_rate is not None else (
-        DEFAULT_RENTAL_RATES_PER_SQM_YEAR.get(city.lower(), FALLBACK_RENTAL_RATE)
-    )
-    annual_rent = area * rate
-    management_costs = annual_rent * MANAGEMENT_COST_RATIO
-    gross_yield = annual_rent / purchase_price
-    net_yield = (annual_rent - management_costs) / purchase_price
-
-    return {
-        "house_id": house_id,
-        "annual_rent": int(annual_rent),
-        "gross_yield": round(gross_yield, 4),
-        "net_yield": round(net_yield, 4),
+        "price_low": int(predicted * (1 + metrics["rel_error_low"])),
+        "price_high": int(predicted * (1 + metrics["rel_error_high"])),
+        "confidence": round(metrics["coverage"], 4),
+        "model_version": bundle.get("version", MODEL_VERSION),
     }

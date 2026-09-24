@@ -57,6 +57,10 @@ class TestLocalNarrativeAdapter:
         # Should recommend professional advice
         assert "real estate" in result.lower()
 
+    def test_missing_stats_are_not_invented(self):
+        result = LocalNarrativeAdapter().generate(city="toronto", stats={"listing_count": 3})
+        assert "trend" not in result and "yield" not in result
+
 
 class TestGetAdapter:
     def test_default_returns_local(self, monkeypatch):

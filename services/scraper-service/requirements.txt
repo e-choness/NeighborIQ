@@ -10,3 +10,4 @@ uvicorn[standard]
 pytest
 pytest-mock
 httpx
+alembic

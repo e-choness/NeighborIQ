@@ -92,3 +92,34 @@ def test_logout_clears_cookies(client: TestClient) -> None:
     # 3. Verify cookies are cleared (max_age=0 or expires in past)
     # The TestClient will have removed the cookies
     assert "refresh_token" not in client.cookies or client.cookies.get("refresh_token") == ""
+
+
+def _access_claims(client: TestClient) -> dict:
+    import jwt as pyjwt
+
+    return pyjwt.decode(client.cookies["access_token"], options={"verify_signature": False})
+
+
+def test_access_token_carries_user_role(client: TestClient) -> None:
+    """The gateway authorizes admin routes on the role claim — it must be present."""
+    response = client.post(
+        "/api/v1/auth/signup",
+        json={"email": "role_claim_test@example.com", "password": "secure_password123"},
+    )
+    assert response.status_code == 200
+    assert _access_claims(client)["role"] == "user"
+
+
+def test_admin_emails_bootstrap_admin_role(client: TestClient) -> None:
+    """Emails listed in ADMIN_EMAILS sign up as admins (conftest sets the env var)."""
+    response = client.post(
+        "/api/v1/auth/signup",
+        json={"email": "admin_bootstrap_test@example.com", "password": "secure_password123"},
+    )
+    assert response.status_code == 200
+    assert response.json()["role"] == "admin"
+    assert _access_claims(client)["role"] == "admin"
+
+    # Refresh keeps the role (it is re-read from the DB, not copied from the old token)
+    assert client.post("/api/v1/auth/refresh").status_code == 200
+    assert _access_claims(client)["role"] == "admin"

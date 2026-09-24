@@ -65,6 +65,7 @@ def create_access_token(
     expires_delta: Optional[timedelta] = None,
     private_key_pem: Optional[str] = None,
     key_id: Optional[str] = None,
+    role: Optional[str] = None,
 ) -> str:
     """
     Create a JWT access token (short-lived, 15 minutes).
@@ -74,6 +75,7 @@ def create_access_token(
         expires_delta: Override default expiration
         private_key_pem: RSA private key (PEM format)
         key_id: Key ID for the JWKS endpoint
+        role: User role ("user" or "admin"); the gateway authorizes admin routes on it
 
     Returns:
         Encoded JWT string
@@ -94,6 +96,7 @@ def create_access_token(
         "iat": int(now.timestamp()),
         "exp": int(expire.timestamp()),
         "type": "access",
+        "role": role or "user",
     }
 
     headers = {}

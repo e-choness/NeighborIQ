@@ -7,7 +7,7 @@ services:
       POSTGRES_USER: root
       POSTGRES_PASSWORD: root
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
@@ -21,7 +21,7 @@ services:
   redis:
     image: redis:7-alpine
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     networks:
       - neighbor_iq_net
     healthcheck:
@@ -37,7 +37,7 @@ services:
       - xpack.security.enabled=false
       - ES_JAVA_OPTS=-Xms512m -Xmx512m
     ports:
-      - "9200:9200"
+      - "127.0.0.1:9200:9200"
     networks:
       - neighbor_iq_net
     healthcheck:
@@ -45,6 +45,39 @@ services:
       interval: 20s
       timeout: 10s
       retries: 10
+
+  # One-shot: owns the schema. Every service that touches Postgres waits for it.
+  migrate:
+    build:
+      context: .
+      dockerfile: services/scraper-service/Dockerfile
+    command: ["alembic", "-c", "migrations/alembic.ini", "upgrade", "head"]
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://root:root@postgres:5432/house_discovery
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+    networks:
+      - neighbor_iq_net
+
+  # One-shot: loads rent benchmarks + synthetic demo listings on first start only.
+  bootstrap:
+    build:
+      context: .
+      dockerfile: services/scraper-service/Dockerfile
+    command: ["python", "-m", "ingestion", "bootstrap", "--if-empty"]
+    environment:
+      - SCRAPER_DATABASE_URL=postgresql://root:root@postgres:5432/house_discovery
+      - CELERY_BROKER_URL=redis://redis:6379/2
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    restart: "no"
+    networks:
+      - neighbor_iq_net
 
   api-gateway:
     build:
@@ -58,6 +91,7 @@ services:
       - SEARCH_SERVICE_URL=http://search-service:8000
       - PORTFOLIO_SERVICE_URL=http://portfolio-service:8000
       - AI_INSIGHTS_SERVICE_URL=http://ai-insights-service:8000
+      - SCRAPER_SERVICE_URL=http://scraper-service:8000
       - CORS_ORIGINS=http://localhost:5173,http://localhost:80,http://localhost,http://frontend:80
     depends_on:
       auth-service:
@@ -73,12 +107,18 @@ services:
     build:
       context: .
       dockerfile: services/auth-service/Dockerfile
-    ports:
-      - "8001:8000"
+    # No host port: reachable only through api-gateway, which strips client X-User-* headers
     environment:
+      - AUTO_CREATE_SCHEMA=0  # schema is owned by the migrate service
+      # Comma-separated emails that sign up with role=admin (operator bootstrap)
+      - ADMIN_EMAILS=${ADMIN_EMAILS:-}
+      # Browsers treat http://localhost as a secure context; set 0 only for plain-http non-localhost hosts
+      - SECURE_COOKIES=${SECURE_COOKIES:-1}
       - DATABASE_URL=postgresql+asyncpg://root:root@postgres:5432/house_discovery
       - REDIS_URL=redis://redis:6379/0
     depends_on:
+      migrate:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
       redis:
@@ -90,12 +130,14 @@ services:
     build:
       context: .
       dockerfile: services/house-api-service/Dockerfile
-    ports:
-      - "8002:8000"
+    # No host port: reachable only through api-gateway, which strips client X-User-* headers
     environment:
+      - AUTO_CREATE_SCHEMA=0  # schema is owned by the migrate service
       - DATABASE_URL=postgresql+asyncpg://root:root@postgres:5432/house_discovery
       - REDIS_URL=redis://redis:6379/0
     depends_on:
+      migrate:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
       redis:
@@ -107,12 +149,14 @@ services:
     build:
       context: .
       dockerfile: services/portfolio-service/Dockerfile
-    ports:
-      - "8006:8000"
+    # No host port: reachable only through api-gateway, which strips client X-User-* headers
     environment:
+      - AUTO_CREATE_SCHEMA=0  # schema is owned by the migrate service
       - DATABASE_URL=postgresql+asyncpg://root:root@postgres:5432/house_discovery
       - REDIS_URL=redis://redis:6379/0
     depends_on:
+      migrate:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
       redis:
@@ -176,8 +220,7 @@ services:
     build:
       context: .
       dockerfile: services/search-service/Dockerfile
-    ports:
-      - "8004:8000"
+    # No host port: reachable only through api-gateway, which strips client X-User-* headers
     environment:
       - ELASTICSEARCH_URL=http://elasticsearch:9200
       - REDIS_URL=redis://redis:6379/0
@@ -202,14 +245,17 @@ services:
     build:
       context: .
       dockerfile: services/ai-insights-service/Dockerfile
-    ports:
-      - "8003:8000"
+    # No host port: reachable only through api-gateway, which strips client X-User-* headers
     environment:
       - SCRAPER_DATABASE_URL=postgresql://root:root@postgres:5432/house_discovery
       - CELERY_BROKER_URL=redis://redis:6379/2
       - NARRATIVE_PROVIDER=local
       - MODEL_PATH=/app/models/price_prediction.joblib
+      # Show XGBoost estimates next to comps only once backtest metrics are acceptable
+      - ML_PREDICTIONS_ENABLED=${ML_PREDICTIONS_ENABLED:-0}
     depends_on:
+      migrate:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
       redis:
@@ -228,10 +274,14 @@ services:
       - NARRATIVE_PROVIDER=local
       - MODEL_PATH=/app/models/price_prediction.joblib
     depends_on:
+      migrate:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
       postgres:
         condition: service_healthy
+    volumes:
+      - ai_models:/app/models  # retrained model survives restarts
     networks:
       - neighbor_iq_net
 
@@ -289,13 +339,14 @@ services:
     build:
       context: .
       dockerfile: services/scraper-service/Dockerfile
-    ports:
-      - "8005:8005"
+    # No host port: reachable only through api-gateway, which strips client X-User-* headers
     environment:
       - CELERY_BROKER_URL=redis://redis:6379/2
       - REDIS_URL=redis://redis:6379/0
       - SCRAPER_DATABASE_URL=postgresql://root:root@postgres:5432/house_discovery
     depends_on:
+      migrate:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
       postgres:
@@ -314,6 +365,8 @@ services:
       - SCRAPER_DATABASE_URL=postgresql://root:root@postgres:5432/house_discovery
       - SCRAPY_SETTINGS_MODULE=scraper.settings
     depends_on:
+      migrate:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
       postgres:
@@ -373,3 +426,4 @@ networks:
 
 volumes:
   postgres_data:
+  ai_models:

@@ -21,26 +21,42 @@ logger = logging.getLogger(__name__)
 
 class LocalNarrativeAdapter:
     """
-    Deterministic stub for local development and testing.
-    Returns a templated summary — no external API call required.
+    Deterministic, template-based summary for development and for deployments
+    without an LLM. Every sentence is conditional on a statistic actually being
+    present, so missing data produces a shorter summary, never an invented one.
     """
 
     def generate(self, city: str, stats: dict) -> str:
-        trend_pct = stats.get("price_trend_pct", 0)
-        direction = "upward" if trend_pct >= 0 else "downward"
-        top_region = stats.get("top_region", city)
-        avg_yield = stats.get("avg_gross_yield_pct", 4.0)
-        listing_count = stats.get("listing_count", 0)
-
-        return (
-            f"The {city.title()} real estate market is showing a {abs(trend_pct):.1f}% "
-            f"{direction} price trend over the last six months. "
-            f"The {top_region} area is generating the strongest investor interest, "
-            f"with average gross rental yields of {avg_yield:.1f}%. "
-            f"There are currently {listing_count} active listings across the city. "
-            f"Buyers should note that market conditions continue to evolve — "
-            f"consult a licensed real estate professional before making decisions."
+        name = city.title()
+        parts = []
+        count = stats.get("listing_count")
+        if count:
+            parts.append(f"{name} has {count} active listings in NeighborIQ.")
+        if stats.get("median_price"):
+            ppsf = stats.get("median_price_per_sqft")
+            ppsf_text = f" (${ppsf:,.0f} per sq ft)" if ppsf else ""
+            parts.append(f"The median asking price is ${stats['median_price']:,.0f}{ppsf_text}.")
+        trend = stats.get("price_trend_pct")
+        if trend is not None:
+            direction = "upward" if trend >= 0 else "downward"
+            parts.append(f"Asking prices show a {abs(trend):.1f}% {direction} trend over the last six months.")
+        if stats.get("avg_gross_yield_pct"):
+            parts.append(f"Estimated gross rental yields average {stats['avg_gross_yield_pct']:.1f}%.")
+        if stats.get("top_neighborhoods"):
+            parts.append(f"The highest estimated yields are in {stats['top_neighborhoods']}.")
+        if stats.get("price_cut_share_pct") is not None and count:
+            parts.append(
+                f"{stats['price_cut_share_pct']:.0f}% of listings have had a price reduction"
+                + (f", and the median listing has been on the market {stats['median_days_on_market']} days."
+                   if stats.get("median_days_on_market") is not None else ".")
+            )
+        if not parts:
+            parts.append(f"There is not enough listing data for {name} to summarise yet.")
+        parts.append(
+            "These figures are estimates from asking prices, not sold prices — consult a "
+            "licensed real estate professional before making decisions."
         )
+        return " ".join(parts)
 
 
 class AzureOpenAINarrativeAdapter:
@@ -120,17 +136,31 @@ def get_adapter(provider: str | None = None) -> LocalNarrativeAdapter | AzureOpe
 # Prompt builder (used by Azure adapter; exposed for testing)
 # ---------------------------------------------------------------------------
 
+_PROMPT_FIELDS = (
+    ("listing_count", "Active listings", "{:,}"),
+    ("median_price", "Median asking price (CAD)", "${:,.0f}"),
+    ("median_price_per_sqft", "Median asking price per sq ft (CAD)", "${:,.0f}"),
+    ("price_trend_pct", "Asking-price trend, last 6 months (%)", "{:+.1f}"),
+    ("avg_gross_yield_pct", "Average estimated gross rental yield (%)", "{:.1f}"),
+    ("top_neighborhoods", "Neighbourhoods with the highest estimated yield", "{}"),
+    ("price_cut_share_pct", "Listings with a price reduction (%)", "{:.0f}"),
+    ("median_days_on_market", "Median days on market", "{}"),
+)
+
+
 def _build_prompt(city: str, stats: dict) -> str:
+    """Only statistics that were actually computed are included in the prompt."""
+    lines = [
+        f"- {label}: {fmt.format(stats[key])}"
+        for key, label, fmt in _PROMPT_FIELDS
+        if stats.get(key) is not None
+    ]
     return (
-        f"You are a real estate market analyst. Based on the following pre-computed "
-        f"market statistics for {city.title()}, write a 2-3 paragraph market summary "
-        f"in English.\n\n"
-        f"Market Statistics (computed from actual data):\n"
-        f"- Top neighbourhoods by rental yield: {stats.get('top_neighborhoods', 'N/A')}\n"
-        f"- Average price trend (last 6 months): {stats.get('price_trend_pct', 0):.1f}% "
-        f"{('upward' if stats.get('price_trend_pct', 0) >= 0 else 'downward')}\n"
-        f"- Total active listings: {stats.get('listing_count', 0)}\n"
-        f"- Average gross rental yield: {stats.get('avg_gross_yield_pct', 0):.1f}%\n\n"
-        f"Write a clear, factual market summary. Do not invent statistics — "
-        f"use only the data provided above."
+        f"You are a real estate market analyst writing for small residential investors. "
+        f"Based ONLY on the following pre-computed statistics for {city.title()}, write a "
+        f"2-paragraph market summary in English.\n\n"
+        f"Market statistics (computed from active asking prices, not sold prices):\n"
+        + "\n".join(lines or ["- (no statistics available)"])
+        + "\n\nDo not invent statistics, trends or neighbourhoods that are not listed above. "
+        "If a figure is missing, do not mention it."
     )

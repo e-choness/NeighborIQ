@@ -21,7 +21,7 @@ COPY services/house-api-service/app ./app
 COPY services/house-api-service/tests ./tests
 
 ENV PYTHONPATH=/app PATH=/root/.local/bin:$PATH
-EXPOSE 8002
-HEALTHCHECK --interval=10s --timeout=3s --retries=3     CMD curl -f http://localhost:8002/health || exit 1
+EXPOSE 8000
+HEALTHCHECK --interval=10s --timeout=3s --retries=3     CMD curl -f http://localhost:8000/health || exit 1
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8002"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

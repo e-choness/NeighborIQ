@@ -1,46 +1,46 @@
 """
 Celery task definitions for the scraper-service worker.
 
-`run_scraper` — triggered by Celery Beat (nightly) or via the FastAPI
-                control API. Runs a Scrapy CrawlerProcess for the
-                requested cities.
+run_feed      — crawl a canonical listing feed with Scrapy (ListingFeedSpider)
+run_ingestion — run an ingestion CLI command: "seed", "rents" or "osm"
 """
 import logging
-
-from scrapy.crawler import CrawlerProcess
-from scrapy.utils.project import get_project_settings
+import os
 
 from tasks.celery_app import app
 
 logger = logging.getLogger(__name__)
 
+INGESTION_COMMANDS = {"seed", "rents", "osm", "bootstrap"}
 
-@app.task(name="scraper.tasks.run_scraper", bind=True, max_retries=3)
-def run_scraper(self, cities: list[str] | None = None):
-    """
-    Run the Lianjia house spider for the given cities.
 
-    Args:
-        cities: List of city subdomain names (e.g., ["nanjing", "beijing"]).
-                Defaults to the spider's DEFAULT_CITIES if not provided.
+@app.task(name="scraper.tasks.run_feed", bind=True, max_retries=3)
+def run_feed(self, feed_url: str, source: str = "feed"):
+    """Crawl one listing feed. Retries with exponential backoff on failure."""
+    from scrapy.crawler import CrawlerProcess
+    from scrapy.utils.project import get_project_settings
 
-    Retries up to 3 times with exponential backoff on failure.
-    """
-    import os
+    from scraper.spiders.feed_spider import ListingFeedSpider
+
     os.environ.setdefault("SCRAPY_SETTINGS_MODULE", "scraper.settings")
-
-    settings = get_project_settings()
-    process = CrawlerProcess(settings)
-
-    spider_kwargs = {}
-    if cities:
-        spider_kwargs["cities"] = cities
-
+    process = CrawlerProcess(get_project_settings())
     try:
-        from scraper.spiders.house_spider import LianjiaHouseSpider
-        process.crawl(LianjiaHouseSpider, **spider_kwargs)
-        process.start()  # Blocks until crawl is complete
-        logger.info("Scrape completed for cities: %s", cities)
+        process.crawl(ListingFeedSpider, feed_url=feed_url, source=source)
+        process.start()  # Blocks until the crawl completes
+        logger.info("Feed crawl completed: %s", feed_url)
     except Exception as exc:
-        logger.exception("Scraper task failed: %s", exc)
+        logger.exception("Feed crawl failed: %s", exc)
         raise self.retry(exc=exc, countdown=2 ** self.request.retries * 60)
+
+
+@app.task(name="scraper.tasks.run_ingestion")
+def run_ingestion(command: str, cities: list[str] | None = None):
+    """Run `python -m ingestion <command>` inside the worker."""
+    if command not in INGESTION_COMMANDS:
+        raise ValueError(f"Unknown ingestion command: {command}")
+    from ingestion.__main__ import main
+
+    argv = [command]
+    if cities and command in ("seed", "osm"):
+        argv += ["--cities", ",".join(cities)]
+    return main(argv)

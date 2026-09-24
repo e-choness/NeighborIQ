@@ -26,13 +26,17 @@ COPY shared ./shared
 COPY services/scraper-service/app ./app
 COPY services/scraper-service/scraper ./scraper
 COPY services/scraper-service/tasks ./tasks
+COPY services/scraper-service/ingestion ./ingestion
+# Ops image: also runs `alembic upgrade head` (migrate) and the data loaders (bootstrap)
+COPY migrations ./migrations
+COPY data ./data
 COPY services/scraper-service/tests ./tests
 COPY services/scraper-service/pytest.ini ./pytest.ini
 
-ENV PYTHONPATH=/app PATH=/root/.local/bin:$PATH
+ENV PYTHONPATH=/app PATH=/root/.local/bin:$PATH DATA_DIR=/app/data
 ENV SCRAPY_SETTINGS_MODULE=scraper.settings
-EXPOSE 8005
+EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
-    CMD curl -f http://localhost:8005/health || exit 1
+    CMD curl -f http://localhost:8000/health || exit 1
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8005"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

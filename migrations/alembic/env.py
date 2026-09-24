@@ -36,6 +36,12 @@ except Exception:
 # ... etc.
 
 
+def _database_url() -> str:
+    """DATABASE_URL (the services' env var) wins over alembic.ini; alembic needs a sync driver."""
+    url = os.getenv("DATABASE_URL") or config.get_main_option("sqlalchemy.url")
+    return url.replace("+asyncpg", "+psycopg2")
+
+
 def run_migrations_offline():
     """Run migrations in 'offline' mode.
 
@@ -47,7 +53,7 @@ def run_migrations_offline():
     Calls to context.execute() here emit the given string to the
     script output.
     """
-    url = config.get_main_option("sqlalchemy.url")
+    url = _database_url()
     context.configure(
         url=url,
         target_metadata=target_metadata,
@@ -64,7 +70,7 @@ def run_migrations_online():
     # Use sync driver for alembic
     from sqlalchemy import create_engine
     connectable = create_engine(
-        config.get_section(config.config_ini_section).get("sqlalchemy.url").replace("asyncpg", "psycopg2"),
+        _database_url(),
         poolclass=pool.NullPool,
     )
 

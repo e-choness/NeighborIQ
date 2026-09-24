@@ -15,7 +15,8 @@ from celery.schedules import crontab
 
 BROKER_URL = os.getenv("CELERY_BROKER_URL", "redis://localhost:6379/2")
 
-app = Celery("ai_insights_worker", broker=BROKER_URL)
+# Explicit include: autodiscover_tasks(["tasks"]) would look for a non-existent tasks.tasks module
+app = Celery("ai_insights_worker", broker=BROKER_URL, include=["tasks.batch_tasks"])
 
 app.conf.update(
     task_serializer="json",
@@ -40,4 +41,3 @@ app.conf.update(
     timezone="America/Toronto",
 )
 
-app.autodiscover_tasks(["tasks"])

@@ -49,7 +49,7 @@ def test_public_auth_routes_bypass_jwt() -> None:
 
 def test_protected_route_without_token_returns_401() -> None:
     """Requests to protected routes without a JWT must be rejected at the gateway."""
-    response = TestClient(app).get("/api/v1/houses/1")
+    response = TestClient(app).get("/api/v1/portfolio/saved")
 
     assert response.status_code == 401
     assert response.json()["detail"] == "Missing access token"

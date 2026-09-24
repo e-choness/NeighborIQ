@@ -37,16 +37,20 @@ def test_openapi_specs_exist_and_basic_structure() -> None:
     not os.path.exists(os.path.join(BASE, "ai-insights-service", "openapi.json")),
     reason="Contract tests require openapi.json",
 )
-def test_ai_insights_schema_examples() -> None:
+def test_ai_insights_contract() -> None:
+    """The committed spec must describe the insights, valuation and cash-flow contract."""
     spec_path = os.path.join(BASE, "ai-insights-service", "openapi.json")
     spec = load_spec(spec_path)
-    assert "/api/v1/ai/predict" in spec["paths"]
-    req_schema = spec["components"]["schemas"].get("AIProviderRequest")
-    assert req_schema is not None
-    provider_prop = req_schema["properties"].get("provider")
-    assert provider_prop is not None
-    # Example must exist and be provider-agnostic
-    assert provider_prop.get("example") == "local"
+    for path in (
+        "/api/v1/houses/{house_id}/insights",
+        "/api/v1/houses/{house_id}/valuation",
+        "/api/v1/cashflow",
+    ):
+        assert path in spec["paths"], path
+    schemas = spec["components"]["schemas"]
+    for name in ("Valuation", "CashFlowInput", "CashFlowResult", "RentEstimate"):
+        assert name in schemas, name
+    assert "/api/v1/ai/predict" not in spec["paths"]  # fabricated stub removed
 
 
 @pytest.mark.skipif(

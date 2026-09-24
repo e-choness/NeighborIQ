@@ -3,10 +3,15 @@ Celery batch tasks for AI insights computation (Phase 5D).
 
 Task execution order per batch:
   1. Fetch houses from DB by IDs
-  2. Load ML model (skip price prediction if not trained yet)
-  3. For each house: predict price + compute rental yield
+  2. Load ML model (skip price prediction if none has been trained and backtested)
+  3. For each house: predict price + estimate rent and unlevered yield
   4. Store results in house_price_predictions + house_rental_yields
   5. Trigger city-level narrative generation (one per city, not per house)
+
+Rental yield uses the city/bedroom rent benchmark and the same cash-flow engine
+the UI calls (app/cashflow.py) with no financing: gross = rent×12 / price,
+net = NOI / price (cap rate), after vacancy, tax, condo fee, insurance and
+maintenance.
 
 The `compute_insights` task name must match exactly what the scraper dispatches:
   "ai_insights.tasks.compute_insights"
@@ -19,8 +24,9 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, Session
 
 from tasks.celery_app import app
+from app import cashflow
 from app.feature_engineering import extract_features, features_to_array
-from app.ml_models import load_model, compute_rental_yield, predict_price, MODEL_VERSION
+from app.ml_models import load_model, predict_price, MODEL_VERSION
 from app.narrative import get_adapter
 
 logger = logging.getLogger(__name__)
@@ -55,7 +61,7 @@ def compute_insights(self, house_ids: list[int], session: Session | None = None)
     """
     own_session = session is None
     session = session or _get_session()
-    pipeline = load_model(MODEL_PATH)
+    bundle = load_model(MODEL_PATH)
 
     cities_processed: set[str] = set()
 
@@ -66,25 +72,20 @@ def compute_insights(self, house_ids: list[int], session: Session | None = None)
                 logger.warning("House id=%d not found — skipping.", house_id)
                 continue
 
-            # Price prediction (skipped if no model trained yet)
-            if pipeline is not None:
+            # Price prediction (skipped if no backtested model exists yet)
+            if bundle is not None:
                 try:
-                    features = extract_features(house)
-                    vec = features_to_array(features)
-                    prediction = predict_price(pipeline, vec)
+                    vec = features_to_array(extract_features(house, bundle["city_medians"]))
+                    prediction = predict_price(bundle, vec)
                     _upsert_prediction(session, house_id, prediction)
                 except Exception:
                     logger.exception("Price prediction failed for house_id=%d", house_id)
 
-            # Rental yield (always computable)
+            # Rental yield (needs a rent benchmark for the city)
             try:
-                yield_data = compute_rental_yield(
-                    house_id=house_id,
-                    area=float(house.get("area") or 0),
-                    purchase_price=int(house.get("price") or 0),
-                    city=house.get("city") or "",
-                )
-                _upsert_rental_yield(session, yield_data)
+                yield_data = compute_rental_yield(session, house)
+                if yield_data is not None:
+                    _upsert_rental_yield(session, yield_data)
             except Exception:
                 logger.exception("Rental yield failed for house_id=%d", house_id)
 
@@ -169,35 +170,29 @@ def generate_daily_narratives(
 @app.task(name="ai_insights.tasks.retrain_model", bind=True, max_retries=2)
 def retrain_model(self, session: Session | None = None):
     """
-    Retrain the XGBoost model from all historical house data.
-    Requires at least 100 houses; logs a warning and exits if fewer.
+    Backtest, then retrain the XGBoost model on all active listings.
+    Requires MIN_TRAINING_ROWS listings; logs a warning and exits if fewer.
     """
     from app.feature_engineering import build_training_matrix
-    from app.ml_models import train_model, save_model
+    from app.ml_models import MIN_TRAINING_ROWS, backtest, save_model, train_model
 
     own_session = session is None
     session = session or _get_session()
 
     try:
         houses = _fetch_all_houses(session)
-        logger.info("retrain_model: fetched %d houses for training.", len(houses))
-
-        if len(houses) < 100:
+        X, y, medians = build_training_matrix(houses)
+        logger.info("retrain_model: %d usable listings.", len(X))
+        if len(X) < MIN_TRAINING_ROWS:
             logger.warning(
-                "retrain_model: only %d houses available; skipping retrain "
-                "(minimum 100 required, 1000+ recommended).",
-                len(houses),
+                "retrain_model: only %d usable listings; skipping (minimum %d).",
+                len(X), MIN_TRAINING_ROWS,
             )
-            return
+            return None
 
-        X, y = build_training_matrix(houses)
-        if len(X) < 100:
-            logger.warning("retrain_model: fewer than 100 valid training rows after filtering.")
-            return
-
-        pipeline = train_model(X, y)
-        save_model(pipeline, MODEL_PATH)
-        logger.info("retrain_model: model saved successfully.")
+        metrics = backtest(X, y)
+        save_model(train_model(X, y), metrics, medians, MODEL_PATH)
+        return metrics
 
     except Exception as exc:
         logger.exception("retrain_model failed: %s", exc)
@@ -211,10 +206,15 @@ def retrain_model(self, session: Session | None = None):
 # DB helpers
 # ---------------------------------------------------------------------------
 
+_HOUSE_COLUMNS = (
+    "id, city, region, price, sqft, area, rooms, bathrooms, age, decoration, "
+    "property_type, condo_fee, property_tax, latitude, longitude"
+)
+
+
 def _fetch_house(session: Session, house_id: int) -> dict | None:
     row = session.execute(
-        text("SELECT id, city, region, price, area, rooms, floor, age, decoration "
-             "FROM house_houses WHERE id = :id"),
+        text(f"SELECT {_HOUSE_COLUMNS} FROM house_houses WHERE id = :id"),
         {"id": house_id},
     ).fetchone()
     if row is None:
@@ -224,10 +224,40 @@ def _fetch_house(session: Session, house_id: int) -> dict | None:
 
 def _fetch_all_houses(session: Session) -> list[dict]:
     rows = session.execute(
-        text("SELECT id, city, region, price, area, rooms, floor, age, decoration "
-             "FROM house_houses WHERE is_active = 1 AND price > 0 AND area > 0")
+        text(f"SELECT {_HOUSE_COLUMNS} FROM house_houses "
+             "WHERE is_active = 1 AND price > 0 AND sqft > 0")
     ).fetchall()
     return [dict(r._mapping) for r in rows]
+
+
+def compute_rental_yield(session: Session, house: dict) -> dict | None:
+    """Unlevered yield from the rent benchmark; None when no benchmark covers the city."""
+    beds = min(max(house.get("rooms") or 0, 0), 3)
+    rent = session.execute(
+        text("SELECT avg_rent FROM house_rent_benchmarks "
+             "WHERE LOWER(city) = LOWER(:city) AND bedrooms = :beds"),
+        {"city": house.get("city") or "", "beds": beds},
+    ).scalar()
+    price = int(house.get("price") or 0)
+    if not rent or price <= 0:
+        return None
+    ptype = house.get("property_type")
+    result = cashflow.compute(cashflow.CashFlowInput(
+        price=price,
+        monthly_rent=rent,
+        city=house.get("city") or "",
+        down_payment_pct=100,  # unlevered: yield is a property metric, not a financing one
+        property_tax_annual=house.get("property_tax") or 0,
+        condo_fee_monthly=house.get("condo_fee") or 0,
+        insurance_monthly=cashflow.default_insurance_monthly(ptype),
+        maintenance_pct=cashflow.default_maintenance_pct(ptype, house.get("age")),
+    ))
+    return {
+        "house_id": house["id"],
+        "annual_rent": int(rent * 12),
+        "gross_yield": round(result.gross_yield_pct / 100, 4),
+        "net_yield": round(result.cap_rate_pct / 100, 4),
+    }
 
 
 def _upsert_prediction(session: Session, house_id: int, prediction: dict) -> None:
@@ -237,6 +267,12 @@ def _upsert_prediction(session: Session, house_id: int, prediction: dict) -> Non
                 (house_id, predicted_price, price_low, price_high, confidence, model_version, predicted_at)
             VALUES
                 (:house_id, :predicted_price, :price_low, :price_high, :confidence, :model_version, :now)
+            ON CONFLICT (house_id, model_version) DO UPDATE SET
+                predicted_price = EXCLUDED.predicted_price,
+                price_low       = EXCLUDED.price_low,
+                price_high      = EXCLUDED.price_high,
+                confidence      = EXCLUDED.confidence,
+                predicted_at    = EXCLUDED.predicted_at
         """),
         {
             "house_id": house_id,
@@ -286,7 +322,7 @@ def _upsert_market_insight(session: Session, city: str, summary: str, region: st
             "city": city,
             "region": region or None,
             "summary_text": summary,
-            "model_version": "narrative-local-v1",
+            "model_version": f"narrative-{os.getenv('NARRATIVE_PROVIDER', 'local')}-v2",
             "now": datetime.now(timezone.utc),
             "expires_at": expires,
         },
@@ -294,30 +330,60 @@ def _upsert_market_insight(session: Session, city: str, summary: str, region: st
 
 
 def _aggregate_city_stats(session: Session, city: str) -> dict:
-    """Compute city-level stats to feed into the narrative prompt."""
+    """
+    City-level statistics for the narrative — every value is computed from data.
+    A price trend is deliberately omitted: a fair trend needs sold prices or a
+    repeat-listing index, and a naive average of asking prices mostly measures
+    which homes happen to be listed.
+    """
     row = session.execute(
         text("""
+            WITH active AS (
+                SELECT h.*,
+                       (SELECT p.price FROM house_price_history p
+                        WHERE p.house_id = h.id ORDER BY p.recorded_at, p.id LIMIT 1) AS first_price
+                FROM house_houses h
+                WHERE LOWER(h.city) = LOWER(:city) AND h.is_active = 1
+            )
             SELECT
-                COUNT(h.id)                                         AS listing_count,
-                AVG(ry.gross_yield)                                 AS avg_gross_yield,
-                AVG(h.price::numeric / NULLIF(h.area, 0))           AS avg_price_per_sqm
-            FROM house_houses h
-            LEFT JOIN house_rental_yields ry ON ry.house_id = h.id
-            WHERE LOWER(h.city) = LOWER(:city) AND h.is_active = 1
+                COUNT(*)                                                         AS listing_count,
+                PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY price)               AS median_price,
+                PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY price::numeric / NULLIF(sqft, 0))
+                                                                                 AS median_ppsf,
+                PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY EXTRACT(DAY FROM NOW() - listed_at))
+                                                                                 AS median_dom,
+                AVG(CASE WHEN first_price > price THEN 1.0 ELSE 0.0 END) * 100   AS price_cut_share,
+                (SELECT AVG(ry.gross_yield) FROM house_rental_yields ry
+                 WHERE ry.house_id IN (SELECT id FROM active))                   AS avg_gross_yield
+            FROM active
         """),
         {"city": city},
     ).fetchone()
 
-    if row is None:
+    if row is None or not row.listing_count:
         return {"city": city, "listing_count": 0}
 
-    avg_yield = float(row.avg_gross_yield or 0) * 100   # as percentage
+    top = session.execute(
+        text("""
+            SELECT h.community, AVG(ry.gross_yield) AS y
+            FROM house_houses h JOIN house_rental_yields ry ON ry.house_id = h.id
+            WHERE LOWER(h.city) = LOWER(:city) AND h.is_active = 1
+            GROUP BY h.community HAVING COUNT(*) >= 5
+            ORDER BY y DESC LIMIT 3
+        """),
+        {"city": city},
+    ).fetchall()
+
     return {
         "city": city,
-        "listing_count": int(row.listing_count or 0),
-        "avg_gross_yield_pct": round(avg_yield, 2),
-        "price_trend_pct": 0.0,   # placeholder — requires time-series data
-        "trend_direction": "stable",
-        "top_region": city,
-        "top_neighborhoods": f"top areas in {city}",
+        "listing_count": int(row.listing_count),
+        "median_price": float(row.median_price) if row.median_price else None,
+        "median_price_per_sqft": round(float(row.median_ppsf), 2) if row.median_ppsf else None,
+        "median_days_on_market": int(row.median_dom) if row.median_dom is not None else None,
+        "price_cut_share_pct": round(float(row.price_cut_share), 1) if row.price_cut_share is not None else None,
+        "avg_gross_yield_pct": round(float(row.avg_gross_yield) * 100, 2) if row.avg_gross_yield else None,
+        "price_trend_pct": None,
+        "top_neighborhoods": ", ".join(
+            f"{r.community} ({float(r.y) * 100:.1f}%)" for r in top
+        ) or None,
     }

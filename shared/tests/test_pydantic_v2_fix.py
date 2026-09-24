@@ -45,17 +45,17 @@ def test_house_response_from_orm():
         id=1,
         title="Beautiful House",
         community="Test Community",
-        city="Shanghai",
-        region="Pudong",
+        city="Toronto",
+        region="Old Toronto",
         street="Main Street",
         price=5000000,
         area=100.5,
         rooms=3,
         floor=5,
-        decoration="精装",
+        decoration="renovated",
         age=5,
-        latitude=31.2304,
-        longitude=121.4737,
+        latitude=43.6532,
+        longitude=-79.3832,
         url="http://example.com",
         images='["image1.jpg", "image2.jpg"]',
         created_at=datetime.now(timezone.utc),
@@ -67,7 +67,9 @@ def test_house_response_from_orm():
     
     assert response.id == 1
     assert response.title == "Beautiful House"
-    assert response.city == "Shanghai"
+    assert response.city == "Toronto"
+    assert response.images == ["image1.jpg", "image2.jpg"]
+    assert response.is_synthetic is False
     assert response.created_at is not None
     print("✓ HouseResponse.model_validate works correctly with ORM objects")
 
@@ -78,11 +80,11 @@ def test_community_response_from_orm():
     community = Community(
         id=1,
         name="Test Community",
-        city="Shanghai",
-        region="Pudong",
+        city="Toronto",
+        region="Old Toronto",
         street="Main Street",
-        latitude=31.2304,
-        longitude=121.4737,
+        latitude=43.6532,
+        longitude=-79.3832,
         house_count=100,
         avg_price=5000000.0,
         created_at=datetime.now(timezone.utc),
@@ -94,7 +96,7 @@ def test_community_response_from_orm():
     
     assert response.id == 1
     assert response.name == "Test Community"
-    assert response.city == "Shanghai"
+    assert response.city == "Toronto"
     assert response.house_count == 100
     print("✓ CommunityResponse.model_validate works correctly with ORM objects")
 

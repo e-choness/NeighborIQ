@@ -18,10 +18,11 @@ COPY --from=builder /root/.local /root/.local
 # Copy application code
 COPY shared ./shared
 COPY services/ai-insights-service/app ./app
+COPY services/ai-insights-service/tasks ./tasks
 COPY services/ai-insights-service/tests ./tests
 
 ENV PYTHONPATH=/app PATH=/root/.local/bin:$PATH
-EXPOSE 8003
-HEALTHCHECK --interval=10s --timeout=3s --retries=3     CMD curl -f http://localhost:8003/health || exit 1
+EXPOSE 8000
+HEALTHCHECK --interval=10s --timeout=3s --retries=3     CMD curl -f http://localhost:8000/health || exit 1
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8003"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

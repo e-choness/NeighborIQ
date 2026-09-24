@@ -146,8 +146,8 @@ async def search_houses(
         q:             Free-text query (multi-match on title, city, region)
         city:          Exact city filter
         region:        Exact region filter
-        price_min:     Minimum price (yuan)
-        price_max:     Maximum price (yuan)
+        price_min:     Minimum price (CAD)
+        price_max:     Maximum price (CAD)
         lat/lon:       Center point for proximity search
         radius_km:     Search radius in km (requires lat + lon)
         sort_by_ai_score: Sort results by ai_score descending

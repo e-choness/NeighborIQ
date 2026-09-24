@@ -23,14 +23,8 @@ def _make_pipeline(seen_urls=None):
     seen_urls = seen_urls or []
 
     def exists_side_effect(key):
-        # Check if any of the seen URLs hash to this key
-        import hashlib
-        for url in seen_urls:
-            url_hash = hashlib.sha256(url.encode()).hexdigest()
-            candidate = f"scraper:dedup:{url_hash}"
-            if key == candidate:
-                return True
-        return False
+        # Pretend the (url, price=None, status=active) fingerprint was seen
+        return any(key == pipeline._make_key(url) for url in seen_urls)
 
     mock_client.exists.side_effect = exists_side_effect
     pipeline.client = mock_client
@@ -40,21 +34,21 @@ def _make_pipeline(seen_urls=None):
 class TestRedisDedupPipeline:
     def test_new_url_passes_through(self):
         pipeline, mock_client = _make_pipeline()
-        item = HouseItem(url="http://nanjing.lianjia.com/ershoufang/101.html")
+        item = HouseItem(url="https://feeds.partner.example/listing/101.html")
         result = pipeline.process_item(item, spider=None)
         assert result == item
         mock_client.setex.assert_called_once()
 
     def test_seen_url_is_dropped(self):
-        url = "http://nanjing.lianjia.com/ershoufang/101.html"
+        url = "https://feeds.partner.example/listing/101.html"
         pipeline, _ = _make_pipeline(seen_urls=[url])
         item = HouseItem(url=url)
-        with pytest.raises(DropItem, match="Duplicate URL"):
+        with pytest.raises(DropItem, match="Unchanged listing"):
             pipeline.process_item(item, spider=None)
 
     def test_different_url_passes(self):
-        url1 = "http://nanjing.lianjia.com/ershoufang/101.html"
-        url2 = "http://nanjing.lianjia.com/ershoufang/102.html"
+        url1 = "https://feeds.partner.example/listing/101.html"
+        url2 = "https://feeds.partner.example/listing/102.html"
         pipeline, mock_client = _make_pipeline(seen_urls=[url1])
         item = HouseItem(url=url2)
         result = pipeline.process_item(item, spider=None)
@@ -82,9 +76,32 @@ class TestRedisDedupPipeline:
     def test_key_uses_sha256_prefix(self):
         import hashlib
         pipeline, mock_client = _make_pipeline()
-        url = "http://nanjing.lianjia.com/ershoufang/xyz.html"
+        url = "https://feeds.partner.example/listing/xyz.html"
         item = HouseItem(url=url)
         pipeline.process_item(item, spider=None)
-        url_hash = hashlib.sha256(url.encode()).hexdigest()
+        # Fingerprint is url|price|status (price absent → "None", status defaults to active)
+        url_hash = hashlib.sha256(f"{url}|None|active".encode()).hexdigest()
         expected_key = f"scraper:dedup:{url_hash}"
         mock_client.exists.assert_called_with(expected_key)
+
+
+class TestPriceChangeFingerprint:
+    def test_price_change_passes_through(self):
+        """A re-listed home at a new price must reach the writer (price history)."""
+        url = "https://feeds.partner.example/listing/7"
+        pipeline, _ = _make_pipeline()
+        seen = {pipeline._make_key(url, 900000, "active")}
+        pipeline.client.exists.side_effect = lambda key: key in seen
+
+        with pytest.raises(DropItem):
+            pipeline.process_item(HouseItem(url=url, price=900000, status="active"), spider=None)
+        result = pipeline.process_item(HouseItem(url=url, price=875000, status="active"), spider=None)
+        assert result["price"] == 875000
+
+    def test_status_change_passes_through(self):
+        url = "https://feeds.partner.example/listing/8"
+        pipeline, _ = _make_pipeline()
+        seen = {pipeline._make_key(url, 900000, "active")}
+        pipeline.client.exists.side_effect = lambda key: key in seen
+        result = pipeline.process_item(HouseItem(url=url, price=900000, status="sold"), spider=None)
+        assert result["status"] == "sold"

@@ -1,19 +1,21 @@
 """
 Scraper Service — FastAPI control API (port 8005).
 
-Provides job control and status endpoints for the Admin Dashboard (Phase 6).
-Actual scraping is performed by a separate Celery worker process.
+Provides ingestion control and status endpoints for the Admin Dashboard.
+Work is performed by a separate Celery worker process. The gateway restricts
+every /api/v1/scraper/* route to role=admin.
 
 Endpoints:
-  POST /api/v1/scraper/jobs           — Trigger a scrape job
-  GET  /api/v1/scraper/jobs/{job_id}  — Get job status (via Celery result backend)
-  GET  /api/v1/scraper/status         — Current worker health + last run info
-  GET  /api/v1/scraper/errors         — Recent failure log
+  POST /api/v1/scraper/jobs    — Crawl a partner listing feed (allow-listed hosts only)
+  POST /api/v1/scraper/ingest  — Run an ingestion command: seed | rents | osm | bootstrap
+  GET  /api/v1/scraper/status  — Current worker health + last run info
+  GET  /api/v1/scraper/errors  — Recent failure log
 """
 import logging
 import os
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Literal, Optional
+from urllib.parse import urlparse
 
 from celery import Celery
 from fastapi import FastAPI, HTTPException
@@ -36,17 +38,44 @@ _celery.conf.update(task_serializer="json", accept_content=["json"])
 _failure_log: list[dict] = []
 _last_run: Optional[datetime] = None
 
+# Feed URLs are fetched by the worker — only https hosts listed here are allowed,
+# so an admin session cannot be used to probe the internal network (SSRF).
+FEED_ALLOWED_HOSTS = {
+    h.strip().lower() for h in os.getenv("FEED_ALLOWED_HOSTS", "").split(",") if h.strip()
+}
+
+
+def _check_feed_url(url: str) -> None:
+    parsed = urlparse(url)
+    if parsed.scheme != "https" or (parsed.hostname or "").lower() not in FEED_ALLOWED_HOSTS:
+        raise HTTPException(
+            status_code=422,
+            detail="feed_url must be https and its host listed in FEED_ALLOWED_HOSTS",
+        )
+
 
 # ---------------------------------------------------------------------------
 # DTOs
 # ---------------------------------------------------------------------------
 class ScrapeJobRequest(BaseModel):
-    cities: list[str] = ["toronto", "vancouver", "calgary"]
+    feed_url: str
+    source: str = "feed"
 
 
 class ScrapeJobResponse(BaseModel):
     job_id: str
-    cities: list[str]
+    feed_url: str
+    queued_at: datetime
+
+
+class IngestRequest(BaseModel):
+    command: Literal["seed", "rents", "osm", "bootstrap"]
+    cities: list[str] = []
+
+
+class IngestResponse(BaseModel):
+    job_id: str
+    command: str
     queued_at: datetime
 
 
@@ -62,23 +91,32 @@ class ScraperStatusResponse(BaseModel):
 # ---------------------------------------------------------------------------
 @app.post("/api/v1/scraper/jobs", response_model=ScrapeJobResponse)
 async def trigger_scrape(request: ScrapeJobRequest):
-    """Enqueue a Celery scrape job for the specified cities."""
+    """Enqueue a crawl of a partner listing feed."""
+    _check_feed_url(request.feed_url)
+    result = _enqueue(
+        "scraper.tasks.run_feed", {"feed_url": request.feed_url, "source": request.source}
+    )
+    return ScrapeJobResponse(job_id=result.id, feed_url=request.feed_url, queued_at=_last_run)
+
+
+@app.post("/api/v1/scraper/ingest", response_model=IngestResponse)
+async def trigger_ingestion(request: IngestRequest):
+    """Enqueue seed / rent-benchmark / OSM loading on the worker."""
+    result = _enqueue(
+        "scraper.tasks.run_ingestion", {"command": request.command, "cities": request.cities}
+    )
+    return IngestResponse(job_id=result.id, command=request.command, queued_at=_last_run)
+
+
+def _enqueue(task: str, kwargs: dict):
     global _last_run
     try:
-        result = _celery.send_task(
-            "scraper.tasks.run_scraper",
-            kwargs={"cities": request.cities},
-            queue="scraper",
-        )
-        _last_run = datetime.now(timezone.utc)
-        return ScrapeJobResponse(
-            job_id=result.id,
-            cities=request.cities,
-            queued_at=_last_run,
-        )
+        result = _celery.send_task(task, kwargs=kwargs, queue="scraper")
     except Exception as exc:
-        logger.exception("Failed to enqueue scrape job")
+        logger.exception("Failed to enqueue %s", task)
         raise HTTPException(status_code=503, detail=f"Could not enqueue job: {exc}")
+    _last_run = datetime.now(timezone.utc)
+    return result
 
 
 @app.get("/api/v1/scraper/status", response_model=ScraperStatusResponse)
@@ -87,7 +125,9 @@ async def get_status():
     return ScraperStatusResponse(
         worker_status="running",
         last_run=_last_run,
-        next_scheduled="02:00 Asia/Shanghai (nightly)",
+        next_scheduled="OSM refresh Sundays 03:30 America/Toronto" + (
+            "; feed nightly 02:00" if os.getenv("LISTING_FEED_URL") else ""
+        ),
         recent_error_count=len(_failure_log),
     )
 
@@ -98,6 +138,7 @@ async def get_errors(limit: int = 50):
     return {"errors": _failure_log[-limit:], "total": len(_failure_log)}
 
 
+@app.get("/health")
 @app.get("/api/v1/scraper/health")
 async def health():
     return {"status": "ok"}

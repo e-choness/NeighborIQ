@@ -4,25 +4,11 @@ from app.main import app
 client = TestClient(app)
 
 
-def test_predict_local():
-    payload = {
-        "provider": "local",
-        "input": {"city": "Austin", "median_income": 80000}
-    }
-    r = client.post("/api/v1/ai/predict", json=payload)
-    assert r.status_code == 200
-    j = r.json()
-    assert "predictions" in j
-    assert "price" in j["predictions"]
+def test_health():
+    assert client.get("/health").json() == {"status": "ok"}
+    assert client.get("/api/v1/health").status_code == 200
 
 
-def test_narrative_local():
-    payload = {
-        "provider": "local",
-        "input": {"city": "Austin"}
-    }
-    r = client.post("/api/v1/ai/narrative", json=payload)
-    assert r.status_code == 200
-    j = r.json()
-    assert "text" in j
-    assert isinstance(j["text"], str)
+def test_fabricated_provider_stubs_removed():
+    """The old /ai/predict stub returned made-up prices; it must stay gone."""
+    assert client.post("/api/v1/ai/predict", json={}).status_code == 404
