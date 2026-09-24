@@ -151,6 +151,8 @@ class HouseResponse(HouseBase):
     price_per_sqft: Optional[float] = None
     days_on_market: Optional[int] = None
     original_price: Optional[int] = None  # First recorded asking price
+    gross_yield_pct: Optional[float] = None  # Benchmark rent × 12 / price
+    cap_rate_pct: Optional[float] = None  # Unlevered NOI / price
 
     model_config = ConfigDict(from_attributes=True)
 

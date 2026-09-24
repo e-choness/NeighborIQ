@@ -1,33 +1,31 @@
-import { defineConfig } from 'vite'
+import { fileURLToPath, URL } from 'node:url'
+import tailwindcss from '@tailwindcss/vite'
 import vue from '@vitejs/plugin-vue'
-import { resolve } from 'path'
+import { defineConfig } from 'vite'
 
 export default defineConfig({
-  plugins: [vue()],
+  plugins: [vue(), tailwindcss()],
   resolve: {
-    alias: {
-      '@': resolve(__dirname, './src'),
-    },
+    alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
   },
   server: {
     port: 5173,
     proxy: {
-      '/api': {
-        target: 'http://localhost:8000',
-        changeOrigin: true,
-      },
+      '/api': { target: process.env.VITE_API_PROXY ?? 'http://localhost:8000', changeOrigin: true },
     },
   },
+  preview: {
+    port: 4173,
+    proxy: {
+      '/api': { target: process.env.VITE_API_PROXY ?? 'http://localhost:8000', changeOrigin: true },
+    },
+  },
+  worker: { format: 'es' },
   build: {
-    outDir: 'dist',
-    sourcemap: false,
+    chunkSizeWarningLimit: 1200, // maplibre-gl is ~800 kB on its own; it is split into its own chunk
     rollupOptions: {
       output: {
-        manualChunks: {
-          vendor: ['vue', 'vue-router', 'pinia'],
-          charts: ['chart.js', 'vue-chartjs'],
-          map: ['ol'],
-        },
+        manualChunks: (id) => (id.includes('maplibre-gl') ? 'maplibre' : undefined),
       },
     },
   },

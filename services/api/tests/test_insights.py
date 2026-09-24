@@ -114,3 +114,19 @@ def test_markets_summary_and_points(client, db):
 def test_fabricated_provider_stubs_removed(client):
     """The old /ai/predict stub returned made-up prices; it must stay gone."""
     assert client.post("/api/v1/ai/predict", json={}).status_code == 404
+
+
+def test_ad_hoc_valuation_and_rents(client, db):
+    body = client.post("/api/v1/valuation", json={
+        "city": "Apitown", "price": 650000, "sqft": 800, "latitude": 43.652, "longitude": -79.38,
+        "property_type": "condo", "rooms": 2,
+    }).json()
+    assert body["method"] == "comps-v1" and len(body["comps"]) == 6  # all six seeded listings
+
+    assert client.get("/api/v1/rents", params={"city": "apitown", "bedrooms": 2}).json()["monthly_rent"] == 2400
+    assert client.get("/api/v1/rents", params={"city": "nowhere", "bedrooms": 2}).json() is None
+
+
+def test_cashflow_defaults(client):
+    body = client.get("/api/v1/cashflow/defaults").json()
+    assert body["inputs"]["down_payment_pct"] == 20 and "price" not in body["inputs"]

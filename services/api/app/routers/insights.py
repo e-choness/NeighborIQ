@@ -222,6 +222,42 @@ def get_house_valuation(house_id: int, db: Session = Depends(get_sync_db)):
     return valuation_for(db, subject)
 
 
+class AdHocSubject(BaseModel):
+    """A property that is not a listing — for the deal analyzer."""
+    city: str
+    price: int
+    sqft: int
+    latitude: float
+    longitude: float
+    property_type: Optional[str] = None
+    rooms: Optional[int] = None
+
+
+@router.post("/api/v1/valuation", response_model=Optional[Valuation])
+def post_valuation(subject: AdHocSubject, db: Session = Depends(get_sync_db)):
+    """Comparable-listing valuation for any property. null = not enough comparables."""
+    return valuation_for(db, {"id": 0, **subject.model_dump()})
+
+
+@router.get("/api/v1/rents", response_model=Optional[RentEstimate])
+def get_rent_benchmark(city: str, bedrooms: int = Query(ge=0, le=10), db: Session = Depends(get_sync_db)):
+    """Benchmark monthly rent for a city and bedroom count (3 = three or more)."""
+    return rent_estimate_for(db, city, bedrooms)
+
+
+@router.get("/api/v1/cashflow/defaults")
+def cash_flow_defaults(db: Session = Depends(get_sync_db)):
+    """Default assumptions for a blank analysis (rate from the Bank of Canada when loaded)."""
+    rate = latest_mortgage_rate(db)
+    base = CashFlowInput(price=1, monthly_rent=0)
+    return {
+        "inputs": base.model_dump(exclude={"price", "monthly_rent", "city"}) | (
+            {"interest_rate_pct": rate.rate_pct} if rate else {}
+        ),
+        "rate": rate,
+    }
+
+
 @router.post("/api/v1/cashflow", response_model=CashFlowResult)
 def post_cash_flow(inputs: CashFlowInput):
     """Stateless cash-flow projection for user-edited assumptions."""

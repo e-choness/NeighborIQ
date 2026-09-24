@@ -127,3 +127,22 @@ def test_list_contract_and_pagination_defaults(client: TestClient) -> None:
 
 def test_get_house_not_found_returns_404(client: TestClient) -> None:
     assert client.get("/api/v1/houses/999999999").status_code == 404
+
+
+def test_rows_carry_yields_and_sort_by_yield(client: TestClient, listings) -> None:
+    """Yields appear once the insights worker has written house_rental_yields."""
+    from sqlalchemy import create_engine, text
+
+    from shared.database.sync import sync_database_url
+
+    engine = create_engine(sync_database_url())
+    with engine.begin() as conn:
+        for key, gross in (("condo", 0.041), ("detached", 0.029)):
+            conn.execute(text("""
+                INSERT INTO house_rental_yields (house_id, annual_rent, gross_yield, net_yield, computed_at)
+                VALUES (:h, 1, :g, :g / 2, now())
+                ON CONFLICT (house_id) DO UPDATE SET gross_yield = EXCLUDED.gross_yield
+            """), {"h": listings[key]["id"], "g": gross})
+    items = client.get("/api/v1/houses", params={"q": TAG, "sort": "gross_yield", "order": "desc"}).json()["items"]
+    assert [i["gross_yield_pct"] for i in items] == [4.1, 2.9]
+    assert items[0]["cap_rate_pct"] == 2.05

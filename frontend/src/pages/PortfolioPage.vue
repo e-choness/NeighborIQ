@@ -1,143 +1,92 @@
+<script setup lang="ts">
+/** Saved deals, each recomputed with the assumptions it was saved with, compared side by side. */
+import { Trash2 } from '@lucide/vue'
+import { useMutation, useQuery, useQueryCache } from '@pinia/colada'
+import { computed } from 'vue'
+import { RouterLink } from 'vue-router'
+import Button from '@/components/ui/Button.vue'
+import Skeleton from '@/components/ui/Skeleton.vue'
+import { api } from '@/lib/api'
+import { moneyShort, pct, signedMoney } from '@/lib/format'
+import type { CashFlowInput, CashFlowResult, Insights, SavedDeal } from '@/lib/types'
+
+const cache = useQueryCache()
+const { data: deals, isLoading } = useQuery({ key: ['portfolio'], query: () => api<SavedDeal[]>('/portfolio/saved') })
+
+// One insights + cash-flow computation per saved deal
+const ids = computed(() => (deals.value ?? []).map((d) => d.house_id).join(','))
+const { data: results } = useQuery({
+  key: () => ['portfolio-results', ids.value],
+  enabled: () => Boolean(deals.value?.length),
+  query: async () => {
+    const out: Record<number, { cf: CashFlowResult | null; valuation: Insights['valuation'] }> = {}
+    await Promise.all((deals.value ?? []).map(async (d) => {
+      const insights = await api<Insights>(`/houses/${d.house_id}/insights`)
+      const inputs: CashFlowInput | null = insights.cash_flow ? { ...insights.cash_flow.inputs, ...(d.assumptions ?? {}) } : null
+      out[d.house_id] = {
+        valuation: insights.valuation,
+        cf: inputs ? await api<CashFlowResult>('/cashflow', { method: 'POST', body: inputs }) : null,
+      }
+    }))
+    return out
+  },
+})
+
+const { mutate: remove } = useMutation({
+  mutation: (houseId: number) => api(`/portfolio/saved/${houseId}`, { method: 'DELETE' }),
+  onSettled: () => cache.invalidateQueries({ key: ['portfolio'] }),
+})
+</script>
+
 <template>
-  <div class="min-h-screen bg-slate-950 pt-16">
-    <div class="max-w-screen-xl mx-auto px-4 py-8">
-      <!-- Header -->
-      <div class="flex items-center justify-between mb-8">
-        <div>
-          <h1 class="text-2xl font-bold text-white">My Portfolio</h1>
-          <p class="text-slate-400 text-sm mt-1">{{ portfolioStore.savedHouses.length }} saved properties</p>
-        </div>
-        <router-link
-          to="/search"
-          class="flex items-center gap-2 px-4 py-2 bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium rounded-xl transition-colors"
-        >
-          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-          </svg>
-          Add Properties
-        </router-link>
-      </div>
+  <div>
+    <h1 class="text-3xl font-semibold tracking-tight">Portfolio</h1>
+    <p class="mt-2 text-sm text-text-2">Saved deals, recalculated with the assumptions you saved them with.</p>
 
-      <!-- Stats cards -->
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        <div class="bg-slate-800/60 border border-slate-700/50 rounded-xl p-4">
-          <p class="text-xs text-slate-400 mb-1">Total Properties</p>
-          <p class="text-2xl font-bold text-white">{{ portfolioStore.savedHouses.length }}</p>
-        </div>
-        <div class="bg-slate-800/60 border border-slate-700/50 rounded-xl p-4">
-          <p class="text-xs text-slate-400 mb-1">Avg. Price</p>
-          <p class="text-2xl font-bold text-violet-300">{{ avgPrice }}</p>
-        </div>
-        <div class="bg-slate-800/60 border border-slate-700/50 rounded-xl p-4">
-          <p class="text-xs text-slate-400 mb-1">Total Value</p>
-          <p class="text-2xl font-bold text-emerald-300">{{ totalValue }}</p>
-        </div>
-        <div class="bg-slate-800/60 border border-slate-700/50 rounded-xl p-4">
-          <p class="text-xs text-slate-400 mb-1">Cities</p>
-          <p class="text-2xl font-bold text-cyan-300">{{ uniqueCities }}</p>
-        </div>
-      </div>
-
-      <!-- Loading -->
-      <div v-if="portfolioStore.loading" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-        <div v-for="i in 4" :key="i" class="bg-slate-800 rounded-xl h-48 animate-pulse"></div>
-      </div>
-
-      <!-- Empty state -->
-      <div v-else-if="portfolioStore.savedHouses.length === 0" class="text-center py-16">
-        <div class="w-16 h-16 bg-slate-800 rounded-2xl flex items-center justify-center mx-auto mb-4">
-          <svg class="w-8 h-8 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-              d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-          </svg>
-        </div>
-        <h3 class="text-white font-semibold mb-2">No saved properties yet</h3>
-        <p class="text-slate-400 text-sm mb-6">Start browsing and save properties to track them here</p>
-        <router-link
-          to="/search"
-          class="px-6 py-2.5 bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium rounded-xl transition-colors"
-        >
-          Browse Properties
-        </router-link>
-      </div>
-
-      <!-- Properties grid -->
-      <div v-else>
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          <div
-            v-for="entry in portfolioStore.savedHouses"
-            :key="entry.id"
-            class="relative group"
-          >
-            <HouseCard
-              :house="entry.house"
-              :is-saved="true"
-              :show-save="true"
-              @select="openDetail"
-              @save="handleRemove(entry.house)"
-            />
-            <!-- Saved date badge -->
-            <div class="absolute top-2 left-2 px-2 py-0.5 bg-violet-600/80 backdrop-blur-sm text-white text-xs rounded-full">
-              Saved {{ formatDate(entry.saved_at) }}
-            </div>
-          </div>
-        </div>
-      </div>
+    <Skeleton v-if="isLoading" class="mt-8 h-40" />
+    <div v-else-if="!deals?.length" class="mt-10 rounded-2xl border border-dashed border-border p-10 text-center">
+      <p class="font-medium">No saved deals yet</p>
+      <p class="mt-1 text-sm text-text-2">Open a listing and choose “Save deal” to keep its analysis here.</p>
+      <Button to="/explore" variant="secondary" class="mt-4">Browse listings</Button>
     </div>
 
-    <!-- Detail modal -->
-    <HouseDetailModal
-      v-if="selectedHouse"
-      :house="selectedHouse"
-      :is-saved="true"
-      :show-save="true"
-      @close="selectedHouse = null"
-      @save="handleRemove(selectedHouse!)"
-    />
+    <div v-else class="mt-8 overflow-x-auto rounded-2xl border border-border bg-surface">
+      <table class="w-full min-w-[52rem] text-sm">
+        <thead class="text-left text-xs text-muted">
+          <tr class="border-b border-border">
+            <th class="px-4 py-3 font-normal">Property</th>
+            <th class="px-4 py-3 text-right font-normal">Price</th>
+            <th class="px-4 py-3 text-right font-normal">vs comps</th>
+            <th class="px-4 py-3 text-right font-normal">Cash flow / mo</th>
+            <th class="px-4 py-3 text-right font-normal">Cap rate</th>
+            <th class="px-4 py-3 text-right font-normal">Cash-on-cash</th>
+            <th class="px-4 py-3 text-right font-normal">Cash to close</th>
+            <th class="px-4 py-3"><span class="sr-only">Actions</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="d in deals" :key="d.id" class="border-b border-border last:border-0">
+            <td class="px-4 py-3">
+              <RouterLink :to="`/listings/${d.house_id}`" class="font-medium hover:text-accent">{{ d.house.title }}</RouterLink>
+              <p class="text-xs text-muted">{{ d.house.community }}, {{ d.house.city }}<template v-if="d.notes"> · {{ d.notes }}</template></p>
+            </td>
+            <td class="num px-4 py-3 text-right">{{ moneyShort(d.assumptions?.price ?? d.house.price) }}</td>
+            <td class="num px-4 py-3 text-right">
+              <template v-if="results?.[d.house_id]?.valuation">{{ results[d.house_id].valuation!.delta_pct > 0 ? '+' : '' }}{{ pct(results[d.house_id].valuation!.delta_pct) }}</template>
+              <template v-else>—</template>
+            </td>
+            <td class="num px-4 py-3 text-right" :class="(results?.[d.house_id]?.cf?.monthly_cash_flow ?? 0) >= 0 ? 'text-good' : 'text-bad'">
+              {{ results?.[d.house_id]?.cf ? signedMoney(results[d.house_id].cf!.monthly_cash_flow) : '…' }}
+            </td>
+            <td class="num px-4 py-3 text-right">{{ pct(results?.[d.house_id]?.cf?.cap_rate_pct, 2) }}</td>
+            <td class="num px-4 py-3 text-right">{{ pct(results?.[d.house_id]?.cf?.cash_on_cash_pct) }}</td>
+            <td class="num px-4 py-3 text-right">{{ moneyShort(results?.[d.house_id]?.cf?.cash_invested) }}</td>
+            <td class="px-2 py-3 text-right">
+              <Button variant="danger" size="icon" :aria-label="`Remove ${d.house.title}`" @click="remove(d.house_id)"><Trash2 class="h-4 w-4" /></Button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
   </div>
 </template>
-
-<script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import { usePortfolioStore } from '@/stores/portfolio'
-import HouseCard from '@/components/HouseCard.vue'
-import HouseDetailModal from '@/components/HouseDetailModal.vue'
-import type { House } from '@/types'
-
-const portfolioStore = usePortfolioStore()
-const selectedHouse = ref<House | null>(null)
-
-const avgPrice = computed(() => {
-  if (portfolioStore.savedHouses.length === 0) return '$0'
-  const avg = portfolioStore.savedHouses.reduce((sum, e) => sum + e.house.price, 0) / portfolioStore.savedHouses.length
-  if (avg >= 1_000_000) return `$${(avg / 1_000_000).toFixed(1)}M`
-  if (avg >= 1_000) return `$${(avg / 1_000).toFixed(0)}K`
-  return `$${avg}`
-})
-
-const totalValue = computed(() => {
-  const total = portfolioStore.savedHouses.reduce((sum, e) => sum + e.house.price, 0)
-  if (total >= 1_000_000) return `$${(total / 1_000_000).toFixed(1)}M`
-  if (total >= 1_000) return `$${(total / 1_000).toFixed(0)}K`
-  return `$${total}`
-})
-
-const uniqueCities = computed(() => {
-  return new Set(portfolioStore.savedHouses.map((e) => e.house.city)).size
-})
-
-function openDetail(house: House) {
-  selectedHouse.value = house
-}
-
-async function handleRemove(house: House) {
-  await portfolioStore.removeHouse(house.id)
-  if (selectedHouse.value?.id === house.id) selectedHouse.value = null
-}
-
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' })
-}
-
-onMounted(() => portfolioStore.fetchSaved())
-</script>

@@ -1,0 +1,101 @@
+@import "tailwindcss";
+@import "@fontsource-variable/geist";
+@import "@fontsource-variable/geist-mono";
+
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/*
+ * Design tokens. Chrome colours live here; map and data colours live in
+ * src/theme/palette.ts. Dark is the primary theme; light is fully supported.
+ */
+:root {
+  color-scheme: light;
+  --bg: #f5f7f9;
+  --surface: #ffffff;
+  --surface-2: #eef2f5;
+  --panel: rgb(255 255 255 / 0.86);
+  --border: rgb(11 15 20 / 0.1);
+  --border-strong: rgb(11 15 20 / 0.18);
+  --text: #0b0f14;
+  --text-2: #445264;
+  --muted: #6f7d8e;
+  --accent: #0d9488;
+  --accent-ink: #ffffff;
+  --accent-soft: rgb(13 148 136 / 0.12);
+  --good: #0a7d0a;
+  --warn: #9a6400;
+  --bad: #c43434;
+  --ring: rgb(13 148 136 / 0.45);
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #07090d;
+  --surface: #0b0f14;
+  --surface-2: #111823;
+  --panel: rgb(11 15 20 / 0.78);
+  --border: rgb(255 255 255 / 0.08);
+  --border-strong: rgb(255 255 255 / 0.16);
+  --text: #e8eef5;
+  --text-2: #a7b3c2;
+  --muted: #6f7f92;
+  --accent: #2dd4bf;
+  --accent-ink: #04120f;
+  --accent-soft: rgb(45 212 191 / 0.12);
+  --good: #3ecf6e;
+  --warn: #fab219;
+  --bad: #f06a6a;
+  --ring: rgb(45 212 191 / 0.5);
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-panel: var(--panel);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-text: var(--text);
+  --color-text-2: var(--text-2);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-soft: var(--accent-soft);
+  --color-good: var(--good);
+  --color-warn: var(--warn);
+  --color-bad: var(--bad);
+  --font-sans: "Geist Variable", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "Geist Mono Variable", ui-monospace, "SFMono-Regular", monospace;
+}
+
+@layer base {
+  html, body, #app { height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  :focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; border-radius: 6px; }
+  ::selection { background: var(--accent-soft); }
+}
+
+@layer utilities {
+  .num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+  .glass {
+    background: var(--panel);
+    backdrop-filter: blur(14px) saturate(1.2);
+    -webkit-backdrop-filter: blur(14px) saturate(1.2);
+    border: 1px solid var(--border);
+  }
+  .eyebrow { font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+}
+
+/* MapLibre controls follow the theme */
+.maplibregl-ctrl-group { background: var(--panel) !important; border: 1px solid var(--border); box-shadow: none !important; }
+.maplibregl-ctrl-group button + button { border-top-color: var(--border) !important; }
+.maplibregl-ctrl-icon { filter: var(--ctrl-filter, none); }
+:root[data-theme="dark"] { --ctrl-filter: invert(0.9); }
+.maplibregl-ctrl-attrib { background: transparent !important; color: var(--muted); font-size: 10px; }
+.maplibregl-ctrl-attrib a { color: var(--text-2) !important; }

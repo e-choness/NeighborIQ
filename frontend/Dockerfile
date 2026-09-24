@@ -1,23 +1,20 @@
-# Stage 1 — Build the Vue 3 app
-FROM node:18-alpine AS builder
+# Stage 1 — build the Vue app (Vite 8 needs Node ≥ 20.19)
+FROM node:22-alpine AS builder
 WORKDIR /app
 
-# Copy dependency manifests and install
-COPY frontend/package.json ./
-RUN npm install
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci --no-audit --no-fund
 
-# Copy source and build
 COPY frontend/ ./
+# Optional self-hosted basemap, e.g. --build-arg VITE_PMTILES_URL=/tiles/canada.pmtiles
+ARG VITE_PMTILES_URL=""
+ENV VITE_PMTILES_URL=$VITE_PMTILES_URL
 RUN npm run build
 
-# Stage 2 — Serve with nginx
+# Stage 2 — serve with nginx
 FROM nginx:alpine AS runtime
-# Copy built assets
 COPY --from=builder /app/dist /usr/share/nginx/html
-# Copy nginx configuration
 COPY frontend/nginx.conf /etc/nginx/conf.d/default.conf
-# Remove the default nginx config
-RUN rm -f /etc/nginx/conf.d/default.conf.bak
 
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]

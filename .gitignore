@@ -365,3 +365,8 @@ shared/__pycache__
 shared/models/__pycache__
 shared/utils/__pycache__
 migrations/alembic/__pycache__
+# Frontend
+node_modules/
+frontend/dist/
+# Open-data download cache
+data/cache/

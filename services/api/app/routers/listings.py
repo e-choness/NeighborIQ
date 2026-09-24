@@ -11,7 +11,7 @@ from sqlalchemy import and_, func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.security import admin_user
-from shared import Community, House, HousePriceHistory, get_db
+from shared import Community, House, HousePriceHistory, HouseRentalYield, get_db
 from shared.models.schemas import (
     CommunityResponse,
     HouseCreate,
@@ -35,11 +35,29 @@ _ORIGINAL_PRICE = (
 )
 
 
-def _with_original_price(rows) -> list[HouseResponse]:
+# Unlevered yields computed by the insights worker (NULL until it has run)
+_GROSS_YIELD = (
+    select(HouseRentalYield.gross_yield).where(HouseRentalYield.house_id == House.id)
+    .correlate(House).scalar_subquery()
+)
+_NET_YIELD = (
+    select(HouseRentalYield.net_yield).where(HouseRentalYield.house_id == House.id)
+    .correlate(House).scalar_subquery()
+)
+_EXTRAS = (
+    _ORIGINAL_PRICE.label("original_price"),
+    _GROSS_YIELD.label("gross_yield"),
+    _NET_YIELD.label("net_yield"),
+)
+
+
+def _with_extras(rows) -> list[HouseResponse]:
     out = []
-    for house, original_price in rows:
+    for house, original_price, gross, net in rows:
         response = HouseResponse.model_validate(house)
         response.original_price = original_price
+        response.gross_yield_pct = round(float(gross) * 100, 2) if gross is not None else None
+        response.cap_rate_pct = round(float(net) * 100, 2) if net is not None else None
         out.append(response)
     return out
 
@@ -77,7 +95,7 @@ async def list_houses(
     page_size: int = Query(default=50, ge=1, le=500, description="Page size"),
     sort: str = Query(
         default="created_at",
-        description="Sort field (price, created_at, listed_at, area, sqft, price_per_sqft)",
+        description="Sort field (price, created_at, listed_at, area, sqft, price_per_sqft, gross_yield)",
     ),
     order: str = Query(default="desc", description="Sort order (asc, desc)"),
     db: AsyncSession = Depends(get_db),
@@ -138,7 +156,7 @@ async def list_houses(
     count_result = await db.execute(select(func.count(House.id)).where(*conditions))
     total = count_result.scalar() or 0
 
-    query = select(House, _ORIGINAL_PRICE.label("original_price")).where(*conditions)
+    query = select(House, *_EXTRAS).where(*conditions)
 
     sort_field_map = {
         "price": House.price,
@@ -147,6 +165,7 @@ async def list_houses(
         "area": House.area,
         "sqft": House.sqft,
         "price_per_sqft": House.price / func.nullif(House.sqft, 0),
+        "gross_yield": _GROSS_YIELD,
     }
     sort_field = sort_field_map.get(sort, House.created_at)
     sort_field = sort_field.desc() if order == "desc" else sort_field.asc()
@@ -159,7 +178,7 @@ async def list_houses(
         total=total,
         page=page,
         page_size=page_size,
-        items=_with_original_price(result.all()),
+        items=_with_extras(result.all()),
     )
 
 
@@ -172,7 +191,7 @@ async def search_houses(
     db: AsyncSession = Depends(get_db),
 ):
     """Quick search (typeahead): up to 50 matches by keyword and location."""
-    query = select(House, _ORIGINAL_PRICE.label("original_price")).where(House.is_active == 1)
+    query = select(House, *_EXTRAS).where(House.is_active == 1)
 
     if q:
         pattern = f"%{q.strip()}%"
@@ -190,21 +209,21 @@ async def search_houses(
         query = query.where(func.lower(House.region) == region.lower())
 
     result = await db.execute(query.order_by(House.id).limit(50))
-    return {"items": _with_original_price(result.all())}
+    return {"items": _with_extras(result.all())}
 
 
 @router.get("/api/v1/houses/{house_id}")
 async def get_house(house_id: int, db: AsyncSession = Depends(get_db)) -> HouseResponse:
     """Get listing details by ID."""
     result = await db.execute(
-        select(House, _ORIGINAL_PRICE.label("original_price")).where(
+        select(House, *_EXTRAS).where(
             House.id == house_id, House.is_active == 1
         )
     )
     row = result.first()
     if not row:
         raise HTTPException(status_code=404, detail="House not found")
-    return _with_original_price([row])[0]
+    return _with_extras([row])[0]
 
 
 @router.get("/api/v1/houses/{house_id}/price-history")
