@@ -35,8 +35,9 @@ except Exception:
 
 def _database_url() -> str:
     """DATABASE_URL (the services' env var) wins over alembic.ini; alembic needs a sync driver."""
-    url = os.getenv("DATABASE_URL") or config.get_main_option("sqlalchemy.url")
-    return url.replace("+asyncpg", "+psycopg2")
+    from shared.database.urls import sync_database_url
+
+    return sync_database_url(os.getenv("DATABASE_URL") or config.get_main_option("sqlalchemy.url"))
 
 
 # Revisions 001–005 were squashed into 0001_baseline (same schema). Databases

@@ -6,16 +6,14 @@ Derived from the same DATABASE_URL the async engine uses, so one setting
 configures every process.
 """
 
-import os
 from collections.abc import Generator
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
+from shared.database.urls import sync_database_url
 
-def sync_database_url() -> str:
-    url = os.getenv("DATABASE_URL", "postgresql+asyncpg://root:root@localhost:5432/house_discovery")
-    return url.replace("+asyncpg", "+psycopg2")
+__all__ = ["SessionLocal", "engine", "get_sync_db", "sync_database_url"]
 
 
 engine = create_engine(sync_database_url(), pool_pre_ping=True)

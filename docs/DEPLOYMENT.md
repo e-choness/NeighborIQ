@@ -18,7 +18,8 @@ it:
 | Option | Runs the whole stack? | Notes |
 |---|---|---|
 | **Oracle Cloud Always Free** (Ampere A1 VM) | **Yes** | The only free tier here with enough memory for the full stack. Free-tier accounts get 2 OCPU / 12 GB (halved from 4 / 24 in June 2026). ARM64: build the images on the VM (`--build`); every dependency ships ARM64 wheels. New instances can be hard to get in busy regions |
-| **A small VPS** (any provider, 2 GB) | **Yes** | A few dollars or euros a month. The most predictable option, running the same commands as below |
+| **A small VPS** (any provider, 2 GB, e.g. a DigitalOcean Droplet) | **Yes** | A few dollars or euros a month. The most predictable option, running the same commands as below |
+| **DigitalOcean App Platform** | **Yes**, managed | Paid: one container per component plus a managed Postgres. No servers to maintain; see [below](#digitalocean-app-platform) |
 | **Render** free | No | Free web services sleep after 15 min idle; free Postgres expires after 30 days (then a 14-day grace period). Background workers aren't free. Fine for a short demo of the API |
 | **Koyeb** free | No | One small web service (0.1 vCPU, 512 MB) and a 1 GB Postgres with PostGIS but only 5 compute hours a month |
 | **Google Cloud Run** free tier | API only | 2 M requests and 360 k vCPU-seconds a month; scale-to-zero suits the stateless API, not the always-on workers |
@@ -123,3 +124,65 @@ restore the backup you took before updating.
 - [ ] `https://$DOMAIN/health` returns `"database": "up"`
 - [ ] Rent benchmarks replaced with official CMHC figures ([Data sources](data-sources.md#rents))
 - [ ] Nightly `pg_dump` stored off the host
+
+## DigitalOcean App Platform
+
+App Platform builds from GitHub and runs each component in its own container, with no server to maintain.
+Its auto-detection only looks for a `Dockerfile`, `package.json` or `requirements.txt` at the repository root.
+This repository has five deployables in subfolders, so connecting it directly ends with *"Verify the repo
+contains supported file types…"*. Create the app from the spec in [`.do/app.yaml`](../.do/app.yaml) instead:
+
+| Component | Type | From | Size |
+|---|---|---|---|
+| `web` | static site | `frontend/` (`npm run build` → `dist/`) | — |
+| `api` | service, public at `/api` | `services/api/Dockerfile` | 1 vCPU / 0.5 GB |
+| `valkey` | private service (`internal_ports` only) | `valkey/valkey:9-alpine` | 1 vCPU / 0.5 GB |
+| `ingestion-worker`, `insights-worker` | workers, each with its own scheduler (`celery worker -B`) | the worker Dockerfiles | 1 vCPU / 1 GB each |
+| `migrate` | job, before each deploy | `alembic upgrade head` | 0.5 GB |
+| `bootstrap` | job, after each deploy | demo data if the database is empty | 0.5 GB |
+| `db` | Managed PostgreSQL (existing cluster) | `neighboriq-db` | smallest plan |
+
+The browser sees one origin: App Platform routes `/api` to the API and everything else to the SPA, so the
+`SameSite=Strict` session cookies work unchanged. `DATABASE_URL` is injected as a plain libpq URL
+(`postgresql://…?sslmode=require`); [`shared/database/urls.py`](../shared/database/urls.py) converts it for
+asyncpg and psycopg2.
+
+### Steps
+
+1. **Database.** Create a Managed PostgreSQL cluster named `neighboriq-db` in the app's region (the spec uses
+   `tor`, Toronto). App Platform's dev databases are not suitable, because the schema needs the PostGIS extension.
+   Connect once as `doadmin` and run:
+
+   ```sql
+   CREATE EXTENSION IF NOT EXISTS postgis;
+   ```
+
+2. **Secrets.** Generate the JWT key pair as in [Secrets](#2-secrets). In `.do/app.yaml` (or later in the
+   control panel), replace the `REPLACE_ME` values: `JWT_PRIVATE_KEY`, `JWT_PUBLIC_KEY` (single-line PEM with
+   `\n` escapes) and `ADMIN_EMAILS`.
+
+3. **Create the app.**
+
+   ```bash
+   doctl apps spec validate .do/app.yaml
+   doctl apps create --spec .do/app.yaml
+   ```
+
+   Without `doctl`: create an app from the repository in the control panel, then open **Settings → App Spec →
+   Edit**, paste the file and save. App Platform needs read access to the repository; grant it under
+   **GitHub → Settings → Applications → DigitalOcean**.
+
+4. **Deploy.** Each deploy runs `migrate` first, then starts the new versions, then runs `bootstrap`. Pushes
+   to `main` redeploy automatically (`deploy_on_push`).
+
+### Notes
+
+- **Cost:** App Platform bills each container. The layout above runs five containers plus the managed
+  database, so it costs several times a single 2 GB Droplet running the Compose stack. Check
+  [DigitalOcean's pricing](https://www.digitalocean.com/pricing/app-platform) for current rates.
+- **Storage:** containers have no persistent disk. The open-data download cache and the trained model are
+  rebuilt after a redeploy; the weekly retrain, or **Admin → Retrain**, restores the model.
+- **Scaling:** keep one instance of each worker, because each runs a scheduler. To scale job throughput,
+  add worker components without `-B`.
+- **Instance sizes:** `doctl apps tier instance-size list` shows the current slugs.
+
