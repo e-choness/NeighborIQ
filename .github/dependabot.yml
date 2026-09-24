@@ -6,16 +6,31 @@ updates:
     schedule: { interval: weekly }
     groups:
       python: { patterns: ["*"] }
+    ignore:
+      # kombu (Celery's transport) requires redis-py < 6.5
+      - dependency-name: redis
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: npm
     directory: /frontend
     schedule: { interval: weekly }
     groups:
       frontend: { patterns: ["*"] }
+    ignore:
+      # TypeScript 7 is the native compiler; vue-tsc can't drive it yet
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
+      # Node types track the runtime (Node 24 LTS); bump together with the Node image
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: npm
     directory: /docs
     schedule: { interval: monthly }
     groups:
       docs: { patterns: ["*"] }
+    ignore:
+      # vitepress-plugin-mermaid supports mermaid 10 and 11 only
+      - dependency-name: mermaid
+        update-types: ["version-update:semver-major"]
   # Actions are pinned to commit SHAs (tags can be moved, as in the 2026 trivy-action compromise);
   # Dependabot updates the SHA and the version comment together.
   - package-ecosystem: github-actions
@@ -26,6 +41,10 @@ updates:
   - package-ecosystem: docker
     directories: ["/services/api", "/services/ingestion-worker", "/services/insights-worker", "/frontend", "/shared/tests"]
     schedule: { interval: weekly }
+    ignore:
+      # Node: LTS lines only (even majors); move to the next LTS deliberately
+      - dependency-name: node
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: docker-compose
     directory: /
     schedule: { interval: weekly }
