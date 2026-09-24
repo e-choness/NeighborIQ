@@ -1,5 +1,5 @@
 # Stage 1 — build the Vue app on Node 24 (Active LTS)
-FROM node:25-alpine AS builder
+FROM node:24-alpine AS builder
 WORKDIR /app
 
 COPY frontend/package.json frontend/package-lock.json ./
