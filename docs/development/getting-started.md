@@ -9,14 +9,14 @@ docker compose up -d --build
 
 - App: http://localhost (nginx serving the built SPA)
 - API docs: http://localhost:8000/docs
-- Postgres on `localhost:5432`, Redis on `localhost:6379` (bound to localhost only)
+- Postgres on `localhost:5432`, Valkey (Redis protocol) on `localhost:6379` (bound to localhost only)
 
 The first start migrates the schema and loads rent benchmarks plus about 800 synthetic listings. Sign up with
 the email in `ADMIN_EMAILS` to see the Admin page.
 
 ## Frontend with hot reload
 
-Run the backend in Docker and the frontend with Vite (Node ≥ 20.19):
+Run the backend in Docker and the frontend with Vite (Node 24 LTS):
 
 ```bash
 docker compose up -d api ingestion-worker insights-worker
@@ -27,7 +27,7 @@ Set `VITE_API_PROXY` to point the dev proxy at another API. `npm run typecheck` 
 
 ## Python services on the host
 
-Python 3.11. The services import `shared/` from the repository root, so put both on `PYTHONPATH`:
+Python 3.14 (3.13 also works; `uv python install 3.14` if your system has neither). The services import `shared/` from the repository root, so put both on `PYTHONPATH`:
 
 ```bash
 python -m venv .venv && source .venv/bin/activate

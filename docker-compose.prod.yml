@@ -44,7 +44,7 @@ services:
   redis:
     <<: *restart
     ports: !reset []
-    command: redis-server --appendonly yes
+    command: valkey-server --appendonly yes
     volumes:
       - redis_data:/data
 

@@ -1,8 +1,34 @@
 # Deployment
 
 NeighborIQ runs on one Linux server with Docker Compose. Caddy terminates TLS and obtains certificates
-automatically. A 2 vCPU / 4 GB machine runs the full stack with demo data. Loading assessment rolls for
-several cities, or training the model, benefits from 8 GB.
+automatically. A 2 GB machine runs the full stack with demo data; loading assessment rolls for several
+cities benefits from 4 GB or more.
+
+## Where to host
+
+NeighborIQ needs a few always-on processes: Postgres with PostGIS, the Valkey broker, the API, two Celery
+workers and their schedulers. With demo data the whole Compose stack uses about **1 GB of RAM** at idle
+(measured: insights worker ~400 MB, everything else under 150 MB each), so plan for **2 GB**. The frontend
+reaches the API on the same origin (`/api/v1` through its nginx), so the simplest deployment is one machine
+running the Compose stack below.
+
+Free and low-cost options as of September 2026. Terms change often, so check each provider before you rely on
+it:
+
+| Option | Runs the whole stack? | Notes |
+|---|---|---|
+| **Oracle Cloud Always Free** (Ampere A1 VM) | **Yes** | The only free tier here with enough memory for the full stack. Free-tier accounts get 2 OCPU / 12 GB (halved from 4 / 24 in June 2026). ARM64: build the images on the VM (`--build`); every dependency ships ARM64 wheels. New instances can be hard to get in busy regions |
+| **A small VPS** (any provider, 2 GB) | **Yes** | A few dollars or euros a month. The most predictable option, running the same commands as below |
+| **Render** free | No | Free web services sleep after 15 min idle; free Postgres expires after 30 days (then a 14-day grace period). Background workers aren't free. Fine for a short demo of the API |
+| **Koyeb** free | No | One small web service (0.1 vCPU, 512 MB) and a 1 GB Postgres with PostGIS but only 5 compute hours a month |
+| **Google Cloud Run** free tier | API only | 2 M requests and 360 k vCPU-seconds a month; scale-to-zero suits the stateless API, not the always-on workers |
+| **Neon** / **Supabase** free Postgres | Database only | Both support PostGIS. Neon: 0.5 GB per project. Supabase: 500 MB, paused after 7 days idle. Demo data fits; a few cities of assessment rolls may not |
+| **Fly.io**, **Railway** | No | Fly.io has no free tier for new accounts; Railway gives trial credit only |
+
+Splitting the app across free services (for example, the frontend on a static host and the API on Cloud
+Run) needs one custom domain for both, because the session cookies are `SameSite=Strict`. The frontend would
+also need an API base-URL setting it doesn't have today. The docs site is different: it is static and is
+already published free on GitHub Pages.
 
 ## 1. Prepare
 

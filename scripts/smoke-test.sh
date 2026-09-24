@@ -22,7 +22,7 @@ check() { # name url [jq-ish grep pattern]
 echo "Web app  $BASE_URL"
 check "SPA served" "$BASE_URL/" '<div id="app"'
 echo "API      $API_URL"
-check "health + database" "$API_URL/health" '"database": *"up"'
+check "health + database" "$API_URL/api/v1/health" '"database": *"up"'
 check "listings" "$API_URL/api/v1/houses?page_size=1" '"items"'
 check "markets" "$API_URL/api/v1/markets" '\['
 check "cash-flow defaults" "$API_URL/api/v1/cashflow/defaults" 'interest_rate_pct'

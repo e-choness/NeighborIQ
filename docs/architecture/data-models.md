@@ -1,6 +1,6 @@
 # Data model
 
-One PostgreSQL 15 database with PostGIS. Alembic owns the schema
+One PostgreSQL 18 database with PostGIS 3.6. Alembic owns the schema
 ([`migrations/alembic/versions`](../../migrations/alembic/versions)); ORM models for the application tables live
 in [`shared/models`](../../shared/models). The open-data tables (`od_*`) are written with SQL by the ingestion
 worker and read with SQL by the API, so they have no ORM classes.
@@ -42,7 +42,7 @@ erDiagram
 
 | Table | Key columns | Notes |
 |---|---|---|
-| `auth_users` | `id` (int), `email` (unique), `password_hash` (bcrypt), `role` (`user`/`admin`), `is_active` | Role `admin` is granted at sign-up when the email is in `ADMIN_EMAILS` |
+| `auth_users` | `id` (int), `email` (unique), `password_hash` (Argon2id; older bcrypt hashes upgrade at next sign-in), `role` (`user`/`admin`), `is_active` | Role `admin` is granted at sign-up when the email is in `ADMIN_EMAILS` |
 | `auth_refresh_tokens` | `user_id`, `token_hash` (SHA-256, unique), `expires_at`, `is_revoked` | Rotated on every refresh; the raw token is never stored |
 | `auth_jwt_keys` | `key_id`, `private_key_pem`, `public_key_pem`, `is_active` | Development only; production supplies `JWT_PRIVATE_KEY`/`JWT_PUBLIC_KEY` |
 

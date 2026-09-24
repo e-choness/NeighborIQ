@@ -45,8 +45,8 @@ python scripts/export_openapi.py               # regenerate after changing endpo
 ```
 
 CI ([`.github/workflows/ci-cd.yml`](../../.github/workflows/ci-cd.yml)) runs the same steps: lint and
-OpenAPI check, the three service suites and the shared suite against PostGIS, the frontend build, and a Trivy
-scan. Images are pushed to GHCR only from `main`. [`docs.yml`](../../.github/workflows/docs.yml) builds the
+OpenAPI check, the three service suites and the shared suite against PostGIS, the frontend build, and a
+dependency audit (`pip-audit` on every requirements file, `npm audit` for the frontend and docs). Images are pushed to GHCR only from `main`. [`docs.yml`](../../.github/workflows/docs.yml) builds the
 documentation site on pull requests and deploys it to GitHub Pages from `main`.
 
 ## Calculator parity

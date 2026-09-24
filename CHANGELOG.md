@@ -5,6 +5,32 @@ the API version is the one in [`services/api/openapi.json`](services/api/openapi
 
 ## [Unreleased]
 
+### Security
+- Upgraded every dependency to its latest release. The previous pins carried 33 published advisories:
+  python-multipart (12), PyJWT (8), cryptography (7), Scrapy (6). `pip-audit` and `npm audit` now report
+  none. Notable pins: FastAPI 0.141, Pydantic 2.13, SQLAlchemy 2.0.54, Celery 5.6, Scrapy 2.19,
+  cryptography 50, PyJWT 2.15, XGBoost 3.4, numpy 2.5.
+- Passwords are hashed with Argon2id (pwdlib) instead of passlib + bcrypt (passlib is unmaintained and
+  held bcrypt at 3.2). Existing bcrypt hashes still verify, with passlib's 72-byte behaviour, and are
+  upgraded at the next sign-in.
+- CI actions are pinned to commit SHAs. The Trivy job is replaced by `pip-audit` and `npm audit`, after the
+  March 2026 compromise of `aquasecurity/trivy-action` tags; the CI referenced that action by tag.
+- Images contain no compilers or extra OS packages (wheels only) and run as a non-root user.
+- Docs site: Vite forced to 6.4.3 under VitePress 1.6.4, clearing four dev-server advisories.
+
+### Changed
+- Runtimes: Python 3.14 (code stays 3.13-compatible), Node 24 LTS, PostgreSQL 18 + PostGIS 3.6
+  (**existing databases need a dump/restore**, see docs/operations.md), Valkey 9 as the Celery broker in
+  place of Redis 7, TypeScript 6.
+- The insights worker uses the CPU-only XGBoost build on Linux, which shrinks its image from 1.55 GB to
+  764 MB.
+- Dependabot also updates Compose image tags and the shared test requirements.
+
+### Fixed
+- nginx now re-resolves the `api` service, so restarting or scaling the API no longer leaves the frontend
+  returning 502 until nginx restarts.
+- The API container's Compose healthcheck called `curl`, which is no longer in the image.
+
 ### Added
 - Documentation site (VitePress) published to GitHub Pages. It includes an interactive cash-flow
   calculator, kept in sync with the Python implementation by shared fixtures, and an HTTP API reference

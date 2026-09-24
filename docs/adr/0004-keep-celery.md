@@ -23,5 +23,6 @@ Keep Celery with Redis as the broker. Fix what was broken instead of switching:
 
 - No migration cost, and the tooling is mature (Flower, retries, rate limits).
 - Redis is one more service, but it only holds queued jobs, so losing it loses no user data.
+- Since 0.4 the broker runs Valkey, the BSD-licensed Redis fork; Celery talks to it over the same protocol.
 - If workflows grow multi-step with long waits (e.g. multi-day feed reconciliation), revisit with a durable
   workflow engine rather than chaining Celery tasks.

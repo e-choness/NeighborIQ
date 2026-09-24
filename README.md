@@ -15,10 +15,10 @@
   <a href="https://github.com/astral-sh/ruff"><img alt="Ruff" src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json&style=flat-square"></a>
   <a href="https://github.com/e-choness/NeighborIQ/commits/main"><img alt="Last commit" src="https://img.shields.io/github/last-commit/e-choness/NeighborIQ?style=flat-square"></a>
   <br>
-  <img alt="Python 3.11" src="https://img.shields.io/badge/Python-3.11-3776AB?style=flat-square&logo=python&logoColor=white">
+  <img alt="Python 3.14" src="https://img.shields.io/badge/Python-3.14-3776AB?style=flat-square&logo=python&logoColor=white">
   <img alt="FastAPI" src="https://img.shields.io/badge/FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white">
-  <img alt="PostgreSQL + PostGIS" src="https://img.shields.io/badge/PostgreSQL_+_PostGIS-15-4169E1?style=flat-square&logo=postgresql&logoColor=white">
-  <img alt="Celery" src="https://img.shields.io/badge/Celery-Redis-37814A?style=flat-square&logo=celery&logoColor=white">
+  <img alt="PostgreSQL 18 + PostGIS 3.6" src="https://img.shields.io/badge/PostgreSQL_18-PostGIS_3.6-4169E1?style=flat-square&logo=postgresql&logoColor=white">
+  <img alt="Celery + Valkey" src="https://img.shields.io/badge/Celery-Valkey-37814A?style=flat-square&logo=celery&logoColor=white">
   <img alt="Vue 3.5" src="https://img.shields.io/badge/Vue-3.5-4FC08D?style=flat-square&logo=vuedotjs&logoColor=white">
   <img alt="MapLibre GL" src="https://img.shields.io/badge/MapLibre_GL-6-396CB2?style=flat-square&logo=maplibre&logoColor=white">
 </p>
@@ -94,7 +94,7 @@ flowchart LR
     Browser --> Web["frontend<br/>Vue SPA + nginx"]
     Web -->|/api| API["api<br/>FastAPI"]
     API --> PG[("PostgreSQL<br/>+ PostGIS")]
-    API -->|enqueue| Redis[("Redis")]
+    API -->|enqueue| Redis[("Valkey<br/>(Redis protocol)")]
     Redis --> IW["ingestion-worker<br/>open data · OSM · feeds"]
     Redis --> AW["insights-worker<br/>yields · model · summaries"]
     IW --> PG
@@ -110,13 +110,13 @@ actually needs to scale. The reasoning is in the [architecture overview](docs/ar
 
 | Layer | Choice |
 |---|---|
-| API | Python 3.11, FastAPI, SQLAlchemy 2, Pydantic 2, RS256 JWT in HttpOnly cookies |
-| Data | PostgreSQL 15 + PostGIS, Alembic migrations |
-| Jobs | Celery + Redis; Scrapy for licensed partner feeds |
+| API | Python 3.14, FastAPI, SQLAlchemy 2, Pydantic 2, RS256 JWT in HttpOnly cookies, Argon2id passwords |
+| Data | PostgreSQL 18 + PostGIS 3.6, Alembic migrations |
+| Jobs | Celery with Valkey (Redis-compatible) as broker; Scrapy for licensed partner feeds |
 | Analytics | Comparable-listing valuation, Canadian cash flow, XGBoost with a backtested error band (off by default) |
 | Frontend | Vue 3.5, Vite 8, Tailwind CSS v4, Reka UI, Pinia Colada, MapLibre GL + Protomaps PMTiles, H3 |
 | Docs | VitePress, published to GitHub Pages |
-| Tooling | Ruff, pytest, vue-tsc, GitHub Actions, Trivy, Caddy |
+| Tooling | Ruff, pytest, vue-tsc, pip-audit + npm audit, Dependabot, SHA-pinned GitHub Actions, Caddy |
 
 </details>
 

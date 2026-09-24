@@ -102,11 +102,16 @@ async def login(
 ):
     """Authenticate and set session cookies."""
     user = (await db.execute(select(User).where(User.email == user_login.email))).scalar_one_or_none()
-    if not user or not verify_password(user_login.password, user.password_hash):
+    matches, new_hash = verify_password(user_login.password, user.password_hash) if user else (False, None)
+    if not matches:
         raise HTTPException(status_code=401, detail="Invalid email or password")
     if user.is_active == 0:
         raise HTTPException(status_code=403, detail="User account is disabled")
+    if new_hash:  # upgrade legacy bcrypt (or outdated Argon2 parameters) transparently
+        user.password_hash = new_hash
     await _issue_tokens(response, db, user)
+    if new_hash:
+        await db.refresh(user)  # the commit expired server-set columns (updated_at)
     return UserResponse.model_validate(user)
 
 

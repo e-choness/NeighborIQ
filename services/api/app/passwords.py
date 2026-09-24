@@ -1,38 +1,27 @@
 """
-Password hashing utilities using bcrypt.
+Password hashing: Argon2id for new hashes; bcrypt hashes from earlier releases
+are still accepted and upgraded to Argon2id on the next successful login.
 
-Implements secure password hashing with bcrypt for user authentication.
+Earlier releases hashed with passlib + bcrypt, which silently used only the first
+72 bytes of a password. Legacy verification keeps that behaviour so existing
+accounts can always sign in (bcrypt >= 5 raises on longer input instead).
 """
 
-from passlib.context import CryptContext
+import bcrypt
+from pwdlib import PasswordHash
+from pwdlib.hashers.argon2 import Argon2Hasher
 
-# bcrypt context for password hashing
-# rounds=12 provides a good balance between security and performance
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+_argon2 = PasswordHash((Argon2Hasher(),))
+_BCRYPT_PREFIXES = ("$2a$", "$2b$", "$2y$")
 
 
 def hash_password(password: str) -> str:
-    """
-    Hash a plain-text password using bcrypt.
-
-    Args:
-        password: Plain-text password
-
-    Returns:
-        Bcrypt hash of the password
-    """
-    return pwd_context.hash(password)
+    return _argon2.hash(password)
 
 
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """
-    Verify a plain-text password against a bcrypt hash.
-
-    Args:
-        plain_password: Plain-text password to verify
-        hashed_password: Bcrypt hash from the database
-
-    Returns:
-        True if password matches, False otherwise
-    """
-    return pwd_context.verify(plain_password, hashed_password)
+def verify_password(password: str, hashed: str) -> tuple[bool, str | None]:
+    """Return (matches, new_hash). new_hash is set when the stored hash should be replaced."""
+    if hashed.startswith(_BCRYPT_PREFIXES):
+        ok = bcrypt.checkpw(password.encode()[:72], hashed.encode())
+        return ok, (hash_password(password) if ok else None)
+    return _argon2.verify_and_update(password, hashed)

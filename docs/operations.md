@@ -103,6 +103,33 @@ In production, put `/tiles/` behind a CDN if traffic grows. The file is static.
 - `docker compose logs -f api ingestion-worker insights-worker` shows the logs. The prod overlay rotates
   them at 10 MB × 3 files.
 
+## Upgrading from the Postgres 15 image
+
+Release 0.4 moved from `postgis/postgis:15-3.4` to `postgis/postgis:18-3.6`. A major Postgres version can't
+read an older data directory, so the new image uses a new volume (`pg18_data`). The old volume
+(`<project>_postgres_data`) is left untouched until you delete it. To carry your data over:
+
+```bash
+# 1. Dump from the old volume with the old image (the stack can be stopped)
+docker compose down
+docker run -d --name pg15 -e POSTGRES_PASSWORD=unused \
+  -v "$(basename "$PWD" | tr A-Z a-z)_postgres_data:/var/lib/postgresql/data" postgis/postgis:15-3.4-alpine
+sleep 5
+docker exec pg15 pg_dump -U "$POSTGRES_USER" -Fc "$POSTGRES_DB" > pre-18.dump
+docker rm -f pg15
+
+# 2. Start Postgres 18 and restore into the empty database it creates
+docker compose up -d postgres
+docker compose exec -T postgres pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" --no-owner < pre-18.dump
+
+# 3. Start everything; migrate adopts the old revision history and applies new migrations
+docker compose up -d
+```
+
+`pg_restore` may report that PostGIS extension objects already exist (the image creates them in a new
+database); those messages are harmless. Check the app, then remove the old volume: `docker volume rm <project>_postgres_data`. Fresh installs can
+skip this section.
+
 ## Backups
 
 All state is in Postgres. Redis only holds queued jobs, which can be re-queued.

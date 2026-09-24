@@ -13,8 +13,8 @@ flowchart TB
         API["routers: auth · listings · portfolio<br/>insights & markets · places · admin"]
     end
 
-    API --> PG[("PostgreSQL 15 + PostGIS")]
-    API -->|send_task| Redis[("Redis<br/>Celery broker")]
+    API --> PG[("PostgreSQL 18 + PostGIS")]
+    API -->|send_task| Redis[("Valkey<br/>Celery broker")]
 
     subgraph workers["Celery workers (scale independently)"]
         IW["ingestion-worker<br/>queue: scraper"]
@@ -84,9 +84,9 @@ No service trusts identity headers: every protected route verifies the token its
 
 ## Infrastructure
 
-- **PostgreSQL 15 + PostGIS** — the only store. Schema owned by Alembic (`migrations/`); services never
+- **PostgreSQL 18 + PostGIS 3.6** — the only store. Schema owned by Alembic (`migrations/`); services never
   create tables in Compose (`AUTO_CREATE_SCHEMA=0`).
-- **Redis** — Celery broker only.
+- **Valkey 9** (the BSD-licensed, Redis-compatible fork; Compose service `redis`) — Celery broker only.
 - **Networking** — only `frontend` (and Caddy in prod) publish public ports; `api`, Postgres and Redis bind to
   localhost in development and nothing in production.
 

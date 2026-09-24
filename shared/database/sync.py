@@ -22,7 +22,7 @@ engine = create_engine(sync_database_url(), pool_pre_ping=True)
 SessionLocal = sessionmaker(bind=engine)
 
 
-def get_sync_db() -> Generator[Session, None, None]:
+def get_sync_db() -> Generator[Session]:
     """FastAPI dependency yielding a sync session."""
     db = SessionLocal()
     try:

@@ -25,7 +25,7 @@ x-after-migrate: &after-migrate
 
 services:
   postgres:
-    image: postgis/postgis:15-3.4-alpine
+    image: postgis/postgis:18-3.6-alpine
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-house_discovery}
       POSTGRES_USER: ${POSTGRES_USER:-root}
@@ -33,7 +33,9 @@ services:
     ports:
       - "127.0.0.1:5432:5432"  # localhost only, for psql during development
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      # Postgres 18 keeps data in /var/lib/postgresql/18/docker; mount the parent.
+      # A new volume name: data from the Postgres 15 image needs a dump/restore (docs/operations.md).
+      - pg18_data:/var/lib/postgresql
     networks: [neighbor_iq_net]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
@@ -41,13 +43,14 @@ services:
       timeout: 5s
       retries: 5
 
+  # Valkey: the BSD-licensed, Redis-compatible fork (Linux Foundation). Celery's broker only.
   redis:
-    image: redis:7-alpine
+    image: valkey/valkey:9-alpine
     ports:
       - "127.0.0.1:6379:6379"
     networks: [neighbor_iq_net]
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "valkey-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -99,7 +102,7 @@ services:
     depends_on: *after-migrate
     networks: [neighbor_iq_net]
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2)"]
       interval: 10s
       timeout: 3s
       retries: 5
@@ -121,7 +124,7 @@ services:
     build:
       context: .
       dockerfile: services/ingestion-worker/Dockerfile
-    command: ["celery", "-A", "tasks.celery_app", "beat", "--loglevel=info"]
+    command: ["celery", "-A", "tasks.celery_app", "beat", "--loglevel=info", "--schedule", "/app/state/celerybeat-schedule"]
     environment: *db-env
     depends_on: *after-migrate
     networks: [neighbor_iq_net]
@@ -143,7 +146,7 @@ services:
     build:
       context: .
       dockerfile: services/insights-worker/Dockerfile
-    command: ["celery", "-A", "tasks.celery_app", "beat", "--loglevel=info"]
+    command: ["celery", "-A", "tasks.celery_app", "beat", "--loglevel=info", "--schedule", "/app/state/celerybeat-schedule"]
     environment: *db-env
     depends_on: *after-migrate
     networks: [neighbor_iq_net]
@@ -165,7 +168,7 @@ services:
     build:
       context: .
       dockerfile: services/api/Dockerfile
-    command: ["pytest", "-v"]
+    command: ["pytest", "-v", "-p", "no:cacheprovider"]
     environment:
       <<: *db-env
       SECURE_COOKIES: "0"
@@ -177,7 +180,7 @@ services:
     build:
       context: .
       dockerfile: services/ingestion-worker/Dockerfile
-    command: ["pytest", "-v"]
+    command: ["pytest", "-v", "-p", "no:cacheprovider"]
     environment: *db-env
     depends_on: *after-migrate
     profiles: ["test"]
@@ -187,7 +190,7 @@ services:
     build:
       context: .
       dockerfile: services/insights-worker/Dockerfile
-    command: ["pytest", "-v"]
+    command: ["pytest", "-v", "-p", "no:cacheprovider"]
     environment: *db-env
     depends_on: *after-migrate
     profiles: ["test"]
@@ -220,6 +223,6 @@ networks:
     driver: bridge
 
 volumes:
-  postgres_data:
+  pg18_data:
   ai_models:
   opendata_cache:

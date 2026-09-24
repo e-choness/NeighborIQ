@@ -2,7 +2,7 @@
 version: 2
 updates:
   - package-ecosystem: pip
-    directories: ["/shared", "/services/api", "/services/ingestion-worker", "/services/insights-worker"]
+    directories: ["/shared", "/shared/tests", "/services/api", "/services/ingestion-worker", "/services/insights-worker"]
     schedule: { interval: weekly }
     groups:
       python: { patterns: ["*"] }
@@ -16,11 +16,16 @@ updates:
     schedule: { interval: monthly }
     groups:
       docs: { patterns: ["*"] }
+  # Actions are pinned to commit SHAs (tags can be moved, as in the 2026 trivy-action compromise);
+  # Dependabot updates the SHA and the version comment together.
   - package-ecosystem: github-actions
     directory: /
     schedule: { interval: monthly }
     groups:
       actions: { patterns: ["*"] }
   - package-ecosystem: docker
-    directories: ["/services/api", "/services/ingestion-worker", "/services/insights-worker", "/frontend"]
-    schedule: { interval: monthly }
+    directories: ["/services/api", "/services/ingestion-worker", "/services/insights-worker", "/frontend", "/shared/tests"]
+    schedule: { interval: weekly }
+  - package-ecosystem: docker-compose
+    directory: /
+    schedule: { interval: weekly }
