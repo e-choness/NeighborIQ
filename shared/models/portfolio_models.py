@@ -4,7 +4,7 @@ SQLAlchemy ORM models for portfolio/domain.
 Tables are prefixed with 'portfolio_' to maintain domain separation in the shared PostgreSQL instance.
 """
 
-from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Index
+from sqlalchemy import Column, DateTime, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -44,9 +44,7 @@ class SavedHouse(Base):
     # saved deal reopens exactly as it was analysed
     assumptions = Column(Text, nullable=True)
 
-    created_at = Column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(
         DateTime(timezone=True),
         server_default=func.now(),

@@ -1,6 +1,7 @@
 """
 Scrapy item for listings — mirrors the canonical format in ingestion/canonical.py.
 """
+
 import scrapy
 
 

@@ -2,264 +2,81 @@
 
 [![build](https://img.shields.io/github/actions/workflow/status/e-choness/neighboriq/ci-cd.yml?branch=main&style=flat-square)](https://github.com/e-choness/neighboriq/actions/workflows/ci-cd.yml)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
-[![Python 3.11](https://img.shields.io/badge/Python-3.11+-blue.svg?style=flat-square)](https://www.python.org/downloads/release/python-3110/)
-[![Docker](https://img.shields.io/badge/Docker-Compose-2496ED.svg?style=flat-square)](https://docs.docker.com/compose/)
-[![PRs Welcome](https://img.shields.io/badge/PRs-Welcome-brightgreen.svg?style=flat-square)](CONTRIBUTING.md)
 
-**NeighborIQ** is an AI-powered Canadian real estate intelligence platform. It combines microservices architecture with machine learning to deliver actionable neighborhood insights, price predictions, and investment analytics for Canadian residential markets.
+**Rental-property analysis for small investors in Canadian cities.** For any listing — or any property you
+found elsewhere — NeighborIQ answers three questions:
 
-![banner](./images/banner-wide.jpg)
+1. **Is the price fair?** Asking price against the nearest comparable listings, with the comparables shown.
+2. **Will it cash-flow?** A monthly cash flow under Canadian rules (semi-annual mortgage compounding, CMHC
+   insurance, land transfer tax) where every assumption is yours to change.
+3. **What is the neighbourhood like?** Census income and tenure, transit frequency, crime, new supply and
+   nearby amenities, from public open data.
 
-## At a Glance
+![3D map of gross rental yield across Toronto](docs/images/home.png)
 
-- **🏘️ Data-Driven Insights** — Scrapy-powered data pipeline ingests listings from Canadian real estate markets into a unified database
-- **🧠 ML-Powered Predictions** — XGBoost models predict property prices and rental yields with confidence intervals
-- **🔍 Full-Text + Geo Search** — Elasticsearch indexes properties for multi-dimensional search (location, price, community); results cached in Redis
-- **🔐 Enterprise Auth** — RS256 JWT tokens with refresh rotation, cookie-based session management, JWKS-aware middleware
+| Listing analysis | Analyze any property |
+|---|---|
+| ![Listing: fair value, cash flow, price history](docs/images/listing.png) | ![Deal analyzer](docs/images/analyze.png) |
 
-## System Architecture
+> **What is real.** Out of the box the app runs on **synthetic demo listings** (clearly labelled
+> everywhere) so it works without a data licence. Real listings need a licensed feed (e.g. CREA's DDF® via a
+> brokerage) — NeighborIQ does not scrape MLS® or REALTOR.ca. Neighbourhood data, assessment rolls, rates and
+> transit come from public open data you load with one command. See [Data sources](docs/data-sources.md) and
+> [Methodology](docs/methodology.md).
 
-```mermaid
-flowchart TD
-    Frontend[Vue 3 Frontend<br/>Port 80]
-    Nginx[Nginx Reverse Proxy]
-    
-    subgraph Services["API Services (FastAPI)"]
-        Gateway["API Gateway<br/>Port 8000<br/>JWT Middleware + Rate Limit"]
-        Auth["Auth Service<br/>Port 8001<br/>JWT + User Mgmt"]
-        House["House API Service<br/>Port 8002<br/>Property CRUD"]
-        Search["Search Service<br/>Port 8004<br/>ES + Caching"]
-        Portfolio["Portfolio Service<br/>Port 8006<br/>Saved Houses"]
-        AI["AI Insights Service<br/>Port 8003<br/>ML + Celery"]
-        Scraper["Scraper Service<br/>Port 8005<br/>Data Ingestion"]
-    end
-    
-    subgraph Data["Data & Infrastructure"]
-        Postgres["PostgreSQL 15<br/>house_discovery<br/>+PostGIS"]
-        Redis["Redis 7<br/>Caching + Celery"]
-        ES["Elasticsearch 8.11<br/>Full-Text Index"]
-    end
-    
-    subgraph Workers["Async Jobs"]
-        CeleryWorker["Celery Worker<br/>Scrape + Insights"]
-        CeleryBeat["Celery Beat<br/>Scheduler"]
-    end
-    
-    Frontend --> Nginx
-    Nginx --> Gateway
-    Gateway --> Auth & House & Search & AI & Portfolio & Scraper
-    
-    Auth --> Postgres & Redis
-    House --> Postgres & Redis
-    Search --> ES & Redis
-    AI --> Postgres & Redis
-    Scraper --> Postgres
-    Portfolio --> Postgres & Redis
-    
-    Scraper --> CeleryWorker
-    AI --> CeleryWorker
-    Scraper --> CeleryBeat
-    AI --> CeleryBeat
-    CeleryWorker --> Redis
-    CeleryBeat --> Redis
-    CeleryWorker --> Postgres & ES
-```
+## Quick start
 
-## Technology Stack
-
-```mermaid
-mindmap
-  root((NeighborIQ))
-    Backend
-      FastAPI 0.104+
-      Python 3.11
-      SQLAlchemy 2.0
-      Pydantic V2
-      asyncpg
-    Infrastructure
-      PostgreSQL 15
-      PostGIS 3.4
-      Redis 7
-      Elasticsearch 8.11
-      Nginx
-    Data Pipeline
-      Scrapy 2.10
-      Celery 5.3
-      XGBoost
-      scikit-learn
-    Frontend
-      Vue 3
-      TypeScript
-      Tailwind CSS
-      Pinia
-      OpenLayers
-      Vite
-    DevOps
-      Docker & Docker Compose
-      GitHub Actions
-      Trivy Security Scanning
-```
-
-## Quick Start
-
-### Prerequisites
-
-- Docker Desktop (or Docker + Docker Compose v2)
-- Git
-- ~15 min setup time
-
-### Start the Full Stack
+Requires Docker with Compose v2.
 
 ```bash
-git clone https://github.com/e-choness/neighboriq.git
-cd NeighborIQ
-
-# Start all services (database, Redis, Elasticsearch, all APIs, frontend)
-docker-compose up -d
-
-# Wait for services to be healthy (~30-60 seconds)
-docker-compose ps
-
-# Tail logs to see startup progress
-docker-compose logs -f
+git clone https://github.com/e-choness/neighboriq.git && cd neighboriq
+cp .env.example .env            # set ADMIN_EMAILS to your email
+docker compose up -d            # migrates the schema and loads demo data on first start
 ```
 
-### Access the Application
+Open **http://localhost**. Sign up with the email in `ADMIN_EMAILS` to get the admin page, where you can load
+open data for a city (boundaries, assessment rolls, census, transit, crime, permits) and national rates.
 
-- **Frontend (Vue SPA)** — http://localhost
-- **API Gateway** — http://localhost:8000/docs (Swagger UI)
-- **Auth Service** — http://localhost:8001/docs
-- **House API Service** — http://localhost:8002/docs
-- **Search Service** — http://localhost:8004/docs
+| URL | What |
+|---|---|
+| http://localhost | Web app |
+| http://localhost:8000/docs | API reference (Swagger) |
 
-### Run Tests
+## Architecture
 
-```bash
-# Run the full test suite via Docker
-docker-compose --profile test up --abort-on-container-exit
+```mermaid
+flowchart LR
+    Browser --> Web["frontend<br/>Vue SPA + nginx"]
+    Web -->|/api| API["api<br/>FastAPI: auth · listings · insights · portfolio · admin"]
+    API --> PG[("PostgreSQL + PostGIS")]
+    API -->|enqueue| Redis[("Redis<br/>Celery broker")]
+    Redis --> IW["ingestion-worker<br/>seed · open data · OSM · feeds"]
+    Redis --> AW["insights-worker<br/>yields · ML · narratives"]
+    IW --> PG
+    AW --> PG
 ```
 
-## Service Port Map
+One HTTP service for everything request/response, and two Celery workers for the batch work that actually
+needs to scale. Why this split: [architecture overview](docs/architecture/overview.md) and
+[ADR 0001](docs/adr/0001-one-api-two-workers.md).
 
-| Service | Port | Description |
-|---------|------|-------------|
-| **API Gateway** | 8000 | Request boundary, JWT middleware, rate limiting |
-| **Auth Service** | 8001 | User registration/login, RS256 JWT, JWKS |
-| **House API Service** | 8002 | Property/community CRUD, filtering, pagination |
-| **AI Insights Service** | 8003 | ML price prediction, rental yield, Celery worker |
-| **Search Service** | 8004 | Elasticsearch full-text + geo-spatial search |
-| **Scraper Service** | 8005 | Data ingestion control API, Scrapy pipeline |
-| **Portfolio Service** | 8006 | User saved houses / watchlist |
-| **Frontend (Nginx)** | 80 | Vue 3 SPA |
+**Stack:** Python 3.11 · FastAPI · SQLAlchemy 2 · PostgreSQL 15 + PostGIS · Celery + Redis · XGBoost ·
+Vue 3.5 · Vite 8 · Tailwind v4 · Reka UI · Pinia Colada · MapLibre GL + Protomaps · H3
 
 ## Documentation
 
-Comprehensive documentation is available in the `/docs` directory:
-
-### Architecture & Design
-- [**System Architecture**](docs/architecture/overview.md) — Microservices topology, request lifecycle, service responsibilities
-- [**Data Models**](docs/architecture/data-models.md) — Database schema (ER diagram), SQLAlchemy ORM models
-
-### Service Documentation
-- [**API Gateway**](docs/services/api-gateway.md) — JWT middleware, JWKS caching, rate limiting, routing
-- [**Auth Service**](docs/services/auth-service.md) — User authentication, RS256 token generation, cookie strategy
-- [**House API Service**](docs/services/house-api-service.md) — Property API, filtering, pagination, price history
-- [**Search Service**](docs/services/search-service.md) — Elasticsearch indexing, geo-spatial search, Redis caching
-- [**AI Insights Service**](docs/services/ai-insights-service.md) — ML pipeline (XGBoost), Celery tasks, narrative generation
-- [**Scraper Service**](docs/services/scraper-service.md) — Scrapy spiders, pipeline stages, task scheduling
-- [**Portfolio Service**](docs/services/portfolio-service.md) — Saved houses, watchlist management
-
-### Frontend & Development
-- [**Frontend Overview**](docs/frontend/overview.md) — Vue 3 SPA architecture, routing, components, state management
-- [**Getting Started Guide**](docs/development/getting-started.md) — Docker Compose setup, environment variables, common commands
-- [**Testing Guide**](docs/development/testing.md) — Docker-based testing strategy, CI/CD pipeline, test profiles
-
-## Development Workflow
-
-### Local Development
-
-```bash
-# Start the stack in development mode
-docker-compose up -d
-
-# View logs for a service
-docker-compose logs -f auth-service
-
-# Run migrations (if needed)
-docker-compose exec api-gateway python -m alembic upgrade head
-
-# Execute commands in a container
-docker-compose exec auth-service python -m pytest -v
-```
-
-### Important Note on Testing
-
-⚠️ **All tests must run via Docker Compose.** Never run `pytest` or `uvicorn` directly on your host machine. Use:
-
-```bash
-# Correct: Docker-based testing
-docker-compose --profile test up --abort-on-container-exit
-
-# Incorrect: Do not run locally
-# pytest services/auth-service/tests/  ❌
-# uvicorn services/auth-service.main  ❌
-```
-
-### Code Style
-
-This project uses **Black** for formatting and **isort** for imports. The CI pipeline enforces these checks.
-
-```bash
-# Format code (runs in service container via Docker)
-docker-compose exec auth-service black app/
-docker-compose exec auth-service isort app/
-```
-
-## Architecture Highlights
-
-### Single Responsibility Microservices
-
-Each service owns its domain and data:
-
-- **Auth Service** — user identity, tokens
-- **House API Service** — property catalog
-- **Search Service** — search indexing and retrieval
-- **AI Insights Service** — price predictions, rental analysis
-- **Scraper Service** — data ingestion
-- **Portfolio Service** — user saved houses
-- **API Gateway** — security boundary (authentication, authorization, rate limiting)
-
-### Shared Infrastructure
-
-All services connect to a single PostgreSQL database (`house_discovery`) with domain-prefixed tables (`house_*`, `auth_*`, `portfolio_*`). This design avoids the operational complexity of database-per-service while maintaining clear boundaries.
-
-### Async-First Backend
-
-FastAPI with `asyncpg` enables high concurrency. Celery workers handle long-running tasks (ML inference, scraping).
-
-### Production-Ready Authentication
-
-RS256 JWT tokens with JWKS endpoint. Gateway caches JWKS for 5 minutes to avoid per-request calls to auth service. Refresh token rotation prevents token reuse.
-
-### Intelligent Caching
-
-Redis caches are layered:
-- Search results (30-min TTL, query-hashed keys)
-- User sessions (via refresh tokens)
-- Celery task results
-
-## Deployment
-
-NeighborIQ is designed for containerized deployment. See [DEPLOYMENT.md](docs/DEPLOYMENT.md) for production configuration and scaling guidance.
-
-## Contributing
-
-Contributions are welcome! Please open an issue or PR. Follow the code style guidelines (Black formatting, Pydantic schema validation, async/await patterns).
+- [Architecture overview](docs/architecture/overview.md) — components, request flow, what scales and why
+- [Data model](docs/architecture/data-models.md) — tables and how they relate
+- [Methodology](docs/methodology.md) — how every number is computed, and its limits
+- [Data sources](docs/data-sources.md) — every public source, licence, and how to load it
+- [Operations](docs/operations.md) — migrations, loading data, admins, basemap, backups
+- [Deployment](docs/DEPLOYMENT.md) — production on one server with automatic HTTPS
+- [Getting started (development)](docs/development/getting-started.md) · [Testing](docs/development/testing.md)
+- [Frontend](docs/frontend/overview.md) — pages, components, theming, maps
+- Services: [api](docs/services/api.md) · [ingestion-worker](docs/services/ingestion-worker.md) · [insights-worker](docs/services/insights-worker.md)
+- [Decision records](docs/adr/) · [Contributing](CONTRIBUTING.md)
 
 ## License
 
-This project is licensed under the MIT License — see [LICENSE](LICENSE) file for details.
-
-## Support
-
-For questions, issues, or feature requests, please use [GitHub Issues](https://github.com/e-choness/neighboriq/issues).
+Code: [MIT](LICENSE). Third-party data is licensed by its publishers — see [NOTICE](NOTICE).
+Estimates are based on asking prices and public data; they are not appraisals or financial advice.

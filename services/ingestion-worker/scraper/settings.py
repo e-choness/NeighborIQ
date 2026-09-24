@@ -1,6 +1,7 @@
 """
 Scrapy project settings for NeighborIQ house scraper.
 """
+
 import os
 
 BOT_NAME = "neighboriq_scraper"

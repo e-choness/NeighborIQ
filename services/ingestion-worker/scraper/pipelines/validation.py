@@ -5,6 +5,7 @@ Applies the shared canonical rules (ingestion/canonical.py) so feed ingestion
 and the CLI loaders accept and reject exactly the same listings. Items failing
 validation are dropped with a logged reason.
 """
+
 import logging
 
 from scrapy.exceptions import DropItem

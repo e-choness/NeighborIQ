@@ -13,10 +13,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Shared layer and tests
 COPY shared ./shared
-COPY shared/tests ./tests
 COPY migrations ./migrations
 COPY services/test-data-layer/pytest.ini ./pytest.ini
 
 ENV PYTHONPATH=/app
 
-CMD ["pytest", "tests/", "-v", "--tb=short"]
+CMD ["pytest", "shared/tests", "-v", "--tb=short"]

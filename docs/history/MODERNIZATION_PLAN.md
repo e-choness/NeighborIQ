@@ -1,3 +1,5 @@
+> **Historical document.** The original 2025 plan for modernizing the Lianjia / Spring Boot system. It no longer describes NeighborIQ — see the [README](../../README.md) and the [architecture overview](../architecture/overview.md).
+
 # WebGIS House Discovery - Legacy System Modernization Plan
 
 ## Executive Summary

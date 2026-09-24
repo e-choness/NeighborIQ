@@ -4,7 +4,6 @@ Integration tests: batch tasks against a seeded PostgreSQL.
 Seeds a small, self-contained neighbourhood inside one transaction-scoped
 connection and rolls it back afterwards. Skipped when no database is reachable.
 """
-import os
 
 import pytest
 from sqlalchemy import create_engine, text
@@ -27,22 +26,29 @@ def db():
     trans = conn.begin()
     # Code under test calls session.commit(); savepoints keep it inside our rollback
     session = Session(bind=conn, join_transaction_mode="create_savepoint")
-    session.execute(text("""
+    session.execute(
+        text("""
         INSERT INTO house_rent_benchmarks (city, bedrooms, avg_rent, source)
         VALUES ('Apitown', 2, 2400, 'test')
-    """))
+    """)
+    )
     ids = []
-    for i, (price, sqft) in enumerate([(700000, 800), (720000, 800), (760000, 800),
-                                       (800000, 800), (840000, 800), (600000, 800)]):
-        ids.append(session.execute(text("""
+    for i, (price, sqft) in enumerate(
+        [(700000, 800), (720000, 800), (760000, 800), (800000, 800), (840000, 800), (600000, 800)]
+    ):
+        ids.append(
+            session.execute(
+                text("""
             INSERT INTO house_houses (title, community, city, region, property_type, price, sqft,
                 area, rooms, property_tax, condo_fee, latitude, longitude, url, is_active,
                 status, source, is_synthetic, created_at, updated_at)
             VALUES (:t, 'Testhood', 'Apitown', 'Central', 'condo', :p, :s, 74, 2, 3000, 500,
                     :lat, -79.38, :u, 1, 'active', 'test', 1, NOW(), NOW())
             RETURNING id
-        """), {"t": f"unit {i}", "p": price, "s": sqft, "lat": 43.65 + i * 0.001,
-               "u": f"test://api/{i}"}).scalar_one())
+        """),
+                {"t": f"unit {i}", "p": price, "s": sqft, "lat": 43.65 + i * 0.001, "u": f"test://api/{i}"},
+            ).scalar_one()
+        )
     yield session, ids
     session.close()
     trans.rollback()

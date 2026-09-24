@@ -9,6 +9,7 @@ Provider selection is controlled by the NARRATIVE_PROVIDER environment variable:
   "local"  — deterministic stub (default; used in dev and tests)
   "azure"  — Azure OpenAI GPT-3.5 (requires AZURE_OPENAI_KEY + AZURE_OPENAI_ENDPOINT)
 """
+
 import logging
 import os
 
@@ -18,6 +19,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Adapters
 # ---------------------------------------------------------------------------
+
 
 class LocalNarrativeAdapter:
     """
@@ -39,7 +41,9 @@ class LocalNarrativeAdapter:
         trend = stats.get("price_trend_pct")
         if trend is not None:
             direction = "upward" if trend >= 0 else "downward"
-            parts.append(f"Asking prices show a {abs(trend):.1f}% {direction} trend over the last six months.")
+            parts.append(
+                f"Asking prices show a {abs(trend):.1f}% {direction} trend over the last six months."
+            )
         if stats.get("avg_gross_yield_pct"):
             parts.append(f"Estimated gross rental yields average {stats['avg_gross_yield_pct']:.1f}%.")
         if stats.get("top_neighborhoods"):
@@ -47,8 +51,11 @@ class LocalNarrativeAdapter:
         if stats.get("price_cut_share_pct") is not None and count:
             parts.append(
                 f"{stats['price_cut_share_pct']:.0f}% of listings have had a price reduction"
-                + (f", and the median listing has been on the market {stats['median_days_on_market']} days."
-                   if stats.get("median_days_on_market") is not None else ".")
+                + (
+                    f", and the median listing has been on the market {stats['median_days_on_market']} days."
+                    if stats.get("median_days_on_market") is not None
+                    else "."
+                )
             )
         if not parts:
             parts.append(f"There is not enough listing data for {name} to summarise yet.")
@@ -109,6 +116,7 @@ class AzureOpenAINarrativeAdapter:
 # ---------------------------------------------------------------------------
 # Factory
 # ---------------------------------------------------------------------------
+
 
 def get_adapter(provider: str | None = None) -> LocalNarrativeAdapter | AzureOpenAINarrativeAdapter:
     """

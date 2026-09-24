@@ -1,15 +1,16 @@
 """
-Celery application configuration for scraper-service.
+Celery application configuration for the ingestion-worker.
 
-The scraper-service Celery worker handles:
+The ingestion-worker handles:
   - run_feed:      crawls a partner listing feed (canonical JSON/CSV) with Scrapy
-  - run_ingestion: runs an ingestion CLI command (seed, rents, osm)
-  - Celery Beat:   weekly OSM POI refresh; partner feeds are scheduled only when
+  - run_ingestion: runs an ingestion CLI command (seed, rents, osm, bootstrap, opendata)
+  - Celery Beat:   daily Bank of Canada rates, weekly OSM POI refresh; partner feeds are scheduled only when
                    LISTING_FEED_URL is configured
 
-The ai-insights-service has its own Celery app that consumes
+The insights-worker has its own Celery app that consumes
 the 'insights' queue — no direct coupling between the two services.
 """
+
 import os
 
 from celery import Celery
@@ -54,4 +55,3 @@ app.conf.update(
     # give every crawl a fresh worker process.
     worker_max_tasks_per_child=1,
 )
-

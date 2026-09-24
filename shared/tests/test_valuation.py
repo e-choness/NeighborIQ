@@ -1,4 +1,5 @@
 """Unit tests for comparable-listing valuation (no database)."""
+
 import pytest
 
 from shared.analytics.valuation import MIN_COMPS, select_comps, value_from_comps
@@ -8,9 +9,14 @@ SUBJECT = {"id": 1, "price": 800_000, "sqft": 1_000, "latitude": 43.65, "longitu
 
 def _candidate(i: int, ppsf: float, dlat: float = 0.001) -> dict:
     return {
-        "id": 100 + i, "title": f"comp {i}", "community": "Test", "rooms": 2,
-        "price": int(ppsf * 900), "sqft": 900,
-        "latitude": 43.65 + dlat * (i + 1), "longitude": -79.38,
+        "id": 100 + i,
+        "title": f"comp {i}",
+        "community": "Test",
+        "rooms": 2,
+        "price": int(ppsf * 900),
+        "sqft": 900,
+        "latitude": 43.65 + dlat * (i + 1),
+        "longitude": -79.38,
     }
 
 
@@ -30,7 +36,9 @@ def test_widens_radius_when_too_few_nearby():
 
 
 def test_fair_value_is_median_ppsf_times_sqft():
-    comps, radius = select_comps(SUBJECT, [_candidate(i, p) for i, p in enumerate([700, 800, 900, 1000, 1100])])
+    comps, radius = select_comps(
+        SUBJECT, [_candidate(i, p) for i, p in enumerate([700, 800, 900, 1000, 1100])]
+    )
     v = value_from_comps(SUBJECT, comps, radius)
     assert v.median_price_per_sqft == pytest.approx(900, abs=1)
     assert v.fair_value == 900_000

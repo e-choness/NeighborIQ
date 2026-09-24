@@ -4,7 +4,6 @@ Insights and market endpoints against a seeded PostgreSQL.
 Seeds a small, self-contained neighbourhood inside one transaction-scoped
 connection and rolls it back afterwards. Skipped when no database is reachable.
 """
-import os
 
 import pytest
 from fastapi.testclient import TestClient
@@ -12,9 +11,7 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session
 
 from app.main import app
-from shared.database.sync import get_sync_db
-
-from shared.database.sync import sync_database_url
+from shared.database.sync import get_sync_db, sync_database_url
 
 DB_URL = sync_database_url()
 
@@ -31,22 +28,29 @@ def db():
     trans = conn.begin()
     # Code under test calls session.commit(); savepoints keep it inside our rollback
     session = Session(bind=conn, join_transaction_mode="create_savepoint")
-    session.execute(text("""
+    session.execute(
+        text("""
         INSERT INTO house_rent_benchmarks (city, bedrooms, avg_rent, source)
         VALUES ('Apitown', 2, 2400, 'test')
-    """))
+    """)
+    )
     ids = []
-    for i, (price, sqft) in enumerate([(700000, 800), (720000, 800), (760000, 800),
-                                       (800000, 800), (840000, 800), (600000, 800)]):
-        ids.append(session.execute(text("""
+    for i, (price, sqft) in enumerate(
+        [(700000, 800), (720000, 800), (760000, 800), (800000, 800), (840000, 800), (600000, 800)]
+    ):
+        ids.append(
+            session.execute(
+                text("""
             INSERT INTO house_houses (title, community, city, region, property_type, price, sqft,
                 area, rooms, property_tax, condo_fee, latitude, longitude, url, is_active,
                 status, source, is_synthetic, created_at, updated_at)
             VALUES (:t, 'Testhood', 'Apitown', 'Central', 'condo', :p, :s, 74, 2, 3000, 500,
                     :lat, -79.38, :u, 1, 'active', 'test', 1, NOW(), NOW())
             RETURNING id
-        """), {"t": f"unit {i}", "p": price, "s": sqft, "lat": 43.65 + i * 0.001,
-               "u": f"test://api/{i}"}).scalar_one())
+        """),
+                {"t": f"unit {i}", "p": price, "s": sqft, "lat": 43.65 + i * 0.001, "u": f"test://api/{i}"},
+            ).scalar_one()
+        )
     yield session, ids
     session.close()
     trans.rollback()
@@ -107,7 +111,7 @@ def test_markets_summary_and_points(client, db):
     points = client.get("/api/v1/markets/Apitown/points").json()
     assert points["columns"][:3] == ["id", "lat", "lon"]
     assert len(points["rows"]) == 6
-    row = dict(zip(points["columns"], points["rows"][0]))
+    row = dict(zip(points["columns"], points["rows"][0], strict=True))
     assert row["price_per_sqft"] == 875
 
 
@@ -117,13 +121,23 @@ def test_fabricated_provider_stubs_removed(client):
 
 
 def test_ad_hoc_valuation_and_rents(client, db):
-    body = client.post("/api/v1/valuation", json={
-        "city": "Apitown", "price": 650000, "sqft": 800, "latitude": 43.652, "longitude": -79.38,
-        "property_type": "condo", "rooms": 2,
-    }).json()
+    body = client.post(
+        "/api/v1/valuation",
+        json={
+            "city": "Apitown",
+            "price": 650000,
+            "sqft": 800,
+            "latitude": 43.652,
+            "longitude": -79.38,
+            "property_type": "condo",
+            "rooms": 2,
+        },
+    ).json()
     assert body["method"] == "comps-v1" and len(body["comps"]) == 6  # all six seeded listings
 
-    assert client.get("/api/v1/rents", params={"city": "apitown", "bedrooms": 2}).json()["monthly_rent"] == 2400
+    assert (
+        client.get("/api/v1/rents", params={"city": "apitown", "bedrooms": 2}).json()["monthly_rent"] == 2400
+    )
     assert client.get("/api/v1/rents", params={"city": "nowhere", "bedrooms": 2}).json() is None
 
 

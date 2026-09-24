@@ -2,8 +2,9 @@
 Operator endpoints (role=admin): trigger ingestion and insight jobs on the
 Celery workers, and report data coverage and component health.
 """
+
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Literal
 from urllib.parse import urlparse
 
@@ -24,9 +25,7 @@ _celery.conf.update(task_serializer="json", accept_content=["json"])
 
 # Feed URLs are fetched by the ingestion worker — only https hosts listed here are
 # allowed, so an admin session cannot be used to probe the internal network (SSRF).
-FEED_ALLOWED_HOSTS = {
-    h.strip().lower() for h in os.getenv("FEED_ALLOWED_HOSTS", "").split(",") if h.strip()
-}
+FEED_ALLOWED_HOSTS = {h.strip().lower() for h in os.getenv("FEED_ALLOWED_HOSTS", "").split(",") if h.strip()}
 
 IngestCommand = Literal["seed", "rents", "osm", "bootstrap", "opendata"]
 
@@ -52,8 +51,8 @@ def _enqueue(task: str, kwargs: dict, queue: str) -> JobResponse:
     try:
         result = _celery.send_task(task, kwargs=kwargs, queue=queue)
     except Exception as exc:
-        raise HTTPException(status_code=503, detail=f"Could not enqueue job: {exc}")
-    return JobResponse(job_id=result.id, task=task, queued_at=datetime.now(timezone.utc))
+        raise HTTPException(status_code=503, detail=f"Could not enqueue job: {exc}") from exc
+    return JobResponse(job_id=result.id, task=task, queued_at=datetime.now(UTC))
 
 
 @router.post("/ingest", response_model=JobResponse)
@@ -114,10 +113,18 @@ async def status(db: AsyncSession = Depends(get_db)):
             await db.rollback()
             coverage[key] = None  # table not migrated yet
     try:
-        loads = (await db.execute(text("""
+        loads = (
+            (
+                await db.execute(
+                    text("""
             SELECT source, loaded_at, row_count, licence, status, message
             FROM od_load_log ORDER BY loaded_at DESC LIMIT 50
-        """))).mappings().all()
+        """)
+                )
+            )
+            .mappings()
+            .all()
+        )
     except Exception:
         await db.rollback()
         loads = []

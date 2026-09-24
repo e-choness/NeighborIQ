@@ -5,15 +5,16 @@ Implements asymmetric RS256 JWT generation and validation.
 The auth-service owns the private key; other services verify using the public key.
 """
 
+import hashlib
 import os
-from datetime import datetime, timedelta, timezone
+import secrets
+from datetime import UTC, datetime, timedelta
 from typing import Optional
+
 import jwt as pyjwt
+from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
-from cryptography.hazmat.backends import default_backend
-import hashlib
-import secrets
 
 ALGORITHM = "RS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 15
@@ -88,7 +89,7 @@ def create_access_token(
     if expires_delta is None:
         expires_delta = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     expire = now + expires_delta
 
     payload = {
@@ -132,7 +133,7 @@ def create_refresh_token(
     if expires_delta is None:
         expires_delta = timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     expire = now + expires_delta
 
     payload = {
@@ -193,7 +194,7 @@ def verify_token(
 
         return payload
     except pyjwt.ExpiredSignatureError:
-        raise pyjwt.InvalidTokenError("Token has expired")
+        raise pyjwt.InvalidTokenError("Token has expired") from None
     except pyjwt.InvalidTokenError as e:
         raise e
 

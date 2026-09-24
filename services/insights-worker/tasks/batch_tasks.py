@@ -9,26 +9,27 @@ Task execution order per batch:
   5. Trigger city-level narrative generation (one per city, not per house)
 
 Rental yield uses the city/bedroom rent benchmark and the same cash-flow engine
-the UI calls (app/cashflow.py) with no financing: gross = rent×12 / price,
+the UI calls (shared/analytics/cashflow.py) with no financing: gross = rent×12 / price,
 net = NOI / price (cap rate), after vacancy, tax, condo fee, insurance and
 maintenance.
 
 The `compute_insights` task name must match exactly what the scraper dispatches:
   "ai_insights.tasks.compute_insights"
 """
+
 import logging
 import os
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import create_engine, text
-from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.orm import Session, sessionmaker
 
-from tasks.celery_app import app
 from insights.feature_engineering import extract_features, features_to_array
-from insights.ml_models import load_model, predict_price, MODEL_VERSION
+from insights.ml_models import MODEL_VERSION, load_model, predict_price
 from insights.narrative import get_adapter
 from shared.analytics import cashflow
 from shared.database.sync import sync_database_url
+from tasks.celery_app import app
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +46,7 @@ def _get_session() -> Session:
 # ---------------------------------------------------------------------------
 # compute_insights — triggered by scraper after each batch insert
 # ---------------------------------------------------------------------------
+
 
 @app.task(name="ai_insights.tasks.compute_insights", bind=True, max_retries=3)
 def compute_insights(self, house_ids: list[int], session: Session | None = None):
@@ -108,7 +110,7 @@ def compute_insights(self, house_ids: list[int], session: Session | None = None)
     except Exception as exc:
         session.rollback()
         logger.exception("compute_insights failed: %s", exc)
-        raise self.retry(exc=exc, countdown=2 ** self.request.retries * 60)
+        raise self.retry(exc=exc, countdown=2**self.request.retries * 60) from exc
     finally:
         if own_session:
             session.close()
@@ -117,6 +119,7 @@ def compute_insights(self, house_ids: list[int], session: Session | None = None)
 # ---------------------------------------------------------------------------
 # generate_daily_narratives — triggered by Celery Beat (nightly) or after batch
 # ---------------------------------------------------------------------------
+
 
 @app.task(name="ai_insights.tasks.generate_daily_narratives", bind=True, max_retries=3)
 def generate_daily_narratives(
@@ -155,7 +158,7 @@ def generate_daily_narratives(
     except Exception as exc:
         session.rollback()
         logger.exception("generate_daily_narratives failed: %s", exc)
-        raise self.retry(exc=exc, countdown=2 ** self.request.retries * 60)
+        raise self.retry(exc=exc, countdown=2**self.request.retries * 60) from exc
     finally:
         if own_session:
             session.close()
@@ -165,18 +168,23 @@ def generate_daily_narratives(
 # retrain_model — triggered by Celery Beat (weekly)
 # ---------------------------------------------------------------------------
 
+
 @app.task(name="ai_insights.tasks.recompute_all")
 def recompute_all(session: Session | None = None, batch_size: int = 500):
     """Queue compute_insights for every active listing (admin "recompute" button)."""
     own_session = session is None
     session = session or _get_session()
     try:
-        ids = session.execute(text("SELECT id FROM house_houses WHERE is_active = 1 ORDER BY id")).scalars().all()
+        ids = (
+            session.execute(text("SELECT id FROM house_houses WHERE is_active = 1 ORDER BY id"))
+            .scalars()
+            .all()
+        )
     finally:
         if own_session:
             session.close()
     for i in range(0, len(ids), batch_size):
-        compute_insights.apply_async(kwargs={"house_ids": list(ids[i:i + batch_size])}, queue="insights")
+        compute_insights.apply_async(kwargs={"house_ids": list(ids[i : i + batch_size])}, queue="insights")
     return len(ids)
 
 
@@ -199,7 +207,8 @@ def retrain_model(self, session: Session | None = None):
         if len(X) < MIN_TRAINING_ROWS:
             logger.warning(
                 "retrain_model: only %d usable listings; skipping (minimum %d).",
-                len(X), MIN_TRAINING_ROWS,
+                len(X),
+                MIN_TRAINING_ROWS,
             )
             return None
 
@@ -209,7 +218,7 @@ def retrain_model(self, session: Session | None = None):
 
     except Exception as exc:
         logger.exception("retrain_model failed: %s", exc)
-        raise self.retry(exc=exc, countdown=300)
+        raise self.retry(exc=exc, countdown=300) from exc
     finally:
         if own_session:
             session.close()
@@ -237,8 +246,7 @@ def _fetch_house(session: Session, house_id: int) -> dict | None:
 
 def _fetch_all_houses(session: Session) -> list[dict]:
     rows = session.execute(
-        text(f"SELECT {_HOUSE_COLUMNS} FROM house_houses "
-             "WHERE is_active = 1 AND price > 0 AND sqft > 0")
+        text(f"SELECT {_HOUSE_COLUMNS} FROM house_houses WHERE is_active = 1 AND price > 0 AND sqft > 0")
     ).fetchall()
     return [dict(r._mapping) for r in rows]
 
@@ -247,24 +255,27 @@ def compute_rental_yield(session: Session, house: dict) -> dict | None:
     """Unlevered yield from the rent benchmark; None when no benchmark covers the city."""
     beds = min(max(house.get("rooms") or 0, 0), 3)
     rent = session.execute(
-        text("SELECT avg_rent FROM house_rent_benchmarks "
-             "WHERE LOWER(city) = LOWER(:city) AND bedrooms = :beds"),
+        text(
+            "SELECT avg_rent FROM house_rent_benchmarks WHERE LOWER(city) = LOWER(:city) AND bedrooms = :beds"
+        ),
         {"city": house.get("city") or "", "beds": beds},
     ).scalar()
     price = int(house.get("price") or 0)
     if not rent or price <= 0:
         return None
     ptype = house.get("property_type")
-    result = cashflow.compute(cashflow.CashFlowInput(
-        price=price,
-        monthly_rent=rent,
-        city=house.get("city") or "",
-        down_payment_pct=100,  # unlevered: yield is a property metric, not a financing one
-        property_tax_annual=house.get("property_tax") or 0,
-        condo_fee_monthly=house.get("condo_fee") or 0,
-        insurance_monthly=cashflow.default_insurance_monthly(ptype),
-        maintenance_pct=cashflow.default_maintenance_pct(ptype, house.get("age")),
-    ))
+    result = cashflow.compute(
+        cashflow.CashFlowInput(
+            price=price,
+            monthly_rent=rent,
+            city=house.get("city") or "",
+            down_payment_pct=100,  # unlevered: yield is a property metric, not a financing one
+            property_tax_annual=house.get("property_tax") or 0,
+            condo_fee_monthly=house.get("condo_fee") or 0,
+            insurance_monthly=cashflow.default_insurance_monthly(ptype),
+            maintenance_pct=cashflow.default_maintenance_pct(ptype, house.get("age")),
+        )
+    )
     return {
         "house_id": house["id"],
         "annual_rent": int(rent * 12),
@@ -294,7 +305,7 @@ def _upsert_prediction(session: Session, house_id: int, prediction: dict) -> Non
             "price_high": prediction["price_high"],
             "confidence": prediction["confidence"],
             "model_version": prediction.get("model_version", MODEL_VERSION),
-            "now": datetime.now(timezone.utc),
+            "now": datetime.now(UTC),
         },
     )
 
@@ -317,13 +328,13 @@ def _upsert_rental_yield(session: Session, yield_data: dict) -> None:
             "annual_rent": yield_data["annual_rent"],
             "gross_yield": yield_data["gross_yield"],
             "net_yield": yield_data["net_yield"],
-            "now": datetime.now(timezone.utc),
+            "now": datetime.now(UTC),
         },
     )
 
 
 def _upsert_market_insight(session: Session, city: str, summary: str, region: str = "") -> None:
-    expires = datetime.now(timezone.utc) + timedelta(days=7)
+    expires = datetime.now(UTC) + timedelta(days=7)
     session.execute(
         text("""
             INSERT INTO house_market_insights
@@ -336,7 +347,7 @@ def _upsert_market_insight(session: Session, city: str, summary: str, region: st
             "region": region or None,
             "summary_text": summary,
             "model_version": f"narrative-{os.getenv('NARRATIVE_PROVIDER', 'local')}-v2",
-            "now": datetime.now(timezone.utc),
+            "now": datetime.now(UTC),
             "expires_at": expires,
         },
     )
@@ -393,10 +404,10 @@ def _aggregate_city_stats(session: Session, city: str) -> dict:
         "median_price": float(row.median_price) if row.median_price else None,
         "median_price_per_sqft": round(float(row.median_ppsf), 2) if row.median_ppsf else None,
         "median_days_on_market": int(row.median_dom) if row.median_dom is not None else None,
-        "price_cut_share_pct": round(float(row.price_cut_share), 1) if row.price_cut_share is not None else None,
+        "price_cut_share_pct": round(float(row.price_cut_share), 1)
+        if row.price_cut_share is not None
+        else None,
         "avg_gross_yield_pct": round(float(row.avg_gross_yield) * 100, 2) if row.avg_gross_yield else None,
         "price_trend_pct": None,
-        "top_neighborhoods": ", ".join(
-            f"{r.community} ({float(r.y) * 100:.1f}%)" for r in top
-        ) or None,
+        "top_neighborhoods": ", ".join(f"{r.community} ({float(r.y) * 100:.1f}%)" for r in top) or None,
     }

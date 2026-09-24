@@ -14,6 +14,7 @@ Canadian specifics:
   - Land transfer tax is estimated per province (plus Toronto's municipal tax)
     and counted as cash invested. Estimates only; not legal or tax advice.
 """
+
 from __future__ import annotations
 
 from typing import Optional
@@ -28,13 +29,28 @@ INSURED_PRICE_CAP = 1_500_000
 _ONTARIO_LTT = ((0, 0.005), (55_000, 0.01), (250_000, 0.015), (400_000, 0.02), (2_000_000, 0.025))
 _BC_PTT = ((0, 0.01), (200_000, 0.02), (2_000_000, 0.03), (3_000_000, 0.05))
 # Québec "welcome tax" — approximate Montréal brackets (indexed yearly; verify before relying on it)
-_QUEBEC_WELCOME = ((0, 0.005), (61_500, 0.01), (307_800, 0.015), (552_300, 0.02), (1_104_700, 0.025), (2_136_500, 0.035))
+_QUEBEC_WELCOME = (
+    (0, 0.005),
+    (61_500, 0.01),
+    (307_800, 0.015),
+    (552_300, 0.02),
+    (1_104_700, 0.025),
+    (2_136_500, 0.035),
+)
 
 _CITY_PROVINCE = {
-    "toronto": "ON", "ottawa": "ON", "mississauga": "ON", "hamilton": "ON",
-    "vancouver": "BC", "burnaby": "BC", "victoria": "BC",
-    "calgary": "AB", "edmonton": "AB",
-    "montreal": "QC", "montréal": "QC", "quebec": "QC",
+    "toronto": "ON",
+    "ottawa": "ON",
+    "mississauga": "ON",
+    "hamilton": "ON",
+    "vancouver": "BC",
+    "burnaby": "BC",
+    "victoria": "BC",
+    "calgary": "AB",
+    "edmonton": "AB",
+    "montreal": "QC",
+    "montréal": "QC",
+    "quebec": "QC",
     "winnipeg": "MB",
 }
 

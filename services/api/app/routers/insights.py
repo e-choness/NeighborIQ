@@ -6,6 +6,7 @@ Listing: comparable-listing fair value, rent estimate, default cash flow and
 listing points for the map. These endpoints are sync — FastAPI runs them in a
 threadpool — and share the analytics code the insights worker uses in batch.
 """
+
 import os
 from typing import Optional
 
@@ -17,9 +18,11 @@ from sqlalchemy.orm import Session
 from shared.analytics.cashflow import (
     CashFlowInput,
     CashFlowResult,
-    compute as compute_cash_flow,
     default_insurance_monthly,
     default_maintenance_pct,
+)
+from shared.analytics.cashflow import (
+    compute as compute_cash_flow,
 )
 from shared.analytics.valuation import (
     RentEstimate,
@@ -40,6 +43,7 @@ def ml_predictions_enabled() -> bool:
 # ---------------------------------------------------------------------------
 # Response models
 # ---------------------------------------------------------------------------
+
 
 class MlPrediction(BaseModel):
     predicted_price: int
@@ -108,12 +112,17 @@ MORTGAGE_RATE_SERIES = "boc:V80691335"
 def latest_mortgage_rate(db: Session) -> Optional[RateContext]:
     if not db.execute(text("SELECT to_regclass('od_indicators')")).scalar():
         return None
-    row = db.execute(text("""
+    row = db.execute(
+        text("""
         SELECT value, label, date FROM od_indicators WHERE series = :s ORDER BY date DESC LIMIT 1
-    """), {"s": MORTGAGE_RATE_SERIES}).fetchone()
+    """),
+        {"s": MORTGAGE_RATE_SERIES},
+    ).fetchone()
     if row is None:
         return None
-    return RateContext(rate_pct=row.value, series=MORTGAGE_RATE_SERIES, label=row.label or "", date=row.date.isoformat())
+    return RateContext(
+        rate_pct=row.value, series=MORTGAGE_RATE_SERIES, label=row.label or "", date=row.date.isoformat()
+    )
 
 
 def area_context(db: Session, area_id: Optional[int]) -> Optional[AreaContext]:
@@ -124,10 +133,13 @@ def area_context(db: Session, area_id: Optional[int]) -> Optional[AreaContext]:
         return None
     stats = {
         r.metric: {"value": r.value, "period": r.period or None}
-        for r in db.execute(text("""
+        for r in db.execute(
+            text("""
             SELECT DISTINCT ON (metric) metric, period, value FROM od_area_stats
             WHERE area_id = :id ORDER BY metric, period DESC
-        """), {"id": area_id})
+        """),
+            {"id": area_id},
+        )
     }
     return AreaContext(id=area_id, name=name, stats=stats)
 
@@ -166,14 +178,18 @@ def _latest_ml_prediction(db: Session, house_id: int) -> Optional[MlPrediction]:
     if row is None:
         return None
     return MlPrediction(
-        predicted_price=row.predicted_price, price_low=row.price_low, price_high=row.price_high,
-        coverage=float(row.confidence), model_version=row.model_version,
+        predicted_price=row.predicted_price,
+        price_low=row.price_low,
+        price_high=row.price_high,
+        coverage=float(row.confidence),
+        model_version=row.model_version,
     )
 
 
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
+
 
 @router.get("/api/v1/houses/{house_id}/insights", response_model=HouseInsightsResponse)
 def get_house_insights(house_id: int, db: Session = Depends(get_sync_db)):
@@ -224,6 +240,7 @@ def get_house_valuation(house_id: int, db: Session = Depends(get_sync_db)):
 
 class AdHocSubject(BaseModel):
     """A property that is not a listing — for the deal analyzer."""
+
     city: str
     price: int
     sqft: int
@@ -251,9 +268,8 @@ def cash_flow_defaults(db: Session = Depends(get_sync_db)):
     rate = latest_mortgage_rate(db)
     base = CashFlowInput(price=1, monthly_rent=0)
     return {
-        "inputs": base.model_dump(exclude={"price", "monthly_rent", "city"}) | (
-            {"interest_rate_pct": rate.rate_pct} if rate else {}
-        ),
+        "inputs": base.model_dump(exclude={"price", "monthly_rent", "city"})
+        | ({"interest_rate_pct": rate.rate_pct} if rate else {}),
         "rate": rate,
     }
 
@@ -304,19 +320,20 @@ def get_neighborhood_analysis(city: str, region: str, db: Session = Depends(get_
         market_summary=insight_row.summary_text if insight_row else None,
         listing_count=count,
         avg_gross_yield_pct=round(float(stats_row.avg_gross_yield) * 100, 2)
-        if count and stats_row.avg_gross_yield else None,
+        if count and stats_row.avg_gross_yield
+        else None,
         median_price=int(stats_row.median_price) if count and stats_row.median_price else None,
         median_price_per_sqft=round(float(stats_row.median_ppsf), 2)
-        if count and stats_row.median_ppsf else None,
+        if count and stats_row.median_ppsf
+        else None,
         avg_price_per_sqm=round(float(stats_row.avg_price_per_sqm or 0), 2) if count else 0.0,
     )
-
-
 
 
 # ---------------------------------------------------------------------------
 # Markets — what the home page and map show
 # ---------------------------------------------------------------------------
+
 
 class MarketSummary(BaseModel):
     city: str
@@ -374,8 +391,12 @@ def list_markets(city: Optional[str] = None, db: Session = Depends(get_sync_db))
             listing_count=int(r["listing_count"]),
             median_price=int(r["median_price"]) if r["median_price"] is not None else None,
             median_price_per_sqft=_num(r["median_ppsf"]),
-            median_gross_yield_pct=_num(r["median_gross_yield"] * 100) if r["median_gross_yield"] is not None else None,
-            median_cap_rate_pct=_num(r["median_cap_rate"] * 100) if r["median_cap_rate"] is not None else None,
+            median_gross_yield_pct=_num(r["median_gross_yield"] * 100)
+            if r["median_gross_yield"] is not None
+            else None,
+            median_cap_rate_pct=_num(r["median_cap_rate"] * 100)
+            if r["median_cap_rate"] is not None
+            else None,
             price_cut_share_pct=_num(r["price_cut_share"], 1),
             median_days_on_market=int(r["median_dom"]) if r["median_dom"] is not None else None,
             synthetic_share_pct=_num(r["synthetic_share"], 1) or 0.0,
@@ -397,7 +418,8 @@ def market_points(
     columns = [id, lat, lon, price, price_per_sqft, gross_yield_pct, cap_rate_pct,
     price_cut_pct, days_on_market]. Arrays, not objects, to keep the payload small.
     """
-    rows = db.execute(text("""
+    rows = db.execute(
+        text("""
         SELECT h.id, h.latitude, h.longitude, h.price,
                h.price::numeric / NULLIF(h.sqft, 0)                           AS ppsf,
                ry.gross_yield * 100                                           AS gross_yield,
@@ -411,16 +433,35 @@ def market_points(
         WHERE h.is_active = 1 AND LOWER(h.city) = LOWER(:city) AND h.latitude IS NOT NULL
         ORDER BY h.id
         LIMIT :limit
-    """), {"city": city, "limit": limit}).fetchall()
-    columns = ["id", "lat", "lon", "price", "price_per_sqft", "gross_yield_pct",
-               "cap_rate_pct", "price_cut_pct", "days_on_market"]
+    """),
+        {"city": city, "limit": limit},
+    ).fetchall()
+    columns = [
+        "id",
+        "lat",
+        "lon",
+        "price",
+        "price_per_sqft",
+        "gross_yield_pct",
+        "cap_rate_pct",
+        "price_cut_pct",
+        "days_on_market",
+    ]
     return {
         "city": city,
         "columns": columns,
         "rows": [
-            [r.id, float(r.latitude), float(r.longitude), r.price,
-             _num(r.ppsf, 0), _num(r.gross_yield), _num(r.cap_rate),
-             max(0.0, _num(r.cut_pct, 1) or 0.0), int(r.dom) if r.dom is not None else None]
+            [
+                r.id,
+                float(r.latitude),
+                float(r.longitude),
+                r.price,
+                _num(r.ppsf, 0),
+                _num(r.gross_yield),
+                _num(r.cap_rate),
+                max(0.0, _num(r.cut_pct, 1) or 0.0),
+                int(r.dom) if r.dom is not None else None,
+            ]
             for r in rows
         ],
     }

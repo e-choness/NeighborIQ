@@ -7,6 +7,7 @@ Load open-data sources: resolve → download (cached) → parse → summarise pe
     python -m ingestion opendata --sources census_profile --url https://…/98-401-X2021006_…_CSV.zip
     python -m ingestion opendata --sources toronto_crime --file ./mci.csv
 """
+
 from __future__ import annotations
 
 import logging
@@ -29,8 +30,14 @@ def _cities_with_areas(session: Session) -> list[str]:
 def _load(session: Session, source: Source, path: Path) -> int:
     opts = source.options
     if source.kind == "areas":
-        return areas.load_areas(session, source.city, source.key, areas.read_features(path),
-                                opts["name_fields"], opts.get("code_fields"))
+        return areas.load_areas(
+            session,
+            source.city,
+            source.key,
+            areas.read_features(path),
+            opts["name_fields"],
+            opts.get("code_fields"),
+        )
     if source.kind == "assessments":
         with open_text(path, ".csv") as fh:
             n = assessments.load(session, fh, source.city, source.key, opts["mapping"], opts)
@@ -62,7 +69,9 @@ def _load(session: Session, source: Source, path: Path) -> int:
         return indicators.load_valet(session, indicators.read_json(path), source.key)
     if source.kind == "statcan_table":
         with open_text(path, opts.get("member")) as fh:
-            return indicators.load_statcan_table(session, fh, opts["series_prefix"], opts["filters"], source=source.key)
+            return indicators.load_statcan_table(
+                session, fh, opts["series_prefix"], opts["filters"], source=source.key
+            )
     raise ValueError(f"Unknown source kind {source.kind}")
 
 
@@ -80,7 +89,14 @@ def load_source(session: Session, key: str, url: str | None = None, file: str | 
     except Exception as exc:
         session.rollback()
         logger.exception("Open-data load failed: %s", key)
-        log_load(session, key, source.licence, "error", None, f"{type(exc).__name__}: {exc}",
-                 attribution=source.attribution)
+        log_load(
+            session,
+            key,
+            source.licence,
+            "error",
+            None,
+            f"{type(exc).__name__}: {exc}",
+            attribution=source.attribution,
+        )
         session.commit()
         return {"source": key, "status": "error", "message": str(exc)}

@@ -1,4 +1,5 @@
 """Tests for ListingFeedSpider — canonical JSON / CSV feeds, no network."""
+
 import json
 
 import pytest

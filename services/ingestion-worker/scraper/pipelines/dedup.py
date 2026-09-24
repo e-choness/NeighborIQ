@@ -6,6 +6,7 @@ An unchanged listing seen again within the window is dropped; a price or status
 change produces a new fingerprint, so it reaches the writer and lands in
 house_price_history.
 """
+
 import hashlib
 import logging
 

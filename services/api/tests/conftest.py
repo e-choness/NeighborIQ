@@ -2,6 +2,7 @@
 Shared fixtures for the API tests. Requires PostgreSQL (the Docker test profile
 provides one); tables are created with create_all for speed.
 """
+
 import os
 import uuid
 

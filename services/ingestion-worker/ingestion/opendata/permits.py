@@ -3,6 +3,7 @@ Issued building permits → od_permits, summarised per area as new-unit supply.
 
 Investor question: "how much competing supply is coming to this neighbourhood?"
 """
+
 from __future__ import annotations
 
 from datetime import date, timedelta
@@ -31,14 +32,19 @@ def load(session: Session, fh, city: str, source: str, mapping: dict, options: d
         lat, lon = to_float(raw.get("latitude")), to_float(raw.get("longitude"))
         if lat is not None and not (41 < lat < 84):
             lat = lon = None
-        batch.append({
-            "city": city, "source": source, "source_id": raw["source_id"][:64],
-            "issued_date": to_date(raw.get("issued_date")),
-            "kind": (raw.get("kind") or None) and raw["kind"][:128],
-            "units": to_int(raw.get("units")),
-            "value": to_int(raw.get("value")),
-            "latitude": lat, "longitude": lon,
-        })
+        batch.append(
+            {
+                "city": city,
+                "source": source,
+                "source_id": raw["source_id"][:64],
+                "issued_date": to_date(raw.get("issued_date")),
+                "kind": (raw.get("kind") or None) and raw["kind"][:128],
+                "units": to_int(raw.get("units")),
+                "value": to_int(raw.get("value")),
+                "latitude": lat,
+                "longitude": lon,
+            }
+        )
         if len(batch) >= 2000:
             session.execute(_UPSERT, batch)
             total += len(batch)
@@ -51,11 +57,14 @@ def load(session: Session, fh, city: str, source: str, mapping: dict, options: d
 
 def summarise(session: Session, city: str, source: str, months: int = 24) -> None:
     since = date.today() - timedelta(days=months * 30)
-    for r in session.execute(text("""
+    for r in session.execute(
+        text("""
         SELECT area_id, COUNT(*) AS permits, COALESCE(SUM(units), 0) AS units
         FROM od_permits
         WHERE LOWER(city) = LOWER(:city) AND area_id IS NOT NULL AND issued_date >= :since
         GROUP BY area_id
-    """), {"city": city, "since": since}):
+    """),
+        {"city": city, "since": since},
+    ):
         put_stat(session, r.area_id, f"permits_{months}m", r.permits, source)
         put_stat(session, r.area_id, f"permit_units_{months}m", r.units, source)

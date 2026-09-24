@@ -5,8 +5,9 @@ Access tokens (15 min) and refresh tokens (7 days) are RS256 JWTs delivered as
 HttpOnly cookies. Refresh tokens rotate on every use and are revocable (only a
 hash is stored).
 """
+
 import os
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from sqlalchemy import select
@@ -56,15 +57,15 @@ async def _issue_tokens(response: Response, db: AsyncSession, user: User) -> Non
     access = create_access_token(
         subject=str(user.id), role=_role(user), private_key_pem=keys.private_pem, key_id=keys.key_id
     )
-    refresh = create_refresh_token(
-        subject=str(user.id), private_key_pem=keys.private_pem, key_id=keys.key_id
+    refresh = create_refresh_token(subject=str(user.id), private_key_pem=keys.private_pem, key_id=keys.key_id)
+    db.add(
+        RefreshToken(
+            user_id=user.id,
+            token_hash=hash_token(refresh),
+            expires_at=datetime.now(UTC) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS),
+            is_revoked=0,
+        )
     )
-    db.add(RefreshToken(
-        user_id=user.id,
-        token_hash=hash_token(refresh),
-        expires_at=datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS),
-        is_revoked=0,
-    ))
     await db.commit()
     for name, value, max_age in (
         ("access_token", access, ACCESS_TOKEN_EXPIRE_MINUTES * 60),
@@ -118,14 +119,16 @@ async def logout(request: Request, response: Response, db: AsyncSession = Depend
     """Revoke the refresh token and clear cookies."""
     refresh = request.cookies.get("refresh_token")
     if refresh:
-        stored = (await db.execute(
-            select(RefreshToken).where(
-                RefreshToken.token_hash == hash_token(refresh), RefreshToken.is_revoked == 0
+        stored = (
+            await db.execute(
+                select(RefreshToken).where(
+                    RefreshToken.token_hash == hash_token(refresh), RefreshToken.is_revoked == 0
+                )
             )
-        )).scalar_one_or_none()
+        ).scalar_one_or_none()
         if stored:
             stored.is_revoked = 1
-            stored.revoked_at = datetime.now(timezone.utc)
+            stored.revoked_at = datetime.now(UTC)
             await db.commit()
     response.delete_cookie("access_token")
     response.delete_cookie("refresh_token")
@@ -143,32 +146,32 @@ async def get_me(user: CurrentUser = Depends(current_user), db: AsyncSession = D
 
 
 @router.post("/refresh")
-async def refresh_access_token(
-    request: Request, response: Response, db: AsyncSession = Depends(get_db)
-):
+async def refresh_access_token(request: Request, response: Response, db: AsyncSession = Depends(get_db)):
     """Rotate the refresh token and issue a new access token."""
     refresh = request.cookies.get("refresh_token")
     if not refresh:
         raise HTTPException(status_code=401, detail="Missing refresh token cookie")
 
-    stored = (await db.execute(
-        select(RefreshToken).where(
-            RefreshToken.token_hash == hash_token(refresh), RefreshToken.is_revoked == 0
+    stored = (
+        await db.execute(
+            select(RefreshToken).where(
+                RefreshToken.token_hash == hash_token(refresh), RefreshToken.is_revoked == 0
+            )
         )
-    )).scalar_one_or_none()
+    ).scalar_one_or_none()
     if not stored:
         raise HTTPException(status_code=401, detail="Invalid or revoked refresh token")
     try:
         payload = verify_token(refresh, public_key_pem=keys.public_pem, token_type="refresh")
     except Exception as e:
-        raise HTTPException(status_code=401, detail=str(e))
+        raise HTTPException(status_code=401, detail=str(e)) from e
 
     user = (await db.execute(select(User).where(User.id == int(payload["sub"])))).scalar_one_or_none()
     if not user or user.is_active == 0:
         raise HTTPException(status_code=401, detail="User not found or disabled")
 
     stored.is_revoked = 1
-    stored.revoked_at = datetime.now(timezone.utc)
+    stored.revoked_at = datetime.now(UTC)
     await _issue_tokens(response, db, user)
     return {"status": "ok"}
 

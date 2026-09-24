@@ -2,6 +2,7 @@
 Listing catalogue: search/filter, detail, price history, neighbourhood POIs,
 communities, and admin-only writes.
 """
+
 from datetime import datetime
 from decimal import Decimal
 from typing import Optional
@@ -37,12 +38,16 @@ _ORIGINAL_PRICE = (
 
 # Unlevered yields computed by the insights worker (NULL until it has run)
 _GROSS_YIELD = (
-    select(HouseRentalYield.gross_yield).where(HouseRentalYield.house_id == House.id)
-    .correlate(House).scalar_subquery()
+    select(HouseRentalYield.gross_yield)
+    .where(HouseRentalYield.house_id == House.id)
+    .correlate(House)
+    .scalar_subquery()
 )
 _NET_YIELD = (
-    select(HouseRentalYield.net_yield).where(HouseRentalYield.house_id == House.id)
-    .correlate(House).scalar_subquery()
+    select(HouseRentalYield.net_yield)
+    .where(HouseRentalYield.house_id == House.id)
+    .correlate(House)
+    .scalar_subquery()
 )
 _EXTRAS = (
     _ORIGINAL_PRICE.label("original_price"),
@@ -69,7 +74,9 @@ def _with_extras(rows) -> list[HouseResponse]:
 
 @router.get("/api/v1/houses")
 async def list_houses(
-    q: Optional[str] = Query(default=None, description="Text search: title, neighbourhood, street, postal code"),
+    q: Optional[str] = Query(
+        default=None, description="Text search: title, neighbourhood, street, postal code"
+    ),
     city: Optional[str] = Query(default=None, description="Filter by city (case-insensitive)"),
     region: Optional[str] = Query(default=None, description="Filter by district / borough"),
     street: Optional[str] = Query(default=None, description="Filter by street"),
@@ -215,11 +222,7 @@ async def search_houses(
 @router.get("/api/v1/houses/{house_id}")
 async def get_house(house_id: int, db: AsyncSession = Depends(get_db)) -> HouseResponse:
     """Get listing details by ID."""
-    result = await db.execute(
-        select(House, *_EXTRAS).where(
-            House.id == house_id, House.is_active == 1
-        )
-    )
+    result = await db.execute(select(House, *_EXTRAS).where(House.id == house_id, House.is_active == 1))
     row = result.first()
     if not row:
         raise HTTPException(status_code=404, detail="House not found")
@@ -311,9 +314,7 @@ async def update_house(
     db: AsyncSession = Depends(get_db),
 ) -> HouseResponse:
     """Partially update a listing (admin only). Price changes are recorded in price history."""
-    result = await db.execute(
-        select(House).where(House.id == house_id, House.is_active == 1)
-    )
+    result = await db.execute(select(House).where(House.id == house_id, House.is_active == 1))
     house = result.scalar_one_or_none()
     if not house:
         raise HTTPException(status_code=404, detail="House not found")
@@ -336,9 +337,7 @@ async def delete_house(
     db: AsyncSession = Depends(get_db),
 ) -> dict:
     """Soft-delete a listing (admin only)."""
-    result = await db.execute(
-        select(House).where(House.id == house_id, House.is_active == 1)
-    )
+    result = await db.execute(select(House).where(House.id == house_id, House.is_active == 1))
     house = result.scalar_one_or_none()
     if not house:
         raise HTTPException(status_code=404, detail="House not found")

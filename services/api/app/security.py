@@ -5,6 +5,7 @@ Tokens arrive in the HttpOnly `access_token` cookie (browser) or an
 `Authorization: Bearer` header (API clients) and are verified in-process
 against the RS256 public key; no identity is ever read from request headers.
 """
+
 from dataclasses import dataclass
 from typing import Optional
 
@@ -52,7 +53,7 @@ def current_user(request: Request) -> CurrentUser:
     try:
         payload = verify_token(token, public_key_pem=keys.public_pem, token_type="access")
     except pyjwt.InvalidTokenError as e:
-        raise HTTPException(status_code=401, detail=f"Invalid token: {e}")
+        raise HTTPException(status_code=401, detail=f"Invalid token: {e}") from e
     return CurrentUser(id=int(payload["sub"]), role=payload.get("role", "user"))
 
 

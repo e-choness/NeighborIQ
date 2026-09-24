@@ -1,6 +1,62 @@
 {
   "components": {
     "schemas": {
+      "AdHocSubject": {
+        "description": "A property that is not a listing \u2014 for the deal analyzer.",
+        "properties": {
+          "city": {
+            "title": "City",
+            "type": "string"
+          },
+          "latitude": {
+            "title": "Latitude",
+            "type": "number"
+          },
+          "longitude": {
+            "title": "Longitude",
+            "type": "number"
+          },
+          "price": {
+            "title": "Price",
+            "type": "integer"
+          },
+          "property_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Property Type"
+          },
+          "rooms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rooms"
+          },
+          "sqft": {
+            "title": "Sqft",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "city",
+          "price",
+          "sqft",
+          "latitude",
+          "longitude"
+        ],
+        "title": "AdHocSubject",
+        "type": "object"
+      },
       "AreaContext": {
         "properties": {
           "id": {
@@ -890,6 +946,17 @@
             ],
             "title": "Bathrooms"
           },
+          "cap_rate_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cap Rate Pct"
+          },
           "city": {
             "title": "City",
             "type": "string"
@@ -953,6 +1020,17 @@
               }
             ],
             "title": "Floor"
+          },
+          "gross_yield_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gross Yield Pct"
           },
           "id": {
             "title": "Id",
@@ -2505,6 +2583,26 @@
         ]
       }
     },
+    "/api/v1/cashflow/defaults": {
+      "get": {
+        "description": "Default assumptions for a blank analysis (rate from the Bank of Canada when loaded).",
+        "operationId": "cash_flow_defaults_api_v1_cashflow_defaults_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Cash Flow Defaults",
+        "tags": [
+          "insights"
+        ]
+      }
+    },
     "/api/v1/communities": {
       "get": {
         "description": "List neighbourhoods with aggregated statistics.",
@@ -3055,13 +3153,13 @@
             }
           },
           {
-            "description": "Sort field (price, created_at, listed_at, area, sqft, price_per_sqft)",
+            "description": "Sort field (price, created_at, listed_at, area, sqft, price_per_sqft, gross_yield)",
             "in": "query",
             "name": "sort",
             "required": false,
             "schema": {
               "default": "created_at",
-              "description": "Sort field (price, created_at, listed_at, area, sqft, price_per_sqft)",
+              "description": "Sort field (price, created_at, listed_at, area, sqft, price_per_sqft, gross_yield)",
               "title": "Sort",
               "type": "string"
             }
@@ -3937,6 +4035,118 @@
         "summary": "Property Lookup",
         "tags": [
           "places"
+        ]
+      }
+    },
+    "/api/v1/rents": {
+      "get": {
+        "description": "Benchmark monthly rent for a city and bedroom count (3 = three or more).",
+        "operationId": "get_rent_benchmark_api_v1_rents_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "city",
+            "required": true,
+            "schema": {
+              "title": "City",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "bedrooms",
+            "required": true,
+            "schema": {
+              "maximum": 10,
+              "minimum": 0,
+              "title": "Bedrooms",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/RentEstimate"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "title": "Response Get Rent Benchmark Api V1 Rents Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Rent Benchmark",
+        "tags": [
+          "insights"
+        ]
+      }
+    },
+    "/api/v1/valuation": {
+      "post": {
+        "description": "Comparable-listing valuation for any property. null = not enough comparables.",
+        "operationId": "post_valuation_api_v1_valuation_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdHocSubject"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/Valuation"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "title": "Response Post Valuation Api V1 Valuation Post"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Post Valuation",
+        "tags": [
+          "insights"
         ]
       }
     },

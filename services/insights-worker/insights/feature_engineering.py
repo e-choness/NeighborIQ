@@ -7,6 +7,7 @@ serve cities at very different price levels). The same city medians are
 computed at training time and persisted with the model, so inference uses
 exactly the values the model was trained with.
 """
+
 import statistics
 
 import numpy as np
@@ -49,6 +50,7 @@ def city_median_ppsf(houses: list[dict]) -> dict[str, float]:
 
 def extract_features(house: dict, medians: dict[str, float]) -> dict[str, float]:
     """Flat {feature_name: float} dict in FEATURE_NAMES order. NaN marks missing values."""
+
     def num(key):
         value = house.get(key)
         return float(value) if value is not None else float("nan")
@@ -60,7 +62,9 @@ def extract_features(house: dict, medians: dict[str, float]) -> dict[str, float]
         "bathrooms": num("bathrooms"),
         "age": num("age"),
         "decoration": float(_encode(DECORATION_MAP, house.get("decoration"), DECORATION_FALLBACK)),
-        "property_type": float(_encode(PROPERTY_TYPE_MAP, house.get("property_type"), PROPERTY_TYPE_FALLBACK)),
+        "property_type": float(
+            _encode(PROPERTY_TYPE_MAP, house.get("property_type"), PROPERTY_TYPE_FALLBACK)
+        ),
         "latitude": num("latitude"),
         "longitude": num("longitude"),
         # XGBoost handles NaN natively — an unseen city is "unknown", not "free"

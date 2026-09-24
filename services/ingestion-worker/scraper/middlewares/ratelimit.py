@@ -4,6 +4,7 @@ Rate-limit middleware with consecutive-failure alerting.
 Tracks consecutive download failures per spider. After FAILURE_ALERT_THRESHOLD
 back-to-back failures it logs a CRITICAL alert (wired to external alerting later).
 """
+
 import logging
 
 logger = logging.getLogger(__name__)

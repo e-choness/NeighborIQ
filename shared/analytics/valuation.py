@@ -6,6 +6,7 @@ The comps are returned with the answer so the user can see (and disagree with)
 the evidence. Comps are *active asking prices*, not sold prices — sold data in
 Canada is board-licensed — so the result reads "vs. comparable asking prices".
 """
+
 from __future__ import annotations
 
 import math
@@ -196,16 +197,25 @@ def valuation_for(db: Session, subject: dict) -> Optional[Valuation]:
     reach = RADII_M[-1]
     dlat = reach / 111_000
     dlon = reach / (111_000 * max(math.cos(math.radians(lat)), 0.01))
-    rows = db.execute(_CANDIDATES_SQL, {
-        "id": subject["id"],
-        "city": subject["city"],
-        "property_type": subject.get("property_type"),
-        "sqft_lo": int(sqft * (1 - SQFT_TOLERANCE)),
-        "sqft_hi": int(sqft * (1 + SQFT_TOLERANCE)),
-        "rooms": subject.get("rooms"),
-        "lat_lo": lat - dlat, "lat_hi": lat + dlat,
-        "lon_lo": lon - dlon, "lon_hi": lon + dlon,
-    }).mappings().all()
+    rows = (
+        db.execute(
+            _CANDIDATES_SQL,
+            {
+                "id": subject["id"],
+                "city": subject["city"],
+                "property_type": subject.get("property_type"),
+                "sqft_lo": int(sqft * (1 - SQFT_TOLERANCE)),
+                "sqft_hi": int(sqft * (1 + SQFT_TOLERANCE)),
+                "rooms": subject.get("rooms"),
+                "lat_lo": lat - dlat,
+                "lat_hi": lat + dlat,
+                "lon_lo": lon - dlon,
+                "lon_hi": lon + dlon,
+            },
+        )
+        .mappings()
+        .all()
+    )
     comps, radius = select_comps(subject, [dict(r) for r in rows])
     return value_from_comps(subject, comps, radius)
 
@@ -222,6 +232,9 @@ def rent_estimate_for(db: Session, city: str, bedrooms: Optional[int]) -> Option
     if row is None:
         return None
     return RentEstimate(
-        monthly_rent=int(row.avg_rent), bedrooms=beds, city=city,
-        source=row.source, survey_date=row.survey_date,
+        monthly_rent=int(row.avg_rent),
+        bedrooms=beds,
+        city=city,
+        source=row.source,
+        survey_date=row.survey_date,
     )

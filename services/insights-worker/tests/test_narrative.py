@@ -1,7 +1,6 @@
 """Unit tests for narrative adapters (Phase 5C)."""
-import pytest
-from insights.narrative import LocalNarrativeAdapter, get_adapter, _build_prompt
 
+from insights.narrative import LocalNarrativeAdapter, _build_prompt, get_adapter
 
 SAMPLE_STATS = {
     "city": "toronto",

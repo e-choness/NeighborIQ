@@ -1,433 +1,82 @@
-# Frontend Architecture
+# Frontend
 
-## Introduction
+Vue 3.5 single-page app in [`frontend/`](../../frontend), built with Vite 8 and served by nginx, which also
+proxies `/api` to the API and serves `/tiles/`.
 
-The NeighborIQ frontend is a **Vue 3 single-page application (SPA)** built with **TypeScript**, **Tailwind CSS** for styling, **Pinia** for state management, and **OpenLayers** for interactive maps. The app is compiled and served via **Nginx** in production.
+| Concern | Choice |
+|---|---|
+| Styling | Tailwind CSS v4 (`@tailwindcss/vite`), design tokens as CSS variables in `src/styles/app.css` |
+| Components | Reka UI primitives, wrapped shadcn-style in `src/components/ui` (source lives in the repo) |
+| Server state | Pinia Colada (`useQuery`/`useMutation`: caching, dedupe, invalidation) |
+| Client state | Pinia (`src/stores/auth.ts`) |
+| Routing | Vue Router 5, lazy-loaded pages |
+| Maps | MapLibre GL 6, Protomaps basemap from a PMTiles file, H3 (`h3-js`) for hexagon aggregation |
+| Icons, type | Lucide, Geist and Geist Mono (self-hosted) |
 
-**Tech Stack**:
-- **Framework**: Vue 3 (Composition API)
-- **Language**: TypeScript
-- **Styling**: Tailwind CSS
-- **State**: Pinia stores (type-safe, modular)
-- **Maps**: OpenLayers 7+
-- **Build Tool**: Vite (fast dev server + optimized builds)
-- **HTTP Client**: Axios with cookie-based auth
-- **Package Manager**: npm
+## Pages
 
----
+| Route | Page | For the visitor |
+|---|---|---|
+| `/` | Home | A 3D hexagon map of one city. Height and colour both show the chosen metric: gross yield, $/sq ft or price cuts. It comes with city medians and the listings with the best yields. No marketing copy |
+| `/explore` | Explore | Filters (city, type, beds, price, yield, price cut) in a row above a map and list, kept in sync. Sort by yield or $/sq ft |
+| `/listings/:id` | Listing | Fair value with its comps on a map, editable cash flow, price history and neighbourhood facts |
+| `/analyze` | Analyze | The same analysis for a property found elsewhere. The address lookup pre-fills from the assessment roll when one is loaded |
+| `/portfolio` | Portfolio | Saved listings with notes and the assumptions they were analysed with |
+| `/data` | Data | Which sources are loaded, when, under which licence |
+| `/admin` | Admin | Queue data loads and recomputes, and see worker and data status (admins only) |
 
-## Router Navigation Guard Logic
+Principles: show numbers people act on (price vs. comps, monthly cash flow, yield, what the neighbourhood is
+like), say where each number comes from, and label demo data as demo data. Every assumption is an input,
+not a hidden constant.
 
-```mermaid
-flowchart TD
-    RouteChange["User navigates<br/>or refreshes page"]
-    
-    RouteChange --> CheckAuth{Auth state<br/>loaded?}
-    
-    CheckAuth -->|Not loaded| FetchAuth["Call /auth/me<br/>Check if user logged in"]
-    FetchAuth -->|User found| SetUser["Set user state<br/>in Pinia store"]
-    FetchAuth -->|No user| SetNull["user = null"]
-    
-    SetUser --> CheckRequiresAuth{Route<br/>requiresAuth?}
-    SetNull --> CheckRequiresAuth
-    
-    CheckRequiresAuth -->|Yes| IsAuth{User<br/>authenticated?}
-    IsAuth -->|No| RedirectLogin["Redirect to /login<br/>Save original path<br/>in query param"]
-    IsAuth -->|Yes| CheckRequiresAdmin{requiresAdmin<br/>?}
-    
-    CheckRequiresAuth -->|No| CheckRequiresAdmin
-    
-    CheckRequiresAdmin -->|Yes| IsAdmin{user.role<br/>== admin?}
-    IsAdmin -->|No| RedirectSearch["Redirect to /search"]
-    IsAdmin -->|Yes| AllowNav["Allow navigation"]
-    
-    CheckRequiresAdmin -->|No| CheckHideForAuth{hideForAuth<br/>?}
-    
-    CheckHideForAuth -->|Yes| IsAuthCheck{User<br/>authenticated?}
-    IsAuthCheck -->|Yes| RedirectSearch
-    IsAuthCheck -->|No| AllowNav
-    
-    CheckHideForAuth -->|No| AllowNav
-    
-    %% Defined a clean terminal node for the flowchart
-    End([End])
-    RedirectLogin --> End
-    RedirectSearch --> End
-    AllowNav --> End
-```
+## Components
 
-**Route Meta Definitions**:
+- `components/ui` — Button, Badge, Panel, Stat, Segmented (toggle group), SliderField, Field, InfoTip, Skeleton.
+- `components/map` — `HexMap3D` (home), `ListingsMap` (explore), `CompsMap` (subject plus comps).
+- `components/analysis` — `FairValue`, `CashFlowPanel`, `PriceHistory`, `NeighbourhoodFacts`.
+- `lib/` — `api.ts` (fetch wrapper with cookie auth and refresh), `map.ts` (style, map factory, ramps),
+  `hex.ts` (H3 aggregation), `metrics.ts`, `format.ts` (CAD, percentages), `theme.ts` (dark/light,
+  reduced motion).
 
-```typescript
-interface RouteConfig {
-  path: string;
-  name: string;
-  component: () => Promise<Component>;
-  meta: {
-    requiresAuth?: boolean;      // Requires JWT token
-    requiresAdmin?: boolean;      // Requires admin role
-    hideForAuth?: boolean;        // Hide from logged-in users
-  };
-}
-```
+## Colour
 
----
+Two files hold all colour:
 
-## Component Hierarchy
+- [`src/styles/app.css`](../../frontend/src/styles/app.css) — UI tokens (surface, ink, border, accent) for
+  dark and light.
+- [`src/theme/palette.ts`](../../frontend/src/theme/palette.ts) — map and data colours: basemap flavour
+  overrides, the sequential ramp (magnitude), the diverging pair (below/above fair value), subject and comp
+  markers.
 
-```mermaid
-classDiagram
-    class App
-    class NavBar
-    class RouterView
-    
-    class SearchPage
-    class FilterPanel
-    class HouseCard
-    class MapView
-    class HouseDetailModal
-    class InsightsDashboard
-    
-    class PortfolioPage
-    class MetricCard
-    
-    class AdminPage
-    
-    class LoginPage
-    
-    App --> NavBar
-    App --> RouterView
-    
-    RouterView --> SearchPage
-    RouterView --> PortfolioPage
-    RouterView --> AdminPage
-    RouterView --> LoginPage
-    
-    SearchPage --> FilterPanel
-    SearchPage --> HouseCard
-    SearchPage --> MapView
-    SearchPage --> HouseDetailModal
-    SearchPage --> InsightsDashboard
-    
-    PortfolioPage --> HouseCard
-    PortfolioPage --> MetricCard
-    
-    AdminPage --> InsightsDashboard
-    AdminPage --> MetricCard
-```
+The map follows a dark, low-contrast basemap, so the data layers carry the contrast. Current values:
 
----
+| Role | Dark | Light |
+|---|---|---|
+| Sequential (low → high) | `#115e59 #0f766e #0d9488 #14b8a6 #2dd4bf #5eead4` | `#14b8a6 #0d9488 #0f766e #115e59` |
+| Diverging below / above | `#0d9488` / `#e5484d` | `#0d9488` / `#d03b3b` |
+| Subject / comp markers | `#3987e5` / `#199e70` | `#2a78d6` / `#1baf7a` |
 
-## Page Inventory
+These were checked for step visibility, colour-vision-deficiency separation and contrast against the map
+surface. When you change them, re-check with any palette validator (for example, a CVD simulator plus a WCAG
+contrast check against the basemap `earth` colour). Colour is never the only channel: the hex map encodes
+the metric in height too, and verdicts carry text labels.
 
-| Route | Component File | Auth Required | Admin Only | Purpose |
-|-------|----------------|---------------|-----------|---------|
-| `/search` | `SearchPage.vue` | ✗ | ✗ | Public property browsing, filtering, map, saved houses |
-| `/portfolio` | `PortfolioPage.vue` | ✓ | ✗ | User's saved houses with metrics |
-| `/admin` | `AdminPage.vue` | ✓ | ✓ | Admin dashboard for scraper jobs, insights |
-| `/login` | `LoginPage.vue` | ✗ (hidden) | ✗ | Login/signup form |
-| `/` | — | — | — | Redirect to `/search` |
+## Maps
 
----
+- MapLibre 6 is ESM-only and imported by name. Its worker is loaded through Vite
+  (`maplibre-gl-worker.mjs?worker&url` + `setWorkerUrl`, `worker.format: 'es'`).
+- A map container must have a definite height. MapLibre forces `position: relative` on it, so pages put the
+  map inside an absolutely positioned parent at full width and height.
+- With `VITE_PMTILES_URL` unset, maps render data on a plain background. See
+  [Operations → Basemap](../operations.md#basemap) for self-hosting the tiles.
+- The home map orbits slowly until the user interacts, and stays still when `prefers-reduced-motion` is set.
+- Market points come from `/api/v1/markets/{city}/points` as compact arrays and are aggregated into H3 cells
+  in the browser.
 
-## Component Reference
+## Commands
 
-| Component | File | Props | Emits | Purpose |
-|-----------|------|-------|-------|---------|
-| **NavBar** | `NavBar.vue` | — | — | Top navigation with auth links |
-| **SearchPage** | `SearchPage.vue` | — | — | Main search interface |
-| **FilterPanel** | `FilterPanel.vue` | `initialFilters` | `@filter-change` | Filter controls (city, price, rooms) |
-| **HouseCard** | `HouseCard.vue` | `house`, `showSaveButton` | `@house-click`, `@save-click` | Single property card |
-| **MapView** | `MapView.vue` | `houses`, `center` | `@pin-click` | OpenLayers map with property pins |
-| **HouseDetailModal** | `HouseDetailModal.vue` | `house` | `@close`, `@save` | Property details overlay |
-| **InsightsDashboard** | `InsightsDashboard.vue` | `city`, `region` | — | ML predictions, rental yield charts |
-| **MetricCard** | `MetricCard.vue` | `title`, `value`, `trend` | — | KPI display card |
-| **PortfolioPage** | `PortfolioPage.vue` | — | — | User's saved houses list |
-| **AdminPage** | `AdminPage.vue` | — | — | Scraper job control, error logs |
-| **LoginPage** | `LoginPage.vue` | — | — | Auth form (login/signup tabs) |
-
----
-
-## Pinia Store Reference
-
-### Auth Store
-
-**File**: `src/stores/auth.ts`
-
-**State**:
-```typescript
-{
-  user: User | null;           // Current user or null
-  loading: boolean;            // Fetch in progress
-  error: string | null;        // Last error message
-}
-```
-
-**Computed**:
-```typescript
-isAuthenticated    // user !== null
-isAdmin            // user?.role === 'admin'
-```
-
-**Actions**:
-```typescript
-checkAuth()        // Call GET /auth/me to restore session
-login(credentials) // POST /auth/login, set user
-signup(credentials)// POST /auth/signup, set user
-logout()           // POST /auth/logout, clear user
-```
-
-**Usage**:
-```typescript
-const authStore = useAuthStore()
-
-// In template
-<div v-if="authStore.isAuthenticated">{{ authStore.user.email }}</div>
-
-// In script
-await authStore.login({ email, password })
-if (authStore.isAdmin) { /* show admin menu */ }
-```
-
----
-
-## API Service Layer
-
-**File**: `src/services/api.ts`
-
-Axios HTTP client with pre-configured baseURL and cookie handling:
-
-```typescript
-// Automatically includes cookies in requests
-const apiClient = axios.create({
-  baseURL: process.env.VITE_API_BASE_URL || 'http://localhost:8000',
-  withCredentials: true,  // Include HttpOnly cookies
-  headers: {
-    'Content-Type': 'application/json',
-  },
-})
-
-// Service-specific clients
-const authApi = {
-  login(creds) { return apiClient.post('/api/v1/auth/login', creds) },
-  signup(creds) { return apiClient.post('/api/v1/auth/signup', creds) },
-  logout() { return apiClient.post('/api/v1/auth/logout') },
-  me() { return apiClient.get('/api/v1/auth/me') },
-}
-
-const houseApi = {
-  list(filters) { return apiClient.get('/api/v1/houses', { params: filters }) },
-  get(id) { return apiClient.get(`/api/v1/houses/${id}`) },
-}
-
-const searchApi = {
-  search(query) { return apiClient.get('/api/v1/search', { params: query }) },
-  nearby(lat, lon, radius) { /* geo search */ },
-}
-
-const portfolioApi = {
-  list() { return apiClient.get('/api/v1/portfolio') },
-  save(houseId) { return apiClient.post('/api/v1/portfolio', { house_id: houseId }) },
-  remove(houseId) { return apiClient.delete(`/api/v1/portfolio/${houseId}`) },
-}
-```
-
----
-
-## TypeScript Types
-
-**File**: `src/types/`
-
-Core type definitions used across components:
-
-```typescript
-// User & Auth
-export interface User {
-  id: string;        // UUID
-  email: string;
-  role: 'user' | 'admin';
-  created_at: string;
-}
-
-export interface LoginCredentials {
-  email: string;
-  password: string;
-}
-
-// Property
-export interface House {
-  id: number;
-  title: string;
-  community: string;
-  city: string;
-  region: string;
-  price: number;      // CAD
-  area: number;       // m²
-  rooms: number;
-  latitude: number;
-  longitude: number;
-  created_at: string;
-}
-
-// Search
-export interface SearchQuery {
-  q?: string;
-  city?: string;
-  price_min?: number;
-  price_max?: number;
-  page?: number;
-  page_size?: number;
-}
-
-// Insights
-export interface HouseInsights {
-  house_id: number;
-  predicted_price: number;
-  confidence: number;
-  annual_rent: number;
-  gross_yield: number;
-  net_yield: number;
-}
-```
-
----
-
-## Build Configuration
-
-**Vite Config** (`vite.config.ts`):
-
-```typescript
-export default defineConfig({
-  plugins: [vue()],
-  server: {
-    proxy: {
-      '/api': {
-        target: 'http://localhost:8000',
-        changeOrigin: true,
-        secure: false,
-      }
-    }
-  },
-  build: {
-    outDir: 'dist',
-    target: 'es2020',
-  }
-})
-```
-
-**Development**:
 ```bash
-npm run dev  # Vite dev server @ http://localhost:5173
+npm run dev          # Vite dev server on :5173, proxies /api to :8000 (VITE_API_PROXY to change)
+npm run typecheck    # vue-tsc
+npm run build        # typecheck + production build to dist/
 ```
-
-**Production Build**:
-```bash
-npm run build  # Outputs to dist/
-```
-
----
-
-## Nginx Configuration (Production)
-
-**File**: `frontend/nginx.conf`
-
-```nginx
-server {
-    listen 80;
-    server_name _;
-    
-    # Serve static files from dist/
-    root /usr/share/nginx/html;
-    
-    # SPA fallback: redirect all 404s to index.html for client-side routing
-    error_page 404 /index.html;
-    location / {
-        try_files $uri $uri/ /index.html;
-    }
-    
-    # Cache static assets (js, css, images)
-    location ~* \.(js|css|png|jpg|jpeg|gif|svg)$ {
-        expires 30d;
-        add_header Cache-Control "public, immutable";
-    }
-    
-    # Proxy API requests to gateway
-    location /api/ {
-        proxy_pass http://api-gateway:8000;
-        proxy_set_header X-Forwarded-For $remote_addr;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-}
-```
-
----
-
-## Environment Variables
-
-**File**: `.env` (or `.env.local` for local overrides)
-
-```env
-# API Base URL
-VITE_API_BASE_URL=http://localhost:8000
-
-# Map tiles provider (optional)
-VITE_MAP_TILES=https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png
-
-# Google Analytics (optional)
-VITE_GA_ID=
-```
-
----
-
-## Troubleshooting
-
-### CORS Error: "Cross-Origin Request Blocked"
-
-**Symptom**: Browser console shows CORS error on API requests
-
-**Root Cause**: API Gateway `CORS_ORIGINS` doesn't include frontend URL
-
-**Solution**:
-```bash
-# Update API Gateway environment
-export CORS_ORIGINS="http://localhost:5173,https://neighboriq.com"
-docker-compose up -d api-gateway
-```
-
-### Auth Redirect Loop
-
-**Symptom**: User redirects to `/login` indefinitely
-
-**Root Cause**: 
-- `/auth/me` endpoint returning 401 despite valid token
-- Token expired and refresh failed
-
-**Solution**:
-1. Check token in browser DevTools → Application → Cookies
-2. Manually refresh: `POST /api/v1/auth/refresh`
-3. If still failing, log out and log back in
-
-### Map Tiles Not Loading
-
-**Symptom**: OpenLayers shows blank/gray map
-
-**Root Cause**: 
-- Tile server URL incorrect
-- Network blocked by CORS/firewall
-
-**Solution**:
-```typescript
-// In MapView.vue
-const tileLayer = new TileLayer({
-  source: new OSM({
-    url: 'https://{a-c}.tile.openstreetmap.org/{z}/{x}/{y}.png'
-  })
-})
-```
-
----
-
-## See Also
-
-- [**Getting Started Guide**](../development/getting-started.md) — Setup Vite dev server
-- [**System Architecture**](../architecture/overview.md) — API contract overview

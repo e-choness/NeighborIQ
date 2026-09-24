@@ -9,6 +9,7 @@ comps a second, assessment-based reference alongside asking prices.
 Coverage: Vancouver, Calgary, Edmonton, Montréal publish rolls; Toronto and
 Ottawa (MPAC) and the rest of Ontario do not.
 """
+
 from __future__ import annotations
 
 from sqlalchemy import text
@@ -50,9 +51,11 @@ def normalize(raw: dict, city: str, source: str, options: dict) -> dict | None:
     if not raw.get("source_id"):
         return None
     apply_geo_point(raw)
-    address = raw.get("address") or " ".join(
-        p for p in (raw.get("civic_number"), raw.get("street_name")) if p
-    ) or None
+    address = (
+        raw.get("address")
+        or " ".join(p for p in (raw.get("civic_number"), raw.get("street_name")) if p)
+        or None
+    )
     land, improvement = to_int(raw.get("land_value")), to_int(raw.get("improvement_value"))
     assessed = to_int(raw.get("assessed_value"))
     if assessed is None and (land is not None or improvement is not None):
@@ -88,8 +91,15 @@ def normalize(raw: dict, city: str, source: str, options: dict) -> dict | None:
     }
 
 
-def load(session: Session, fh, city: str, source: str, mapping: dict, options: dict | None = None,
-         batch_size: int = 2000) -> int:
+def load(
+    session: Session,
+    fh,
+    city: str,
+    source: str,
+    mapping: dict,
+    options: dict | None = None,
+    batch_size: int = 2000,
+) -> int:
     options = options or {}
     wanted = options.get("filter")  # optional {field: allowed values}
     batch, total = [], 0

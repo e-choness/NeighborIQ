@@ -6,6 +6,7 @@ house_rent_benchmarks. The format mirrors CMHC Rental Market Survey tables
 (average rent by bedroom type per CMA) so the official export can be dropped in
 after light reshaping. bedrooms: 0 = bachelor, 3 = three bedrooms or more.
 """
+
 from __future__ import annotations
 
 import csv
@@ -25,13 +26,15 @@ def read_csv(path: str | Path) -> list[dict]:
         if missing:
             raise ValueError(f"{path}: missing columns {missing}")
         for row in reader:
-            rows.append({
-                "city": row["city"].strip(),
-                "bedrooms": int(row["bedrooms"]),
-                "avg_rent": int(row["avg_rent"]),
-                "source": row["source"].strip(),
-                "survey_date": (row.get("survey_date") or "").strip() or None,
-            })
+            rows.append(
+                {
+                    "city": row["city"].strip(),
+                    "bedrooms": int(row["bedrooms"]),
+                    "avg_rent": int(row["avg_rent"]),
+                    "source": row["source"].strip(),
+                    "survey_date": (row.get("survey_date") or "").strip() or None,
+                }
+            )
     return rows
 
 

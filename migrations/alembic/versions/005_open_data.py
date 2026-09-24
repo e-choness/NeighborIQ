@@ -18,7 +18,7 @@ house_houses.area_id and od_properties.area_id link rows to their polygon;
 house_bus_stops.weekday_departures carries GTFS service frequency.
 """
 
-from typing import Sequence, Union
+from typing import Union
 
 from alembic import op
 
@@ -151,7 +151,9 @@ def upgrade() -> None:
         )
     """)
 
-    op.execute("ALTER TABLE house_houses ADD COLUMN area_id INTEGER REFERENCES od_areas(id) ON DELETE SET NULL")
+    op.execute(
+        "ALTER TABLE house_houses ADD COLUMN area_id INTEGER REFERENCES od_areas(id) ON DELETE SET NULL"
+    )
     op.execute("CREATE INDEX idx_house_houses_area ON house_houses (area_id)")
     op.execute("ALTER TABLE house_bus_stops ADD COLUMN weekday_departures INTEGER")
     # External ids now include GTFS keys ("gtfs:<feed>:<stop_id>"), not only OSM ids
@@ -162,6 +164,13 @@ def downgrade() -> None:
     op.execute("ALTER TABLE house_bus_stops DROP COLUMN weekday_departures")
     op.execute("DROP INDEX IF EXISTS idx_house_houses_area")
     op.execute("ALTER TABLE house_houses DROP COLUMN area_id")
-    for table in ("od_load_log", "od_indicators", "od_permits", "od_properties",
-                  "od_census_points", "od_area_stats", "od_areas"):
+    for table in (
+        "od_load_log",
+        "od_indicators",
+        "od_permits",
+        "od_properties",
+        "od_census_points",
+        "od_area_stats",
+        "od_areas",
+    ):
         op.execute(f"DROP TABLE IF EXISTS {table}")

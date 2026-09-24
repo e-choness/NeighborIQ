@@ -1,4 +1,5 @@
 """Authorization boundaries — the rules the old gateway used to enforce."""
+
 import pytest
 from fastapi.testclient import TestClient
 

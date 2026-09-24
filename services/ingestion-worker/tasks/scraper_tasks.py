@@ -1,9 +1,10 @@
 """
-Celery task definitions for the scraper-service worker.
+Celery task definitions for the ingestion-worker.
 
 run_feed      — crawl a canonical listing feed with Scrapy (ListingFeedSpider)
 run_ingestion — run an ingestion CLI command: seed, rents, osm, bootstrap or opendata
 """
+
 import logging
 import os
 
@@ -30,7 +31,7 @@ def run_feed(self, feed_url: str, source: str = "feed"):
         logger.info("Feed crawl completed: %s", feed_url)
     except Exception as exc:
         logger.exception("Feed crawl failed: %s", exc)
-        raise self.retry(exc=exc, countdown=2 ** self.request.retries * 60)
+        raise self.retry(exc=exc, countdown=2**self.request.retries * 60) from exc
 
 
 @app.task(name="scraper.tasks.run_ingestion")

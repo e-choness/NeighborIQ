@@ -1,4 +1,5 @@
 """Unit tests for the Canadian rental cash-flow engine."""
+
 import pytest
 
 from shared.analytics.cashflow import (
@@ -59,10 +60,18 @@ def test_alberta_has_no_ltt():
 
 def _inputs(**overrides) -> CashFlowInput:
     base = dict(
-        price=500_000, monthly_rent=2_600, city="Calgary",
-        down_payment_pct=20, interest_rate_pct=5.0, amortization_years=25,
-        vacancy_pct=4, property_tax_annual=3_000, condo_fee_monthly=400,
-        insurance_monthly=35, maintenance_pct=5, management_pct=0,
+        price=500_000,
+        monthly_rent=2_600,
+        city="Calgary",
+        down_payment_pct=20,
+        interest_rate_pct=5.0,
+        amortization_years=25,
+        vacancy_pct=4,
+        property_tax_annual=3_000,
+        condo_fee_monthly=400,
+        insurance_monthly=35,
+        maintenance_pct=5,
+        management_pct=0,
     )
     base.update(overrides)
     return CashFlowInput(**base)
@@ -74,7 +83,9 @@ def test_cash_flow_identity():
     assert r.insurance_premium == 0
     expected = r.effective_monthly_income - r.monthly_operating_expenses - r.monthly_mortgage_payment
     assert r.monthly_cash_flow == pytest.approx(expected, abs=0.02)
-    assert r.noi_annual == pytest.approx((r.effective_monthly_income - r.monthly_operating_expenses) * 12, abs=0.1)
+    assert r.noi_annual == pytest.approx(
+        (r.effective_monthly_income - r.monthly_operating_expenses) * 12, abs=0.1
+    )
     assert r.cap_rate_pct == pytest.approx(r.noi_annual / 500_000 * 100, abs=0.01)
 
 

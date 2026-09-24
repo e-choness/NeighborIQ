@@ -11,6 +11,7 @@ Ingestion CLI.
 Every listing write goes through canonical.normalize/validate and writer.upsert_listings,
 then enqueues ai_insights.tasks.compute_insights for the affected houses.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -46,9 +47,7 @@ def dispatch_insights(house_ids: list[int]) -> None:
 
     app = Celery("ingestion_dispatch", broker=BROKER_URL)
     try:
-        app.send_task(
-            "ai_insights.tasks.compute_insights", kwargs={"house_ids": house_ids}, queue="insights"
-        )
+        app.send_task("ai_insights.tasks.compute_insights", kwargs={"house_ids": house_ids}, queue="insights")
     except Exception:
         logger.exception("Could not enqueue compute_insights — run it later from the admin page")
     finally:
@@ -91,10 +90,11 @@ def _assign_areas(session, cities: set[str]) -> None:
 
     from ingestion.opendata.areas import assign_areas
 
-    loaded = {
-        r[0].lower()
-        for r in session.execute(text("SELECT DISTINCT city FROM od_areas"))
-    } if session.execute(text("SELECT to_regclass('od_areas')")).scalar() else set()
+    loaded = (
+        {r[0].lower() for r in session.execute(text("SELECT DISTINCT city FROM od_areas"))}
+        if session.execute(text("SELECT to_regclass('od_areas')")).scalar()
+        else set()
+    )
     for city in cities:
         if city.lower() in loaded:
             assign_areas(session, city)
@@ -175,22 +175,26 @@ def main(argv: list[str] | None = None) -> int:
     p_import.add_argument("--source", default="import")
 
     p_rents = sub.add_parser("rents", help="Load rent benchmarks CSV")
-    p_rents.add_argument("path", type=Path, nargs="?",
-                         default=DATA_DIR / "reference" / "rent_benchmarks.csv")
+    p_rents.add_argument("path", type=Path, nargs="?", default=DATA_DIR / "reference" / "rent_benchmarks.csv")
 
     p_osm = sub.add_parser("osm", help="Load OpenStreetMap POIs and link listings")
     p_osm.add_argument("--cities", default=",".join(c.name for c in seed.CITIES))
 
-    p_od = sub.add_parser("opendata", help="Load public open data (boundaries, assessments, census, transit…)")
+    p_od = sub.add_parser(
+        "opendata", help="Load public open data (boundaries, assessments, census, transit…)"
+    )
     p_od.add_argument("--list", action="store_true", help="show available sources")
     p_od.add_argument("--sources", default="", help="comma-separated source keys")
-    p_od.add_argument("--city", default="", help="every source for these comma-separated cities, in dependency order")
+    p_od.add_argument(
+        "--city", default="", help="every source for these comma-separated cities, in dependency order"
+    )
     p_od.add_argument("--url", default=None, help="override the download URL (single source)")
     p_od.add_argument("--file", default=None, help="load a local file instead of downloading (single source)")
 
     p_boot = sub.add_parser("bootstrap", help="rents + seed — first run of the demo stack")
-    p_boot.add_argument("--if-empty", action="store_true",
-                        help="do nothing when listings already exist (safe on every start)")
+    p_boot.add_argument(
+        "--if-empty", action="store_true", help="do nothing when listings already exist (safe on every start)"
+    )
 
     args = parser.parse_args(argv)
     cities = [c.strip() for c in getattr(args, "cities", "").split(",") if c.strip()]
@@ -207,8 +211,15 @@ def main(argv: list[str] | None = None) -> int:
         from ingestion.opendata.sources import SOURCES, for_city
 
         if args.list:
-            result = {k: {"city": s.city or "national", "kind": s.kind, "licence": s.licence,
-                          "verified": s.verified} for k, s in SOURCES.items()}
+            result = {
+                k: {
+                    "city": s.city or "national",
+                    "kind": s.kind,
+                    "licence": s.licence,
+                    "verified": s.verified,
+                }
+                for k, s in SOURCES.items()
+            }
         else:
             keys = [k.strip() for k in args.sources.split(",") if k.strip()]
             for city in [c.strip() for c in args.city.split(",") if c.strip()]:

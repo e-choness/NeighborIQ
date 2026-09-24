@@ -1,6 +1,7 @@
 """
 Tests for ValidationPipeline — the shared canonical listing rules applied to Scrapy items.
 """
+
 import pytest
 from scrapy.exceptions import DropItem
 

@@ -4,8 +4,8 @@ Rotating User-Agent middleware.
 Cycles through a pool of real browser user-agent strings to reduce
 the likelihood of being blocked by anti-scraping systems.
 """
-import random
 
+import random
 
 USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",

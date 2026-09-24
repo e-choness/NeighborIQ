@@ -6,13 +6,13 @@ Tables are prefixed with 'house_' to maintain domain separation in the shared Po
 
 from sqlalchemy import (
     Column,
-    Integer,
-    String,
     DateTime,
-    Numeric,
-    Text,
     ForeignKey,
     Index,
+    Integer,
+    Numeric,
+    String,
+    Text,
     UniqueConstraint,
 )
 from sqlalchemy.orm import relationship
@@ -78,9 +78,7 @@ class House(Base):
 
     # Metadata
     is_active = Column(Integer, default=1, nullable=False)
-    created_at = Column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(
         DateTime(timezone=True),
         server_default=func.now(),
@@ -89,9 +87,7 @@ class House(Base):
     )
 
     # Relationships
-    price_history = relationship(
-        "HousePriceHistory", back_populates="house", cascade="all, delete-orphan"
-    )
+    price_history = relationship("HousePriceHistory", back_populates="house", cascade="all, delete-orphan")
 
     # Indexes
     __table_args__ = (
@@ -125,16 +121,12 @@ class HousePriceHistory(Base):
         index=True,
     )
     price = Column(Integer, nullable=False)  # CAD
-    recorded_at = Column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
+    recorded_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     # Relationship
     house = relationship("House", back_populates="price_history")
 
-    __table_args__ = (
-        Index("idx_house_price_history_house_recorded", "house_id", "recorded_at"),
-    )
+    __table_args__ = (Index("idx_house_price_history_house_recorded", "house_id", "recorded_at"),)
 
     def __repr__(self):
         return f"<HousePriceHistory(house_id={self.house_id}, price={self.price}, recorded_at={self.recorded_at})>"
@@ -166,9 +158,7 @@ class Community(Base):
     max_price = Column(Integer, nullable=True)
 
     # Metadata
-    created_at = Column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(
         DateTime(timezone=True),
         server_default=func.now(),
@@ -205,9 +195,7 @@ class School(Base):
     osm_id = Column(String(32), nullable=True, unique=True)  # "node/123" — idempotent reloads
     address = Column(String(512), nullable=True)
 
-    created_at = Column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     __table_args__ = (
         Index("idx_house_schools_city", "city"),
@@ -235,9 +223,7 @@ class Hospital(Base):
     osm_id = Column(String(32), nullable=True, unique=True)
     address = Column(String(512), nullable=True)
 
-    created_at = Column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     __table_args__ = (
         Index("idx_house_hospitals_city", "city"),
@@ -267,9 +253,7 @@ class BusStop(Base):
     osm_id = Column(String(64), nullable=True, unique=True)  # External id: "node/123" or "gtfs:<feed>:<stop>"
     weekday_departures = Column(Integer, nullable=True)  # GTFS scheduled departures on a weekday
 
-    created_at = Column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     __table_args__ = (
         Index("idx_house_bus_stops_city", "city"),

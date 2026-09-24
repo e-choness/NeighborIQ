@@ -9,6 +9,7 @@ Data © OpenStreetMap contributors, ODbL 1.0 — the UI must show attribution
 (see NOTICE). Overpass is a shared community service: one query per city,
 run on demand or weekly, never per request.
 """
+
 from __future__ import annotations
 
 import json
@@ -170,8 +171,14 @@ def store_pois(session: Session, city: str, pois: list[Poi]) -> dict[str, int]:
                     longitude = EXCLUDED.longitude, {detail_col} = EXCLUDED.{detail_col}
                 RETURNING id
             """),
-            {"name": poi.name[:255], "city": city, "lat": poi.lat, "lon": poi.lon,
-             "detail": (poi.detail or "")[:50], "osm_id": poi.osm_id},
+            {
+                "name": poi.name[:255],
+                "city": city,
+                "lat": poi.lat,
+                "lon": poi.lon,
+                "detail": (poi.detail or "")[:50],
+                "osm_id": poi.osm_id,
+            },
         ).scalar_one()
         ids[poi.osm_id] = row_id
     return ids
@@ -201,9 +208,7 @@ def link_listings(
     for category, (_, link_table, fk) in _TABLES.items():
         if category not in categories:
             continue
-        session.execute(
-            text(f"DELETE FROM {link_table} WHERE house_id = ANY(:ids)"), {"ids": house_ids}
-        )
+        session.execute(text(f"DELETE FROM {link_table} WHERE house_id = ANY(:ids)"), {"ids": house_ids})
         rule = LINK_RULES[category]
         candidates = by_category.get(category, [])
         for house in houses:

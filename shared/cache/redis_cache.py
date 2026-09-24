@@ -11,7 +11,8 @@ All values are JSON-serialized. redis.asyncio (part of redis-py ≥ 4.2) is used
 
 import hashlib
 import json
-from typing import Any, Callable, Optional
+from collections.abc import Callable
+from typing import Any, Optional
 
 import redis.asyncio as aioredis
 
@@ -19,9 +20,9 @@ import redis.asyncio as aioredis
 # TTL constants (seconds)
 # ────────────────────────────────────────────────────────────────────────────
 
-HOUSE_TTL: int = 86_400       # 24 hours
+HOUSE_TTL: int = 86_400  # 24 hours
 COMMUNITY_TTL: int = 604_800  # 7 days
-SEARCH_TTL: int = 1_800       # 30 minutes
+SEARCH_TTL: int = 1_800  # 30 minutes
 
 
 # ────────────────────────────────────────────────────────────────────────────

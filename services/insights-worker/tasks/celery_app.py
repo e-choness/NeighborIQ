@@ -1,5 +1,5 @@
 """
-Celery application for ai-insights-service worker (Phase 5D).
+Celery application for the insights-worker.
 
 Queues:
   insights   — compute_insights tasks (triggered by scraper after batch insert)
@@ -9,7 +9,9 @@ Beat schedule:
   - generate_daily_narratives: runs at 04:00 daily (after scraper nightly run at 02:00)
   - retrain_model: runs weekly (Sunday 03:00)
 """
+
 import os
+
 from celery import Celery
 from celery.schedules import crontab
 
@@ -41,4 +43,3 @@ app.conf.update(
     },
     timezone="America/Toronto",
 )
-

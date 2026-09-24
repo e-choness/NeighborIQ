@@ -6,12 +6,13 @@ present in the file wins (case-insensitive). Portals rename columns between
 releases, so listing alternatives keeps loaders working, and a missing
 required field fails loudly with the columns that *are* available.
 """
+
 from __future__ import annotations
 
 import csv
 import re
+from collections.abc import Iterable, Iterator
 from datetime import date, datetime
-from typing import Iterable, Iterator
 
 
 class SchemaError(ValueError):

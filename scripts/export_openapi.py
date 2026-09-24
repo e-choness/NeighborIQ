@@ -7,6 +7,7 @@ Regenerate services/<name>/openapi.json from the live FastAPI apps.
 Each service is imported in a fresh interpreter because every service ships an
 `app` package and they would shadow each other in one process.
 """
+
 import json
 import subprocess
 import sys
@@ -25,7 +26,9 @@ def spec_for(service: str) -> str:
         cwd=ROOT / "services" / service,
         # Fixed hash seed: multi-method routes list their operations in set order
         env={"PYTHONPATH": env_path, "PATH": "/usr/bin:/bin", "PYTHONHASHSEED": "0"},
-        capture_output=True, text=True, check=True,
+        capture_output=True,
+        text=True,
+        check=True,
     )
     return out.stdout
 

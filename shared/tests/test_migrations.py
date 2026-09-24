@@ -13,10 +13,8 @@ DATABASE_URL env var must point to it.
 
 import os
 import subprocess
-import sys
 
 import pytest
-import sqlalchemy
 from sqlalchemy import create_engine, inspect, text
 
 # Sync DATABASE_URL: replace asyncpg with psycopg2 for synchronous Alembic/inspection
@@ -27,7 +25,8 @@ _async_url = os.environ.get(
 )
 SYNC_URL = _async_url.replace("postgresql+asyncpg", "postgresql+psycopg2")
 
-ALEMBIC_INI = "/app/migrations/alembic.ini"
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+ALEMBIC_INI = os.environ.get("ALEMBIC_INI", os.path.join(REPO_ROOT, "migrations", "alembic.ini"))
 
 
 def run_alembic(cmd: list[str]) -> subprocess.CompletedProcess:
@@ -37,6 +36,7 @@ def run_alembic(cmd: list[str]) -> subprocess.CompletedProcess:
         capture_output=True,
         text=True,
         env={**os.environ, "DATABASE_URL": SYNC_URL},
+        cwd=REPO_ROOT,  # alembic.ini's script_location is relative to the repo root
     )
     return result
 
@@ -50,8 +50,9 @@ def sync_engine():
 
 def _ensure_database_exists() -> None:
     """These tests drop the public schema, so they run in their own database."""
-    import psycopg2
     from urllib.parse import urlparse
+
+    import psycopg2
 
     target = urlparse(SYNC_URL.replace("postgresql+psycopg2://", "postgresql://"))
     admin = psycopg2.connect(target._replace(path="/postgres").geturl())
@@ -125,9 +126,7 @@ def test_all_expected_tables_exist(sync_engine):
 def test_postgis_extension_installed(sync_engine):
     """PostGIS extension must be installed (migration 002)."""
     with sync_engine.connect() as conn:
-        result = conn.execute(
-            text("SELECT extname FROM pg_extension WHERE extname = 'postgis'")
-        )
+        result = conn.execute(text("SELECT extname FROM pg_extension WHERE extname = 'postgis'"))
         row = result.fetchone()
     assert row is not None, "PostGIS extension is not installed"
 
@@ -151,8 +150,17 @@ def test_canadian_listing_columns(sync_engine):
     inspector = inspect(sync_engine)
     columns = {c["name"] for c in inspector.get_columns("house_houses")}
     required = {
-        "property_type", "sqft", "bathrooms", "parking", "postal_code",
-        "condo_fee", "property_tax", "status", "listed_at", "source", "is_synthetic",
+        "property_type",
+        "sqft",
+        "bathrooms",
+        "parking",
+        "postal_code",
+        "condo_fee",
+        "property_tax",
+        "status",
+        "listed_at",
+        "source",
+        "is_synthetic",
     }
     missing = required - columns
     assert not missing, f"Missing Canadian listing columns: {missing}"
@@ -160,8 +168,8 @@ def test_canadian_listing_columns(sync_engine):
 
 def test_alembic_schema_matches_orm(sync_engine):
     """create_all (used at service startup) and Alembic must agree on columns."""
-    from shared.database.postgres import Base
     import shared.models  # noqa: F401 — registers every table on Base.metadata
+    from shared.database.postgres import Base
 
     inspector = inspect(sync_engine)
     drift = {}

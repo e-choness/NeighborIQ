@@ -3,7 +3,8 @@ Tests for RedisDedupPipeline.
 
 Uses unittest.mock to avoid requiring a live Redis connection.
 """
-from unittest.mock import MagicMock, patch
+
+from unittest.mock import MagicMock
 
 import pytest
 from scrapy.exceptions import DropItem
@@ -75,6 +76,7 @@ class TestRedisDedupPipeline:
 
     def test_key_uses_sha256_prefix(self):
         import hashlib
+
         pipeline, mock_client = _make_pipeline()
         url = "https://feeds.partner.example/listing/xyz.html"
         item = HouseItem(url=url)

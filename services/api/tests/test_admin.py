@@ -1,4 +1,5 @@
 """Operator endpoints: job dispatch to the Celery workers and data coverage."""
+
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -7,8 +8,11 @@ import pytest
 def test_ingest_dispatches_to_ingestion_worker(client, admin_headers):
     with patch("app.routers.admin._celery") as celery:
         celery.send_task.return_value = MagicMock(id="job-1")
-        r = client.post("/api/v1/admin/ingest", headers=admin_headers,
-                        json={"command": "opendata", "sources": ["bank_of_canada"]})
+        r = client.post(
+            "/api/v1/admin/ingest",
+            headers=admin_headers,
+            json={"command": "opendata", "sources": ["bank_of_canada"]},
+        )
     assert r.status_code == 200 and r.json()["job_id"] == "job-1"
     args, kwargs = celery.send_task.call_args
     assert args[0] == "scraper.tasks.run_ingestion" and kwargs["queue"] == "scraper"
@@ -16,15 +20,21 @@ def test_ingest_dispatches_to_ingestion_worker(client, admin_headers):
 
 
 def test_unknown_command_rejected(client, admin_headers):
-    assert client.post("/api/v1/admin/ingest", headers=admin_headers, json={"command": "rm -rf"}).status_code == 422
+    assert (
+        client.post("/api/v1/admin/ingest", headers=admin_headers, json={"command": "rm -rf"}).status_code
+        == 422
+    )
 
 
-@pytest.mark.parametrize("url", [
-    "http://feeds.partner.example/l.json",
-    "https://evil.example/l.json",
-    "https://api:8000/api/v1/auth/me",
-    "file:///etc/passwd",
-])
+@pytest.mark.parametrize(
+    "url",
+    [
+        "http://feeds.partner.example/l.json",
+        "https://evil.example/l.json",
+        "https://api:8000/api/v1/auth/me",
+        "file:///etc/passwd",
+    ],
+)
 def test_feed_url_allow_list(client, admin_headers, monkeypatch, url):
     monkeypatch.setattr("app.routers.admin.FEED_ALLOWED_HOSTS", {"feeds.partner.example"})
     with patch("app.routers.admin._celery") as celery:

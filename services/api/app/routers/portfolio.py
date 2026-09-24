@@ -2,6 +2,7 @@
 Portfolio: a user's saved listings, each with notes and the cash-flow
 assumptions they analysed it with.
 """
+
 import json
 from typing import Any, Optional
 
@@ -40,15 +41,19 @@ def _entry(saved: SavedHouse) -> dict:
 
 
 async def _owned(db: AsyncSession, user_id: int, house_id: int) -> Optional[SavedHouse]:
-    return (await db.execute(
-        select(SavedHouse).where(SavedHouse.user_id == user_id, SavedHouse.house_id == house_id)
-    )).unique().scalar_one_or_none()
+    return (
+        (
+            await db.execute(
+                select(SavedHouse).where(SavedHouse.user_id == user_id, SavedHouse.house_id == house_id)
+            )
+        )
+        .unique()
+        .scalar_one_or_none()
+    )
 
 
 @router.get("/saved")
-async def get_saved_houses(
-    user: CurrentUser = Depends(current_user), db: AsyncSession = Depends(get_db)
-):
+async def get_saved_houses(user: CurrentUser = Depends(current_user), db: AsyncSession = Depends(get_db)):
     """All saved listings for the current user, newest first."""
     result = await db.execute(
         select(SavedHouse).where(SavedHouse.user_id == user.id).order_by(SavedHouse.created_at.desc())

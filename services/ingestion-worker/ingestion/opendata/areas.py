@@ -4,6 +4,7 @@ Neighbourhood boundaries (GeoJSON) → od_areas, and point-in-polygon assignment
 Every other open-data layer is summarised per area, and listings/properties get
 an area_id, so this loader runs first for each city.
 """
+
 from __future__ import annotations
 
 import json
@@ -75,8 +76,13 @@ def load_areas(
                     latitude = EXCLUDED.latitude, longitude = EXCLUDED.longitude,
                     area_km2 = EXCLUDED.area_km2, loaded_at = now()
             """),
-            {"geojson": json.dumps(geometry), "city": city, "name": name[:255],
-             "code": code[:64] if code else None, "source": source},
+            {
+                "geojson": json.dumps(geometry),
+                "city": city,
+                "name": name[:255],
+                "code": code[:64] if code else None,
+                "source": source,
+            },
         )
         written += 1
     assign_areas(session, city)
@@ -93,20 +99,26 @@ _ASSIGN = {
 def assign_areas(session: Session, city: str) -> None:
     """Point-in-polygon: set area_id on listings, properties and permits in this city."""
     for table, has_point in _ASSIGN.items():
-        session.execute(text(f"""
+        session.execute(
+            text(f"""
             UPDATE {table} t SET area_id = a.id
             FROM od_areas a
             WHERE LOWER(t.city) = LOWER(:city) AND LOWER(a.city) = LOWER(:city) AND t.{has_point}
               AND ST_Contains(a.geom, ST_SetSRID(ST_MakePoint(t.longitude, t.latitude), 4326))
-        """), {"city": city})
+        """),
+            {"city": city},
+        )
     # Properties without coordinates can still match by neighbourhood name
-    session.execute(text("""
+    session.execute(
+        text("""
         UPDATE od_properties p SET area_id = a.id
         FROM od_areas a
         WHERE p.area_id IS NULL AND p.neighbourhood IS NOT NULL
           AND LOWER(p.city) = LOWER(:city) AND LOWER(a.city) = LOWER(:city)
           AND LOWER(a.name) = LOWER(p.neighbourhood)
-    """), {"city": city})
+    """),
+        {"city": city},
+    )
 
 
 def put_stat(session: Session, area_id: int, metric: str, value, source: str, period: str = "") -> None:
@@ -116,14 +128,20 @@ def put_stat(session: Session, area_id: int, metric: str, value, source: str, pe
             VALUES (:area_id, :metric, :period, :value, :source)
             ON CONFLICT (area_id, metric, period) DO UPDATE SET value = EXCLUDED.value, source = EXCLUDED.source
         """),
-        {"area_id": area_id, "metric": metric, "period": period,
-         "value": float(value) if value is not None else None, "source": source},
+        {
+            "area_id": area_id,
+            "metric": metric,
+            "period": period,
+            "value": float(value) if value is not None else None,
+            "source": source,
+        },
     )
 
 
 def refresh_listing_stats(session: Session, city: str) -> None:
     """Per-area market metrics from listings, so every area layer can be mapped the same way."""
-    rows = session.execute(text("""
+    rows = session.execute(
+        text("""
         SELECT h.area_id,
                COUNT(*) AS n,
                PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY h.price::numeric / NULLIF(h.sqft, 0)) AS ppsf,
@@ -131,9 +149,13 @@ def refresh_listing_stats(session: Session, city: str) -> None:
         FROM house_houses h LEFT JOIN house_rental_yields ry ON ry.house_id = h.id
         WHERE h.is_active = 1 AND h.area_id IS NOT NULL AND LOWER(h.city) = LOWER(:city)
         GROUP BY h.area_id
-    """), {"city": city}).fetchall()
+    """),
+        {"city": city},
+    ).fetchall()
     for r in rows:
         put_stat(session, r.area_id, "listings_active", r.n, "listings")
         put_stat(session, r.area_id, "listings_median_ppsf", r.ppsf, "listings")
         if r.gross_yield is not None:
-            put_stat(session, r.area_id, "listings_median_gross_yield_pct", float(r.gross_yield) * 100, "listings")
+            put_stat(
+                session, r.area_id, "listings_median_gross_yield_pct", float(r.gross_yield) * 100, "listings"
+            )

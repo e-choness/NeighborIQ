@@ -6,8 +6,9 @@ Schemas are used for validation and serialization.
 """
 
 import json
+from datetime import UTC, datetime
 from typing import Optional
-from datetime import datetime, timezone
+
 from pydantic import (
     BaseModel,
     ConfigDict,
@@ -173,8 +174,8 @@ class HouseResponse(HouseBase):
         if self.sqft and self.price and self.price_per_sqft is None:
             self.price_per_sqft = round(self.price / self.sqft, 2)
         if self.listed_at and self.days_on_market is None:
-            listed = self.listed_at if self.listed_at.tzinfo else self.listed_at.replace(tzinfo=timezone.utc)
-            self.days_on_market = max(0, (datetime.now(timezone.utc) - listed).days)
+            listed = self.listed_at if self.listed_at.tzinfo else self.listed_at.replace(tzinfo=UTC)
+            self.days_on_market = max(0, (datetime.now(UTC) - listed).days)
         return self
 
 

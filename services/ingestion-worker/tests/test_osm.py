@@ -1,22 +1,51 @@
 """Tests for the OpenStreetMap POI loader (parsing and nearest-neighbour; no network)."""
+
 import pytest
 
 from ingestion.osm import Poi, build_query, haversine_m, nearest, parse_elements
 
 PAYLOAD = {
     "elements": [
-        {"type": "node", "id": 1, "lat": 43.6453, "lon": -79.3806,
-         "tags": {"railway": "station", "name": "Union"}},
-        {"type": "node", "id": 2, "lat": 43.6700, "lon": -79.3900,
-         "tags": {"station": "subway", "railway": "station", "name": "Bloor-Yonge"}},
-        {"type": "way", "id": 3, "center": {"lat": 43.6590, "lon": -79.3880},
-         "tags": {"amenity": "hospital", "name": "Toronto General Hospital"}},
-        {"type": "way", "id": 4, "center": {"lat": 43.66, "lon": -79.40},
-         "tags": {"amenity": "school", "name": "Central Tech", "isced:level": "3"}},
-        {"type": "node", "id": 5, "lat": 43.65, "lon": -79.38,
-         "tags": {"highway": "bus_stop"}},  # unnamed → skipped
-        {"type": "node", "id": 6, "lat": 43.65, "lon": -79.38,
-         "tags": {"amenity": "cafe", "name": "Not a POI we track"}},
+        {
+            "type": "node",
+            "id": 1,
+            "lat": 43.6453,
+            "lon": -79.3806,
+            "tags": {"railway": "station", "name": "Union"},
+        },
+        {
+            "type": "node",
+            "id": 2,
+            "lat": 43.6700,
+            "lon": -79.3900,
+            "tags": {"station": "subway", "railway": "station", "name": "Bloor-Yonge"},
+        },
+        {
+            "type": "way",
+            "id": 3,
+            "center": {"lat": 43.6590, "lon": -79.3880},
+            "tags": {"amenity": "hospital", "name": "Toronto General Hospital"},
+        },
+        {
+            "type": "way",
+            "id": 4,
+            "center": {"lat": 43.66, "lon": -79.40},
+            "tags": {"amenity": "school", "name": "Central Tech", "isced:level": "3"},
+        },
+        {
+            "type": "node",
+            "id": 5,
+            "lat": 43.65,
+            "lon": -79.38,
+            "tags": {"highway": "bus_stop"},
+        },  # unnamed → skipped
+        {
+            "type": "node",
+            "id": 6,
+            "lat": 43.65,
+            "lon": -79.38,
+            "tags": {"amenity": "cafe", "name": "Not a POI we track"},
+        },
     ]
 }
 

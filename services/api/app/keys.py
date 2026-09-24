@@ -7,6 +7,7 @@ Development: when they are absent, a key pair is generated once and kept in
 auth_jwt_keys so tokens survive restarts. Storing a private key in the
 application database is a dev convenience only.
 """
+
 import logging
 import os
 
@@ -28,7 +29,9 @@ keys = SigningKeys()
 
 
 async def load_signing_keys(db: AsyncSession) -> None:
-    private_pem, public_pem = os.getenv("JWT_PRIVATE_KEY", ""), os.getenv("JWT_PUBLIC_KEY", "")
+    # PEMs in a one-line .env value carry literal "\n" sequences
+    private_pem = os.getenv("JWT_PRIVATE_KEY", "").replace("\\n", "\n")
+    public_pem = os.getenv("JWT_PUBLIC_KEY", "").replace("\\n", "\n")
     if private_pem and public_pem:
         logger.info("Using JWT keys from the environment")
     else:
@@ -40,13 +43,15 @@ async def load_signing_keys(db: AsyncSession) -> None:
         else:
             logger.warning("No JWT keys configured — generating a development key pair")
             private_pem, public_pem = generate_rsa_keypair()
-            db.add(JWTKeyPair(
-                private_key_pem=private_pem,
-                public_key_pem=public_pem,
-                algorithm="RS256",
-                key_id=get_key_id(public_pem),
-                is_active=1,
-            ))
+            db.add(
+                JWTKeyPair(
+                    private_key_pem=private_pem,
+                    public_key_pem=public_pem,
+                    algorithm="RS256",
+                    key_id=get_key_id(public_pem),
+                    is_active=1,
+                )
+            )
             await db.commit()
 
     keys.private_pem, keys.public_pem = private_pem, public_pem

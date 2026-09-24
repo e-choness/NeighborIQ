@@ -1,4 +1,5 @@
 """Identity: signup/login/refresh/logout, role claim and admin bootstrap."""
+
 import uuid
 
 import jwt as pyjwt
@@ -38,8 +39,14 @@ def test_signup_missing_body_returns_422(client: TestClient) -> None:
 def test_duplicate_signup_409(client: TestClient) -> None:
     email = _email("dup")
     with TestClient(app) as c:
-        assert c.post("/api/v1/auth/signup", json={"email": email, "password": "secure_password123"}).status_code == 200
-        assert c.post("/api/v1/auth/signup", json={"email": email, "password": "secure_password123"}).status_code == 409
+        assert (
+            c.post("/api/v1/auth/signup", json={"email": email, "password": "secure_password123"}).status_code
+            == 200
+        )
+        assert (
+            c.post("/api/v1/auth/signup", json={"email": email, "password": "secure_password123"}).status_code
+            == 409
+        )
 
 
 def test_signup_login_me_roundtrip() -> None:
@@ -50,7 +57,10 @@ def test_signup_login_me_roundtrip() -> None:
         me = c.get("/api/v1/auth/me").json()
         assert me["email"] == email and me["role"] == "user"
     with TestClient(app) as c:
-        assert c.post("/api/v1/auth/login", json={"email": email, "password": "secure_password123"}).status_code == 200
+        assert (
+            c.post("/api/v1/auth/login", json={"email": email, "password": "secure_password123"}).status_code
+            == 200
+        )
         assert c.get("/api/v1/auth/me").status_code == 200
 
 

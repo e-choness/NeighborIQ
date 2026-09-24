@@ -2,10 +2,11 @@
 Celery task dispatch pipeline.
 
 After each batch insert, enqueues a `compute_insights` Celery task
-for the ai-insights-service worker to process asynchronously.
+for the insights-worker to process asynchronously.
 
-No direct HTTP call between scraper-service and ai-insights-service.
+No direct HTTP call between the ingestion and insights workers.
 """
+
 import logging
 
 from celery import Celery
@@ -39,11 +40,7 @@ class CeleryDispatchPipeline:
 
     @classmethod
     def from_crawler(cls, crawler):
-        return cls(
-            broker_url=crawler.settings.get(
-                "CELERY_BROKER_URL", "redis://localhost:6379/2"
-            )
-        )
+        return cls(broker_url=crawler.settings.get("CELERY_BROKER_URL", "redis://localhost:6379/2"))
 
     def open_spider(self, spider):
         self._celery = _make_celery_app(self.broker_url)
@@ -59,6 +56,7 @@ class CeleryDispatchPipeline:
         # Wire up postgres pipeline reference on first item
         if self._postgres_pipeline is None:
             from scraper.pipelines.postgres import PostgresBatchPipeline
+
             for pipeline in spider.crawler.engine.scraper.itemproc.middlewares:
                 if isinstance(pipeline, PostgresBatchPipeline):
                     self._postgres_pipeline = pipeline
@@ -72,10 +70,6 @@ class CeleryDispatchPipeline:
                 kwargs={"house_ids": house_ids},
                 queue="insights",
             )
-            logger.info(
-                "Dispatched compute_insights task for %d houses", len(house_ids)
-            )
+            logger.info("Dispatched compute_insights task for %d houses", len(house_ids))
         except Exception:
-            logger.exception(
-                "Failed to dispatch compute_insights task for house_ids=%s", house_ids
-            )
+            logger.exception("Failed to dispatch compute_insights task for house_ids=%s", house_ids)

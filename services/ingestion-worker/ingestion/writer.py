@@ -6,11 +6,12 @@ whenever a listing is first seen or its price changes — this is what powers
 price-drop signals and days-on-market. Used by the CLI loaders and by the
 Scrapy PostgresBatchPipeline.
 """
+
 from __future__ import annotations
 
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -107,7 +108,7 @@ def upsert_listings(session: Session, items: list[dict], now: datetime | None = 
     """
     if not items:
         return []
-    now = now or datetime.now(timezone.utc)
+    now = now or datetime.now(UTC)
 
     urls = [i["url"] for i in items]
     existing = {
@@ -163,15 +164,18 @@ def refresh_communities(session: Session) -> int:
         WHERE is_active = 1 AND community <> ''
         GROUP BY community, city
     """
-    session.execute(text(f"""
+    session.execute(
+        text(f"""
         UPDATE house_communities c SET
             region = s.region, latitude = s.latitude, longitude = s.longitude,
             house_count = s.house_count, avg_price = s.avg_price,
             min_price = s.min_price, max_price = s.max_price, updated_at = NOW()
         FROM ({stats}) s
         WHERE c.name = s.name AND c.city = s.city
-    """))
-    session.execute(text(f"""
+    """)
+    )
+    session.execute(
+        text(f"""
         INSERT INTO house_communities
             (name, city, region, latitude, longitude, house_count,
              avg_price, min_price, max_price, created_at, updated_at)
@@ -181,12 +185,15 @@ def refresh_communities(session: Session) -> int:
         WHERE NOT EXISTS (
             SELECT 1 FROM house_communities c WHERE c.name = s.name AND c.city = s.city
         )
-    """))
+    """)
+    )
     # Neighbourhoods with no active listings stay (ids remain valid) but read as empty
-    session.execute(text(f"""
+    session.execute(
+        text(f"""
         UPDATE house_communities c SET house_count = 0, updated_at = NOW()
         WHERE NOT EXISTS (
             SELECT 1 FROM ({stats}) s WHERE c.name = s.name AND c.city = s.city
         )
-    """))
+    """)
+    )
     return session.execute(text("SELECT COUNT(*) FROM house_communities WHERE house_count > 0")).scalar() or 0

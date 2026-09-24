@@ -11,6 +11,7 @@ DA values are stored with their point (od_census_points), then aggregated to
 each neighbourhood polygon: counts are summed; medians/averages are
 population-weighted means of the DA values — an approximation, labelled as such.
 """
+
 from __future__ import annotations
 
 import csv
@@ -71,11 +72,14 @@ def load_points(session: Session, fh) -> int:
 
 
 def _insert_points(session: Session, batch: list[dict]) -> None:
-    session.execute(text("""
+    session.execute(
+        text("""
         INSERT INTO od_census_points (geo_code, latitude, longitude)
         VALUES (:code, :lat, :lon)
         ON CONFLICT (geo_code) DO UPDATE SET latitude = EXCLUDED.latitude, longitude = EXCLUDED.longitude
-    """), batch)
+    """),
+        batch,
+    )
 
 
 def load_profile(session: Session, fh) -> int:
@@ -95,24 +99,33 @@ def load_profile(session: Session, fh) -> int:
         # First occurrence wins: some names (e.g. "Renter") repeat in later tables
         values.setdefault(code, {}).setdefault(metric, number)
     for code, metrics in values.items():
-        session.execute(text("""
+        session.execute(
+            text("""
             UPDATE od_census_points
             SET values = values || CAST(:values AS jsonb), population = COALESCE(:population, population)
             WHERE geo_code = :code
-        """), {"code": code, "values": json.dumps(metrics),
-               "population": int(metrics["population"]) if metrics.get("population") else None})
+        """),
+            {
+                "code": code,
+                "values": json.dumps(metrics),
+                "population": int(metrics["population"]) if metrics.get("population") else None,
+            },
+        )
     return len(values)
 
 
 def aggregate_to_areas(session: Session, city: str, source: str = "statcan_census_2021") -> int:
     """Roll DA values up to each neighbourhood polygon in the city."""
-    rows = session.execute(text("""
+    rows = session.execute(
+        text("""
         SELECT a.id AS area_id, c.population, c.values
         FROM od_areas a
         JOIN od_census_points c
           ON ST_Contains(a.geom, ST_SetSRID(ST_MakePoint(c.longitude, c.latitude), 4326))
         WHERE LOWER(a.city) = LOWER(:city)
-    """), {"city": city}).fetchall()
+    """),
+        {"city": city},
+    ).fetchall()
 
     per_area: dict[int, list] = {}
     for r in rows:

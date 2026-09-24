@@ -9,9 +9,8 @@ create_all at startup, never by a migration — so an Alembic-managed database
 had no portfolio table. Adds it, with saved cash-flow assumptions per deal.
 """
 
-from typing import Sequence, Union
+from typing import Union
 
-import sqlalchemy as sa
 from alembic import op
 
 revision: str = "004_portfolio_saved_houses"
@@ -34,10 +33,18 @@ def upgrade() -> None:
     # Databases created by the old service's create_all already have the table
     op.execute("ALTER TABLE portfolio_saved_houses ADD COLUMN IF NOT EXISTS assumptions TEXT")
     op.execute("CREATE INDEX IF NOT EXISTS ix_portfolio_saved_houses_id ON portfolio_saved_houses (id)")
-    op.execute("CREATE INDEX IF NOT EXISTS ix_portfolio_saved_houses_user_id ON portfolio_saved_houses (user_id)")
-    op.execute("CREATE INDEX IF NOT EXISTS ix_portfolio_saved_houses_house_id ON portfolio_saved_houses (house_id)")
-    op.execute("CREATE INDEX IF NOT EXISTS idx_portfolio_saved_houses_user ON portfolio_saved_houses (user_id)")
-    op.execute("CREATE INDEX IF NOT EXISTS idx_portfolio_saved_houses_house ON portfolio_saved_houses (house_id)")
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS ix_portfolio_saved_houses_user_id ON portfolio_saved_houses (user_id)"
+    )
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS ix_portfolio_saved_houses_house_id ON portfolio_saved_houses (house_id)"
+    )
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS idx_portfolio_saved_houses_user ON portfolio_saved_houses (user_id)"
+    )
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS idx_portfolio_saved_houses_house ON portfolio_saved_houses (house_id)"
+    )
     op.execute(
         "CREATE UNIQUE INDEX IF NOT EXISTS uq_portfolio_saved_houses_user_house "
         "ON portfolio_saved_houses (user_id, house_id)"

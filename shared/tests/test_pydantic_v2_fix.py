@@ -5,12 +5,14 @@ Tests that the from_attributes=True setting allows model_validate to work with O
 """
 
 import sys
-sys.path.insert(0, '/app')
 
-from datetime import datetime, timezone
-from shared.models.schemas import UserResponse, HouseResponse, CommunityResponse
+sys.path.insert(0, "/app")
+
+from datetime import UTC, datetime
+
 from shared.models.auth_models import User, UserRoleEnum
-from shared.models.house_models import House, Community
+from shared.models.house_models import Community, House
+from shared.models.schemas import CommunityResponse, HouseResponse, UserResponse
 
 
 def test_user_response_from_orm():
@@ -23,13 +25,13 @@ def test_user_response_from_orm():
         password_hash="hashed_password",
         role=UserRoleEnum.USER,
         is_active=1,
-        created_at=datetime.now(timezone.utc),
-        updated_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
     )
-    
+
     # This should work with from_attributes=True
     response = UserResponse.model_validate(user)
-    
+
     assert response.id == 1
     assert response.email == "test@example.com"
     assert response.name == "Test User"
@@ -58,13 +60,13 @@ def test_house_response_from_orm():
         longitude=-79.3832,
         url="http://example.com",
         images='["image1.jpg", "image2.jpg"]',
-        created_at=datetime.now(timezone.utc),
-        updated_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
     )
-    
+
     # This should work with from_attributes=True
     response = HouseResponse.model_validate(house)
-    
+
     assert response.id == 1
     assert response.title == "Beautiful House"
     assert response.city == "Toronto"
@@ -87,13 +89,13 @@ def test_community_response_from_orm():
         longitude=-79.3832,
         house_count=100,
         avg_price=5000000.0,
-        created_at=datetime.now(timezone.utc),
-        updated_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
     )
-    
+
     # This should work with from_attributes=True
     response = CommunityResponse.model_validate(community)
-    
+
     assert response.id == 1
     assert response.name == "Test Community"
     assert response.city == "Toronto"
@@ -111,5 +113,6 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"\n❌ Test failed: {e}")
         import traceback
+
         traceback.print_exc()
         sys.exit(1)

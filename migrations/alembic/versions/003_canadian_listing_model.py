@@ -14,7 +14,7 @@ Moves the listing model from the legacy Lianjia shape to Canadian listings:
   ever-growing log
 """
 
-from typing import Sequence, Union
+from typing import Union
 
 import sqlalchemy as sa
 from alembic import op
@@ -44,9 +44,7 @@ def upgrade() -> None:
         op.add_column("house_houses", column)
     op.create_index("ix_house_houses_postal_code", "house_houses", ["postal_code"])
     op.create_index("ix_house_houses_property_type", "house_houses", ["property_type"])
-    op.create_index(
-        "idx_house_houses_comps", "house_houses", ["city", "property_type", "rooms"]
-    )
+    op.create_index("idx_house_houses_comps", "house_houses", ["city", "property_type", "rooms"])
     # Backfill sqft for rows that only carry m²
     op.execute("UPDATE house_houses SET sqft = ROUND(area * 10.7639) WHERE sqft IS NULL AND area > 0")
 
@@ -85,9 +83,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_constraint(
-        "uq_price_prediction_house_model", "house_price_predictions", type_="unique"
-    )
+    op.drop_constraint("uq_price_prediction_house_model", "house_price_predictions", type_="unique")
     op.drop_column("house_bus_stops", "mode")
     for table in ("house_schools", "house_hospitals", "house_bus_stops"):
         op.drop_constraint(f"uq_{table}_osm_id", table, type_="unique")

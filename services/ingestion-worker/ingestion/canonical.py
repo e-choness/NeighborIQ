@@ -13,9 +13,10 @@ Optional: street, postal_code, property_type, sqft | area (m²), rooms (bedrooms
           longitude, images, source, is_synthetic,
           price_history: [{"price": int, "recorded_at": ISO-8601}, ...]
 """
+
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 SQFT_PER_M2 = 10.7639
@@ -60,7 +61,7 @@ def _to_datetime(value: Any) -> datetime | None:
             dt = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
         except ValueError:
             return None
-    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+    return dt if dt.tzinfo else dt.replace(tzinfo=UTC)
 
 
 def normalize(item: dict) -> dict:

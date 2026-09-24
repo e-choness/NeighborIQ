@@ -4,6 +4,7 @@ Download helpers with an on-disk cache, plus provenance logging.
 Open-data portals are slow and rate-limited; every file is cached under
 DATA_DIR/cache keyed by URL, and re-downloaded only when older than max_age.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -45,20 +46,35 @@ def open_text(path: Path, member_suffix: str | None = None, encoding: str = "utf
     """Open a (possibly zipped) text file. For zips, pick the first member ending with member_suffix."""
     if zipfile.is_zipfile(path):
         archive = zipfile.ZipFile(path)
-        names = [n for n in archive.namelist() if not member_suffix or n.lower().endswith(member_suffix.lower())]
+        names = [
+            n for n in archive.namelist() if not member_suffix or n.lower().endswith(member_suffix.lower())
+        ]
         if not names:
             raise FileNotFoundError(f"{path}: no member ending with {member_suffix!r}")
         return io.TextIOWrapper(archive.open(names[0]), encoding=encoding, newline="")
     return open(path, encoding=encoding, newline="")
 
 
-def log_load(session: Session, source: str, licence: str, status: str, rows: int | None,
-             message: str = "", attribution: str = "") -> None:
+def log_load(
+    session: Session,
+    source: str,
+    licence: str,
+    status: str,
+    rows: int | None,
+    message: str = "",
+    attribution: str = "",
+) -> None:
     session.execute(
         text("""
             INSERT INTO od_load_log (source, row_count, licence, attribution, status, message)
             VALUES (:source, :rows, :licence, :attribution, :status, :message)
         """),
-        {"source": source, "rows": rows, "licence": licence, "attribution": attribution[:512],
-         "status": status, "message": message[:2000]},
+        {
+            "source": source,
+            "rows": rows,
+            "licence": licence,
+            "attribution": attribution[:512],
+            "status": status,
+            "message": message[:2000],
+        },
     )

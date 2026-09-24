@@ -11,6 +11,7 @@ The model is off in the UI by default (ML_PREDICTIONS_ENABLED=0): comparable
 listings are the primary valuation. Turn it on only once the backtest metrics
 (stored with the model) are good enough for your market.
 """
+
 import logging
 import os
 

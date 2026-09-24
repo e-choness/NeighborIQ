@@ -11,10 +11,10 @@ Adds:
 - house_market_insights (LLM-generated city narratives)
 """
 
-from typing import Sequence, Union
-from alembic import op
+from typing import Union
+
 import sqlalchemy as sa
-from sqlalchemy.dialects import postgresql
+from alembic import op
 
 revision: str = "002_ai_tables_and_postgis"
 down_revision: Union[str, None] = "001_initial_schema"
@@ -43,17 +43,11 @@ def upgrade() -> None:
             server_default=sa.text("now()"),
             nullable=False,
         ),
-        sa.ForeignKeyConstraint(
-            ["house_id"], ["house_houses.id"], ondelete="CASCADE"
-        ),
+        sa.ForeignKeyConstraint(["house_id"], ["house_houses.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index(
-        "idx_house_price_predictions_house", "house_price_predictions", ["house_id"]
-    )
-    op.create_index(
-        "idx_house_price_predictions_at", "house_price_predictions", ["predicted_at"]
-    )
+    op.create_index("idx_house_price_predictions_house", "house_price_predictions", ["house_id"])
+    op.create_index("idx_house_price_predictions_at", "house_price_predictions", ["predicted_at"])
 
     # AI domain: formula-based rental yield estimates (one row per house)
     op.create_table(
@@ -69,9 +63,7 @@ def upgrade() -> None:
             server_default=sa.text("now()"),
             nullable=False,
         ),
-        sa.ForeignKeyConstraint(
-            ["house_id"], ["house_houses.id"], ondelete="CASCADE"
-        ),
+        sa.ForeignKeyConstraint(["house_id"], ["house_houses.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("house_id", name="uq_rental_yields_house"),
     )
@@ -95,9 +87,7 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index("idx_market_insights_city", "house_market_insights", ["city"])
-    op.create_index(
-        "idx_market_insights_computed_at", "house_market_insights", ["computed_at"]
-    )
+    op.create_index("idx_market_insights_computed_at", "house_market_insights", ["computed_at"])
 
 
 def downgrade() -> None:

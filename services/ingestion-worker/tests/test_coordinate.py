@@ -4,6 +4,7 @@ Tests for CoordinateConversionPipeline (pass-through).
 Canadian real estate data is already in WGS-84, so the pipeline is a no-op.
 All items pass through with coordinates unchanged.
 """
+
 from scraper.items import HouseItem
 from scraper.pipelines.coordinate import CoordinateConversionPipeline
 

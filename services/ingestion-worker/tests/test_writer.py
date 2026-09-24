@@ -4,8 +4,8 @@ Integration tests for ingestion.writer against PostgreSQL.
 Skipped when no database is reachable (unit-only runs); the Docker test profile
 provides one.
 """
-import os
-from datetime import datetime, timedelta, timezone
+
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from sqlalchemy import create_engine, text
@@ -13,7 +13,6 @@ from sqlalchemy.orm import sessionmaker
 
 from ingestion.canonical import normalize
 from ingestion.writer import refresh_communities, upsert_listings
-
 from shared.database.sync import sync_database_url
 
 DB_URL = sync_database_url()
@@ -34,19 +33,31 @@ def session():
 
 
 def _listing(price: int, **extra) -> dict:
-    return normalize({
-        "url": "test://writer/1", "title": "t", "city": "Testville", "region": "R",
-        "community": "Writer Test", "price": price, "sqft": 800, "rooms": 2,
-        "listed_at": (datetime.now(timezone.utc) - timedelta(days=10)).isoformat(),
-        **extra,
-    })
+    return normalize(
+        {
+            "url": "test://writer/1",
+            "title": "t",
+            "city": "Testville",
+            "region": "R",
+            "community": "Writer Test",
+            "price": price,
+            "sqft": 800,
+            "rooms": 2,
+            "listed_at": (datetime.now(UTC) - timedelta(days=10)).isoformat(),
+            **extra,
+        }
+    )
 
 
 def _history(session, house_id):
-    return session.execute(
-        text("SELECT price FROM house_price_history WHERE house_id = :id ORDER BY recorded_at, id"),
-        {"id": house_id},
-    ).scalars().all()
+    return (
+        session.execute(
+            text("SELECT price FROM house_price_history WHERE house_id = :id ORDER BY recorded_at, id"),
+            {"id": house_id},
+        )
+        .scalars()
+        .all()
+    )
 
 
 def test_insert_records_first_price(session):
@@ -70,7 +81,7 @@ def test_price_change_appends_history_and_updates_row(session):
 
 
 def test_supplied_history_loaded_on_first_insert(session):
-    listed = datetime.now(timezone.utc) - timedelta(days=40)
+    listed = datetime.now(UTC) - timedelta(days=40)
     item = _listing(
         750000,
         price_history=[

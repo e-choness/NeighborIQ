@@ -8,11 +8,12 @@ Uses synchronous SQLAlchemy + psycopg2 (Scrapy is synchronous). Row-level
 logic (upsert by url + price history) lives in ingestion/writer.py so the CLI
 loaders and this pipeline write identically.
 """
+
 import logging
 from typing import Any
 
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.orm import Session, sessionmaker
 
 from ingestion.writer import refresh_communities, upsert_listings
 

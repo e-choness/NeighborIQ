@@ -3,6 +3,7 @@ Listing API behaviour: Canadian filters, route order, price history and admin en
 
 Creates its own listings through the admin API using a bootstrapped admin token.
 """
+
 import uuid
 
 import pytest
@@ -37,8 +38,15 @@ def listings(client: TestClient, admin_headers) -> dict:
     created = {}
     for key, payload in {
         "condo": _listing(),
-        "detached": _listing(property_type="detached", price=1500000, sqft=2000, rooms=4,
-                             title=f"4-bed detached {TAG}", latitude=43.70, longitude=-79.40),
+        "detached": _listing(
+            property_type="detached",
+            price=1500000,
+            sqft=2000,
+            rooms=4,
+            title=f"4-bed detached {TAG}",
+            latitude=43.70,
+            longitude=-79.40,
+        ),
     }.items():
         r = client.post("/api/v1/houses", json=payload, headers=admin_headers)
         assert r.status_code == 200, r.text
@@ -99,9 +107,9 @@ def test_price_change_is_recorded_and_filterable(client: TestClient, listings, a
 
 
 def test_sort_by_price_per_sqft(client: TestClient, listings) -> None:
-    items = client.get(
-        "/api/v1/houses", params={"q": TAG, "sort": "price_per_sqft", "order": "asc"}
-    ).json()["items"]
+    items = client.get("/api/v1/houses", params={"q": TAG, "sort": "price_per_sqft", "order": "asc"}).json()[
+        "items"
+    ]
     ppsf = [h["price_per_sqft"] for h in items]
     assert ppsf == sorted(ppsf)
 
@@ -138,11 +146,16 @@ def test_rows_carry_yields_and_sort_by_yield(client: TestClient, listings) -> No
     engine = create_engine(sync_database_url())
     with engine.begin() as conn:
         for key, gross in (("condo", 0.041), ("detached", 0.029)):
-            conn.execute(text("""
+            conn.execute(
+                text("""
                 INSERT INTO house_rental_yields (house_id, annual_rent, gross_yield, net_yield, computed_at)
                 VALUES (:h, 1, :g, :g / 2, now())
                 ON CONFLICT (house_id) DO UPDATE SET gross_yield = EXCLUDED.gross_yield
-            """), {"h": listings[key]["id"], "g": gross})
-    items = client.get("/api/v1/houses", params={"q": TAG, "sort": "gross_yield", "order": "desc"}).json()["items"]
+            """),
+                {"h": listings[key]["id"], "g": gross},
+            )
+    items = client.get("/api/v1/houses", params={"q": TAG, "sort": "gross_yield", "order": "desc"}).json()[
+        "items"
+    ]
     assert [i["gross_yield_pct"] for i in items] == [4.1, 2.9]
     assert items[0]["cap_rate_pct"] == 2.05

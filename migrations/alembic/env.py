@@ -1,16 +1,12 @@
-from __future__ import with_statement
-import sys
 import os
+import sys
 from logging.config import fileConfig
 
-from sqlalchemy import engine_from_config
+from alembic import context
 from sqlalchemy import pool
 
-from alembic import context
-
 # Add project root so shared package is importable
-project_root = os.path.abspath(os.path.join(
-    os.path.dirname(__file__), "..", ".."))
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
@@ -26,6 +22,7 @@ if config.config_file_name is not None:
 # Import target metadata from shared database
 try:
     from shared.database.postgres import Base
+
     target_metadata = Base.metadata
 except Exception:
     target_metadata = None
@@ -69,14 +66,14 @@ def run_migrations_online():
     """Run migrations in 'online' mode."""
     # Use sync driver for alembic
     from sqlalchemy import create_engine
+
     connectable = create_engine(
         _database_url(),
         poolclass=pool.NullPool,
     )
 
     with connectable.connect() as connection:
-        context.configure(connection=connection,
-                          target_metadata=target_metadata)
+        context.configure(connection=connection, target_metadata=target_metadata)
 
         with context.begin_transaction():
             context.run_migrations()

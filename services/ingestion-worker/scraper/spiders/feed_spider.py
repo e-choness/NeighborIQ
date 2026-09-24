@@ -11,6 +11,7 @@ We deliberately do not scrape MLS®/REALTOR.ca pages: their terms prohibit it.
 
     scrapy crawl listing_feed -a feed_url=https://partner.example/listings.json
 """
+
 import csv
 import io
 import json

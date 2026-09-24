@@ -1,4 +1,5 @@
 """Unit tests for features and the backtested price model."""
+
 import math
 
 import numpy as np
@@ -19,13 +20,20 @@ def _houses(n=300, seed=0):
     for i in range(n):
         city, base = ("Toronto", 1000) if i % 2 else ("Calgary", 450)
         sqft = int(rng.uniform(500, 2500))
-        out.append({
-            "city": city, "sqft": sqft, "rooms": int(rng.integers(1, 5)), "bathrooms": 2,
-            "age": int(rng.integers(1, 60)), "decoration": "standard",
-            "property_type": "condo" if sqft < 1200 else "detached",
-            "latitude": 43.6 + rng.normal(0, 0.02), "longitude": -79.4 + rng.normal(0, 0.02),
-            "price": int(sqft * base * rng.lognormal(0, 0.08)),
-        })
+        out.append(
+            {
+                "city": city,
+                "sqft": sqft,
+                "rooms": int(rng.integers(1, 5)),
+                "bathrooms": 2,
+                "age": int(rng.integers(1, 60)),
+                "decoration": "standard",
+                "property_type": "condo" if sqft < 1200 else "detached",
+                "latitude": 43.6 + rng.normal(0, 0.02),
+                "longitude": -79.4 + rng.normal(0, 0.02),
+                "price": int(sqft * base * rng.lognormal(0, 0.08)),
+            }
+        )
     return out
 
 
@@ -43,7 +51,10 @@ def test_feature_vector_order_and_missing_values():
 
 
 def test_training_matrix_drops_unusable_rows():
-    houses = _houses(10) + [{"city": "Toronto", "price": 0, "sqft": 900}, {"city": "Toronto", "price": 1, "sqft": None}]
+    houses = _houses(10) + [
+        {"city": "Toronto", "price": 0, "sqft": 900},
+        {"city": "Toronto", "price": 1, "sqft": None},
+    ]
     X, y, medians = build_training_matrix(houses)
     assert X.shape == (10, len(FEATURE_NAMES)) and y.shape == (10,)
 
@@ -71,6 +82,7 @@ def test_backtest_refuses_tiny_datasets():
 
 def test_legacy_model_without_metrics_is_ignored(tmp_path):
     import joblib
+
     path = str(tmp_path / "old.joblib")
     joblib.dump({"pipeline": object(), "version": "v1"}, path)
     assert load_model(path) is None
