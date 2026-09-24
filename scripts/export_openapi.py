@@ -13,7 +13,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SERVICES = ["api-gateway", "auth-service", "house-api-service", "ai-insights-service"]
+SERVICES = ["api"]
 
 _DUMP = "import json, app.main as m; print(json.dumps(m.app.openapi(), indent=2, sort_keys=True))"
 

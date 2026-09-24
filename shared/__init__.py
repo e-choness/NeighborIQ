@@ -42,6 +42,7 @@ from shared.models import (
     HouseSchoolLink,
     HouseHospitalLink,
     HouseBusLink,
+    SavedHouse,
     HousePricePrediction,
     HouseRentalYield,
     MarketInsight,

@@ -20,9 +20,10 @@ import sqlalchemy
 from sqlalchemy import create_engine, inspect, text
 
 # Sync DATABASE_URL: replace asyncpg with psycopg2 for synchronous Alembic/inspection
+# Destructive: defaults to a dedicated database, never the application's own
 _async_url = os.environ.get(
-    "DATABASE_URL",
-    "postgresql+asyncpg://root:root@postgres:5432/house_discovery",
+    "MIGRATIONS_DATABASE_URL",
+    "postgresql+asyncpg://root:root@postgres:5432/neighboriq_migration_test",
 )
 SYNC_URL = _async_url.replace("postgresql+asyncpg", "postgresql+psycopg2")
 
@@ -47,10 +48,27 @@ def sync_engine():
     engine.dispose()
 
 
+def _ensure_database_exists() -> None:
+    """These tests drop the public schema, so they run in their own database."""
+    import psycopg2
+    from urllib.parse import urlparse
+
+    target = urlparse(SYNC_URL.replace("postgresql+psycopg2://", "postgresql://"))
+    admin = psycopg2.connect(target._replace(path="/postgres").geturl())
+    admin.autocommit = True
+    with admin.cursor() as cur:
+        cur.execute("SELECT 1 FROM pg_database WHERE datname = %s", (target.path.lstrip("/"),))
+        if cur.fetchone() is None:
+            cur.execute(f'CREATE DATABASE "{target.path.lstrip("/")}"')
+    admin.close()
+
+
 @pytest.fixture(scope="module", autouse=True)
 def apply_migrations():
     """Run alembic downgrade base then upgrade head before any test in this module."""
     import psycopg2
+
+    _ensure_database_exists()
 
     # Wipe the public schema entirely so no pre-existing tables interfere
     # (other test services may have called init_db/create_all outside of Alembic)

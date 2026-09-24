@@ -11,6 +11,7 @@ from shared.models.house_models import (
     HouseBusLink,
     RentBenchmark,
 )
+from shared.models.portfolio_models import SavedHouse
 from shared.models.ai_models import HousePricePrediction, HouseRentalYield, MarketInsight
 from shared.models.schemas import (
     UserBase,
@@ -44,6 +45,8 @@ __all__ = [
     "HouseHospitalLink",
     "HouseBusLink",
     "RentBenchmark",
+    # Portfolio ORM
+    "SavedHouse",
     # AI ORM
     "HousePricePrediction",
     "HouseRentalYield",

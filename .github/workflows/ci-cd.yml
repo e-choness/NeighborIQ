@@ -22,13 +22,9 @@ jobs:
     strategy:
       matrix:
         service:
-          - api-gateway
-          - auth-service
-          - house-api-service
-          - search-service
-          - ai-insights-service
-          - portfolio-service
-          - scraper-service
+          - api
+          - ingestion-worker
+          - insights-worker
     steps:
       - uses: actions/checkout@v4
 
@@ -64,13 +60,9 @@ jobs:
     strategy:
       matrix:
         service:
-          - api-gateway
-          - auth-service
-          - house-api-service
-          - search-service
-          - portfolio-service
-          - scraper-service
-          - ai-insights-service
+          - api
+          - ingestion-worker
+          - insights-worker
     steps:
       - uses: actions/checkout@v4
 
@@ -82,7 +74,7 @@ jobs:
 
       - name: Start Docker services (postgres, redis, elasticsearch)
         run: |
-          docker compose up -d --wait postgres redis elasticsearch
+          docker compose up -d --wait postgres redis
 
       - name: Install service dependencies
         run: |
@@ -98,9 +90,7 @@ jobs:
       - name: Run pytest
         env:
           DATABASE_URL: postgresql+asyncpg://root:root@localhost:5432/house_discovery
-          SCRAPER_DATABASE_URL: postgresql://root:root@localhost:5432/house_discovery
           REDIS_URL: redis://localhost:6379/0
-          ELASTICSEARCH_URL: http://localhost:9200
           PYTHONPATH: ${{ github.workspace }}:${{ github.workspace }}/services/${{ matrix.service }}
         run: |
           cd services/${{ matrix.service }}
@@ -130,13 +120,9 @@ jobs:
     strategy:
       matrix:
         service:
-          - api-gateway
-          - auth-service
-          - house-api-service
-          - search-service
-          - ai-insights-service
-          - portfolio-service
-          - scraper-service
+          - api
+          - ingestion-worker
+          - insights-worker
     steps:
       - uses: actions/checkout@v4
 

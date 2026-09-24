@@ -1,0 +1,6 @@
+-r ../../shared/requirements.txt
+celery[redis]
+scrapy==2.11.2
+alembic
+pytest
+pytest-mock

@@ -1,0 +1,9 @@
+-r ../../shared/requirements.txt
+celery[redis]
+xgboost
+scikit-learn
+joblib
+numpy
+openai>=1.0.0  # optional narrative provider (NARRATIVE_PROVIDER=azure)
+pytest
+pytest-mock
