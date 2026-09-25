@@ -34,7 +34,6 @@ services:
       - "127.0.0.1:5432:5432"  # localhost only, for psql during development
     volumes:
       # Postgres 18 keeps data in /var/lib/postgresql/18/docker; mount the parent.
-      # A new volume name: data from the Postgres 15 image needs a dump/restore (docs/operations.md).
       - pg18_data:/var/lib/postgresql
     networks: [neighbor_iq_net]
     healthcheck:

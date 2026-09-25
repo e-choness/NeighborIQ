@@ -1,188 +1,249 @@
 # Deployment
 
-NeighborIQ runs on one Linux server with Docker Compose. Caddy terminates TLS and obtains certificates
-automatically. A 2 GB machine runs the full stack with demo data; loading assessment rolls for several
-cities benefits from 4 GB or more.
+NeighborIQ runs on one Linux server with Docker Compose. Caddy serves the app over HTTPS and obtains its
+certificate from Let's Encrypt automatically.
 
-## Where to host
+**You need:**
 
-NeighborIQ needs a few always-on processes: Postgres with PostGIS, the Valkey broker, the API, two Celery
-workers and their schedulers. With demo data the whole Compose stack uses about **1 GB of RAM** at idle
-(measured: insights worker ~400 MB, everything else under 150 MB each), so plan for **2 GB**. The frontend
-reaches the API on the same origin (`/api/v1` through its nginx), so the simplest deployment is one machine
-running the Compose stack below.
+- A Linux server (x86-64 or ARM64) with **2 GB of RAM** or more. The stack uses about 1 GB with demo data;
+  loading assessment rolls for several cities needs 4 GB or more.
+- Ports **80 and 443** reachable from the internet. Caddy needs port 80 to obtain the certificate.
+- A **domain name** with an `A` record pointing at the server's public IP address.
 
-Free and low-cost options as of September 2026. Terms change often, so check each provider before you rely on
-it:
+The first section below walks through Oracle Cloud's free tier from an empty account. On any other server,
+start at [Install Docker](#install-docker).
 
-| Option | Runs the whole stack? | Notes |
+## Oracle Cloud (Always Free)
+
+Oracle's Always Free tier includes an Ampere A1 (ARM64) virtual machine that is large enough for the whole
+stack. The images build natively on ARM64.
+
+### Create the instance
+
+In the Oracle Cloud console, open **Compute → Instances → Create instance**:
+
+| Setting | Value |
+|---|---|
+| Image | **Canonical Ubuntu 24.04** |
+| Shape | **Ampere → VM.Standard.A1.Flex**, 2 OCPUs, 12 GB memory (within the Always Free allowance) |
+| Networking | Create a new virtual cloud network with a public subnet, and keep **Assign a public IPv4 address** on |
+| SSH keys | Upload your public key, or download the generated private key |
+| Boot volume | 50 GB (the default) is enough |
+
+If you see *"Out of capacity for shape VM.Standard.A1.Flex"*, pick another availability domain or try again
+later.
+
+When the instance is running, note its **public IP address** and point your domain at it (an `A` record).
+
+### Open ports 80 and 443
+
+Oracle blocks all inbound traffic except SSH at the network level. Open **Networking → Virtual cloud
+networks →** your VCN **→ Security Lists → Default Security List → Add Ingress Rules**, and add:
+
+| Source CIDR | IP protocol | Destination port range |
 |---|---|---|
-| **Oracle Cloud Always Free** (Ampere A1 VM) | **Yes** | The only free tier here with enough memory for the full stack. Free-tier accounts get 2 OCPU / 12 GB (halved from 4 / 24 in June 2026). ARM64: build the images on the VM (`--build`); every dependency ships ARM64 wheels. New instances can be hard to get in busy regions |
-| **A small VPS** (any provider, 2 GB, e.g. a DigitalOcean Droplet) | **Yes** | A few dollars or euros a month. The most predictable option, running the same commands as below |
-| **DigitalOcean App Platform** | **Yes**, managed | Paid: one container per component plus a managed Postgres. No servers to maintain; see [below](#digitalocean-app-platform) |
-| **Render** free | No | Free web services sleep after 15 min idle; free Postgres expires after 30 days (then a 14-day grace period). Background workers aren't free. Fine for a short demo of the API |
-| **Koyeb** free | No | One small web service (0.1 vCPU, 512 MB) and a 1 GB Postgres with PostGIS but only 5 compute hours a month |
-| **Google Cloud Run** free tier | API only | 2 M requests and 360 k vCPU-seconds a month; scale-to-zero suits the stateless API, not the always-on workers |
-| **Neon** / **Supabase** free Postgres | Database only | Both support PostGIS. Neon: 0.5 GB per project. Supabase: 500 MB, paused after 7 days idle. Demo data fits; a few cities of assessment rolls may not |
-| **Fly.io**, **Railway** | No | Fly.io has no free tier for new accounts; Railway gives trial credit only |
+| `0.0.0.0/0` | TCP | `80` |
+| `0.0.0.0/0` | TCP | `443` |
+| `0.0.0.0/0` | UDP | `443` (optional: HTTP/3) |
 
-Splitting the app across free services (for example, the frontend on a static host and the API on Cloud
-Run) needs one custom domain for both, because the session cookies are `SameSite=Strict`. The frontend would
-also need an API base-URL setting it doesn't have today. The docs site is different: it is static and is
-already published free on GitHub Pages.
+You don't need to change the firewall on the instance itself. Docker adds its own rules for the ports it
+publishes, and Caddy is the only container that publishes any.
 
-## 1. Prepare
+### Keep the instance
 
-- A server with Docker Engine and the Compose v2 plugin.
-- A DNS `A`/`AAAA` record for your domain pointing at the server.
-- Ports 80 and 443 open (Caddy needs 80 for the ACME challenge).
+Oracle may reclaim an Always Free instance that stays mostly idle for 7 days (CPU, network and memory use all
+below 20%). A small NeighborIQ deployment is often that idle. To prevent it, upgrade the account to
+**Pay As You Go** (**Billing → Upgrade and Manage Payment**). Always Free resources stay free after the upgrade;
+you are billed only for resources beyond the free allowance.
+
+Then continue with the steps for any server.
+
+## Any server
+
+Connect with SSH (on Oracle's Ubuntu image the user is `ubuntu`):
 
 ```bash
-git clone https://github.com/e-choness/neighboriq.git && cd neighboriq
+ssh ubuntu@<public-ip>
+```
+
+### Install Docker
+
+Docker's install script sets up Docker Engine and the Compose plugin from Docker's own repository:
+
+```bash
+curl -fsSL https://get.docker.com | sudo sh
+sudo usermod -aG docker "$USER"
+exit   # sign out and SSH in again so the group change applies
+```
+
+Check it after signing back in: `docker compose version`.
+
+### Configure
+
+```bash
+git clone https://github.com/e-choness/NeighborIQ.git && cd NeighborIQ
 cp .env.example .env
 ```
 
-## 2. Secrets
+Set your domain, a database password and your admin email. Replace `app.example.ca` and `you@example.com`:
 
-Edit `.env`:
+```bash
+sed -i "s|^DOMAIN=.*|DOMAIN=app.example.ca|" .env
+sed -i "s|^POSTGRES_PASSWORD=.*|POSTGRES_PASSWORD=$(openssl rand -hex 32)|" .env
+sed -i "s|^ADMIN_EMAILS=.*|ADMIN_EMAILS=you@example.com|" .env
+```
 
-| Variable | Value |
-|---|---|
-| `DOMAIN` | Public hostname, e.g. `app.example.ca` |
-| `POSTGRES_PASSWORD` | A long random string (`openssl rand -base64 32`) |
-| `ADMIN_EMAILS` | Your email; you become admin when you sign up with it |
-| `JWT_PRIVATE_KEY`, `JWT_PUBLIC_KEY` | RS256 key pair (below). Required in production |
-| `SECURE_COOKIES` | `1` (the default). Auth cookies are then sent only over HTTPS |
-| `FEED_ALLOWED_HOSTS` | Hosts allowed for partner listing feeds, if you have one |
-
-Generate the key pair and write it to `.env` as single lines:
+Generate the key pair that signs sign-in tokens and write it to `.env`:
 
 ```bash
 openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out jwt.key
 openssl rsa -in jwt.key -pubout -out jwt.pub
+sed -i '/^JWT_PRIVATE_KEY=/d; /^JWT_PUBLIC_KEY=/d' .env
 printf 'JWT_PRIVATE_KEY="%s"\n' "$(awk 'BEGIN{ORS="\\n"}1' jwt.key)" >> .env
 printf 'JWT_PUBLIC_KEY="%s"\n'  "$(awk 'BEGIN{ORS="\\n"}1' jwt.pub)" >> .env
-shred -u jwt.key
+shred -u jwt.key && rm jwt.pub
+chmod 600 .env
 ```
 
-Remove the empty `JWT_PRIVATE_KEY=`/`JWT_PUBLIC_KEY=` lines that came from `.env.example`. Keep `.env`
-readable only by the deploy user (`chmod 600 .env`).
+Other settings in `.env`:
 
-## 3. Start
+| Variable | Value |
+|---|---|
+| `SECURE_COOKIES` | `1` (the default): sign-in cookies are sent only over HTTPS |
+| `FEED_ALLOWED_HOSTS` | Hosts allowed for a partner listing feed, if you have one |
+
+### Start
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+```
+
+The first build takes several minutes. On start, `migrate` creates the database schema and `bootstrap`
+loads demo data; both then exit. Check that everything else is running:
+
+```bash
 docker compose -f docker-compose.yml -f docker-compose.prod.yml ps
 ```
 
-The production overlay:
+The production overlay ([`docker-compose.prod.yml`](../docker-compose.prod.yml)):
 
-- adds **Caddy** on 80/443 (HTTP/3 included) with HSTS and security headers ([`Caddyfile`](../Caddyfile));
-- removes every other published port, so Postgres, Redis and the API are reachable only on the Compose network;
-- makes `POSTGRES_PASSWORD` and the JWT keys mandatory (Compose refuses to start without them);
-- sets `restart: always` and log rotation, and turns on Redis persistence.
+- adds **Caddy** on ports 80 and 443 (HTTP/3 included), with HSTS and security headers
+  ([`Caddyfile`](../Caddyfile)), and redirects HTTP to HTTPS;
+- publishes no other ports, so Postgres, Valkey and the API are reachable only inside the Compose network;
+- refuses to start without `POSTGRES_PASSWORD` and the JWT keys;
+- restarts containers automatically, rotates logs and turns on Valkey persistence.
 
-Open `https://$DOMAIN`, sign up with your admin email, and load open data from the Admin page.
+### Verify
 
-## 4. Update
+```bash
+curl https://app.example.ca/api/v1/health
+# {"status":"ok","service":"api",...,"database":"up",...}
+scripts/smoke-test.sh https://app.example.ca
+```
+
+If the certificate isn't issued, check `docker compose -f docker-compose.yml -f docker-compose.prod.yml logs
+caddy`. The usual causes are a DNS record that doesn't point at the server yet, or port 80 closed.
+
+Open `https://app.example.ca`, sign up with your `ADMIN_EMAILS` address, and load open data for your city from
+the **Admin** page.
+
+## Update
+
+Take a [backup](operations.md#backups) first, then:
 
 ```bash
 git pull
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 ```
 
-`migrate` runs on every start and applies new revisions before the API starts. Take a backup first (see
-[Operations → Backups](operations.md#backups)).
+`migrate` applies any new schema revisions before the API starts.
 
-Prebuilt images are published to GHCR from `main` (`ghcr.io/e-choness/neighboriq-{api,ingestion-worker,
-insights-worker,frontend}`). To deploy those instead of building on the server, set `image:` for each service
-in a Compose override.
+## Roll back
+
+Check out the previous version and start the stack again:
+
+```bash
+git checkout <previous-commit>
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+```
+
+If the update included a schema change, undo it first, while the new version is still checked out:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.prod.yml run --rm migrate \
+  alembic -c migrations/alembic.ini downgrade -1
+```
+
+If a downgrade would lose data you need, restore the backup instead.
 
 ## Scaling
 
 | Pressure | Action |
 |---|---|
-| API latency under load | `--scale api=3`. The API is stateless. Set `RATE_LIMIT_STORAGE=redis://redis:6379/3` so limits are shared |
-| Long data loads delay other jobs | `--scale ingestion-worker=2`, or run it on a second host against the same Postgres/Redis |
+| API latency under load | `--scale api=3`. The API is stateless. Set `RATE_LIMIT_STORAGE=redis://redis:6379/3` so rate limits are shared |
+| Long data loads delay other jobs | `--scale ingestion-worker=2` |
 | Yield recomputes queue behind training | `--scale insights-worker=2` |
-| Map traffic | Serve `/tiles/` and static assets from a CDN |
-| Database | Managed Postgres with PostGIS; point `DATABASE_URL` at it and drop the `postgres` service |
+| Database | Use a managed Postgres with PostGIS: set `DATABASE_URL` and remove the `postgres` service |
 
-Never scale the `*-beat` services beyond one each.
-
-## Rollback
-
-Images are tagged with the commit SHA. To roll back code, check out the previous commit (or pin the previous
-image tags) and bring the stack up again. Roll back the schema only if the new revision's `downgrade` is safe
-for your data: `docker compose run --rm migrate alembic -c migrations/alembic.ini downgrade -1`. Otherwise,
-restore the backup you took before updating.
+Never run more than one of each `*-beat` service.
 
 ## Checklist
 
-- [ ] DNS resolves to the server; ports 80/443 open
-- [ ] `.env` has real `POSTGRES_PASSWORD`, JWT keys and `ADMIN_EMAILS`; `chmod 600 .env`
-- [ ] `https://$DOMAIN/health` returns `"database": "up"`
+- [ ] Your domain resolves to the server; ports 80 and 443 are open
+- [ ] `.env` has a generated `POSTGRES_PASSWORD`, the JWT keys and `ADMIN_EMAILS`, and is `chmod 600`
+- [ ] `https://<your domain>/api/v1/health` reports `"database":"up"`
 - [ ] Rent benchmarks replaced with official CMHC figures ([Data sources](data-sources.md#rents))
-- [ ] Nightly `pg_dump` stored off the host
+- [ ] Nightly [backups](operations.md#backups) stored off the server
+- [ ] Oracle Cloud: account upgraded to Pay As You Go, so the instance isn't reclaimed
 
 ## DigitalOcean App Platform
 
-App Platform builds from GitHub and runs each component in its own container, with no server to maintain.
-Its auto-detection only looks for a `Dockerfile`, `package.json` or `requirements.txt` at the repository root.
-This repository has five deployables in subfolders, so connecting it directly ends with *"Verify the repo
-contains supported file types…"*. Create the app from the spec in [`.do/app.yaml`](../.do/app.yaml) instead:
+App Platform runs each component in its own managed container, with no server to maintain. It costs more
+than a single server: five containers plus a managed database. Create the app from the spec in
+[`.do/app.yaml`](../.do/app.yaml). Connecting the repository without the spec fails, because the Dockerfiles
+are in subfolders.
 
-| Component | Type | From | Size |
-|---|---|---|---|
-| `web` | static site | `frontend/` (`npm run build` → `dist/`) | — |
-| `api` | service, public at `/api` | `services/api/Dockerfile` | 1 vCPU / 0.5 GB |
-| `valkey` | private service (`internal_ports` only) | `valkey/valkey:9-alpine` | 1 vCPU / 0.5 GB |
-| `ingestion-worker`, `insights-worker` | workers, each with its own scheduler (`celery worker -B`) | the worker Dockerfiles | 1 vCPU / 1 GB each |
-| `migrate` | job, before each deploy | `alembic upgrade head` | 0.5 GB |
-| `bootstrap` | job, after each deploy | demo data if the database is empty | 0.5 GB |
-| `db` | Managed PostgreSQL (existing cluster) | `neighboriq-db` | smallest plan |
-
-The browser sees one origin: App Platform routes `/api` to the API and everything else to the SPA, so the
-`SameSite=Strict` session cookies work unchanged. `DATABASE_URL` is injected as a plain libpq URL
-(`postgresql://…?sslmode=require`); [`shared/database/urls.py`](../shared/database/urls.py) converts it for
-asyncpg and psycopg2.
+| Component | Type | From |
+|---|---|---|
+| `web` | static site | `frontend/` (`npm run build` → `dist/`) |
+| `api` | service, public at `/api` | `services/api/Dockerfile` |
+| `valkey` | private service | `valkey/valkey:9-alpine` |
+| `ingestion-worker`, `insights-worker` | workers, each with its own scheduler | the worker Dockerfiles |
+| `migrate` | job, before each deploy | `alembic upgrade head` |
+| `bootstrap` | job, after each deploy | demo data if the database is empty |
+| `db` | Managed PostgreSQL | cluster `neighboriq-db` |
 
 ### Steps
 
 1. **Database.** Create a Managed PostgreSQL cluster named `neighboriq-db` in the app's region (the spec uses
-   `tor`, Toronto). App Platform's dev databases are not suitable, because the schema needs the PostGIS extension.
-   Connect once as `doadmin` and run:
+   `tor`, Toronto). App Platform's dev databases don't work, because the schema needs PostGIS. Connect once as
+   `doadmin` and run:
 
    ```sql
    CREATE EXTENSION IF NOT EXISTS postgis;
    ```
 
-2. **Secrets.** Generate the JWT key pair as in [Secrets](#2-secrets). In `.do/app.yaml` (or later in the
-   control panel), replace the `REPLACE_ME` values: `JWT_PRIVATE_KEY`, `JWT_PUBLIC_KEY` (single-line PEM with
-   `\n` escapes) and `ADMIN_EMAILS`.
+2. **Secrets.** Generate the key pair as in [Configure](#configure), but print the single-line values
+   instead of appending them to `.env`: `awk 'BEGIN{ORS="\\n"}1' jwt.key`. In `.do/app.yaml` (or later in the
+   control panel), replace each `REPLACE_ME`: `JWT_PRIVATE_KEY`, `JWT_PUBLIC_KEY` and `ADMIN_EMAILS`.
 
 3. **Create the app.**
 
    ```bash
-   doctl apps spec validate .do/app.yaml
    doctl apps create --spec .do/app.yaml
    ```
 
    Without `doctl`: create an app from the repository in the control panel, then open **Settings → App Spec →
-   Edit**, paste the file and save. App Platform needs read access to the repository; grant it under
-   **GitHub → Settings → Applications → DigitalOcean**.
+   Edit**, paste the file and save. App Platform needs read access to the repository (**GitHub → Settings →
+   Applications → DigitalOcean**).
 
-4. **Deploy.** Each deploy runs `migrate` first, then starts the new versions, then runs `bootstrap`. Pushes
-   to `main` redeploy automatically (`deploy_on_push`).
+Each deploy runs `migrate`, starts the new version, then runs `bootstrap`. Pushes to `main` redeploy
+automatically.
 
 ### Notes
 
-- **Cost:** App Platform bills each container. The layout above runs five containers plus the managed
-  database, so it costs several times a single 2 GB Droplet running the Compose stack. Check
-  [DigitalOcean's pricing](https://www.digitalocean.com/pricing/app-platform) for current rates.
-- **Storage:** containers have no persistent disk. The open-data download cache and the trained model are
+- **Storage:** the containers have no persistent disk. The open-data download cache and the trained model are
   rebuilt after a redeploy; the weekly retrain, or **Admin → Retrain**, restores the model.
-- **Scaling:** keep one instance of each worker, because each runs a scheduler. To scale job throughput,
-  add worker components without `-B`.
-- **Instance sizes:** `doctl apps tier instance-size list` shows the current slugs.
-
+- **Scaling:** keep one instance of each worker, because each runs a scheduler.
+- **Sizes and prices:** `doctl apps tier instance-size list` lists the instance sizes;
+  [DigitalOcean's pricing page](https://www.digitalocean.com/pricing/app-platform) has current rates.

@@ -5,6 +5,7 @@
 #   scripts/smoke-test.sh https://app.example.ca # a deployment (API behind the same host)
 #
 # API_URL overrides where the API is reached (default: $BASE_URL, falling back to :8000 locally).
+# INSECURE=1 accepts a self-signed certificate (e.g. Caddy's for https://localhost).
 set -euo pipefail
 
 BASE_URL="${1:-http://localhost}"
@@ -14,7 +15,7 @@ if [[ "$BASE_URL" == "http://localhost" && -z "${1:-}" ]]; then API_URL="${API_U
 failures=0
 check() { # name url [jq-ish grep pattern]
   local name="$1" url="$2" pattern="${3:-}" body status
-  body="$(curl -fsS --max-time 15 "$url" 2>/dev/null)" && status=ok || status=fail
+  body="$(curl -fsS --max-time 15 ${INSECURE:+--insecure} "$url" 2>/dev/null)" && status=ok || status=fail
   if [[ "$status" == ok && -n "$pattern" ]] && ! grep -q "$pattern" <<<"$body"; then status="unexpected response"; fi
   if [[ "$status" == ok ]]; then printf '  \033[32m✓\033[0m %s\n' "$name"; else printf '  \033[31m✗\033[0m %s (%s) %s\n' "$name" "$status" "$url"; failures=$((failures + 1)); fi
 }
