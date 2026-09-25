@@ -91,7 +91,7 @@ services:
       - key: ADMIN_EMAILS
         scope: RUN_TIME
         value: REPLACE_ME@example.com
-      - key: JWT_PRIVATE_KEY # PEM on one line with \n escapes (docs/DEPLOYMENT.md#2-secrets)
+      - key: JWT_PRIVATE_KEY # PEM on one line with \n escapes (docs/DEPLOYMENT.md#configure)
         scope: RUN_TIME
         type: SECRET
         value: REPLACE_ME

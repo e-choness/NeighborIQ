@@ -1,7 +1,11 @@
 # Operations
 
-Day-to-day tasks for someone running NeighborIQ. Commands assume Docker Compose from the repository root; add
-`-f docker-compose.yml -f docker-compose.prod.yml` in production.
+Day-to-day tasks for someone running NeighborIQ. Commands run from the repository root. They are written for
+the local stack (`docker compose`); on a production server, add the production overlay:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.prod.yml exec ...
+```
 
 ## Startup order
 
@@ -28,8 +32,8 @@ Admin role is assigned at sign-up to emails listed in `ADMIN_EMAILS` (comma-sepa
 account:
 
 ```bash
-docker compose exec postgres psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
-  -c "UPDATE auth_users SET role='admin' WHERE email='you@example.com'"
+docker compose exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"' \
+  <<< "UPDATE auth_users SET role='admin' WHERE email='you@example.com';"
 ```
 
 The user signs in again to get a token with the new role.
@@ -97,52 +101,29 @@ In production, put `/tiles/` behind a CDN if traffic grows. The file is static.
 
 ## Health and logs
 
-- `GET /health` returns API liveness and a database check. Compose healthchecks cover Postgres and Redis.
+- `GET /api/v1/health` returns API liveness and a database check (`"database":"up"`). Compose healthchecks cover Postgres and Redis.
 - `GET /api/v1/admin/status` (admin) reports row counts per data set, the last 50 open-data loads, broker
   reachability and which workers answer a ping.
 - `docker compose logs -f api ingestion-worker insights-worker` shows the logs. The prod overlay rotates
   them at 10 MB × 3 files.
-
-## Upgrading from the Postgres 15 image
-
-Release 0.4 moved from `postgis/postgis:15-3.4` to `postgis/postgis:18-3.6`. A major Postgres version can't
-read an older data directory, so the new image uses a new volume (`pg18_data`). The old volume
-(`<project>_postgres_data`) is left untouched until you delete it. To carry your data over:
-
-```bash
-# 1. Dump from the old volume with the old image (the stack can be stopped)
-docker compose down
-docker run -d --name pg15 -e POSTGRES_PASSWORD=unused \
-  -v "$(basename "$PWD" | tr A-Z a-z)_postgres_data:/var/lib/postgresql/data" postgis/postgis:15-3.4-alpine
-sleep 5
-docker exec pg15 pg_dump -U "$POSTGRES_USER" -Fc "$POSTGRES_DB" > pre-18.dump
-docker rm -f pg15
-
-# 2. Start Postgres 18 and restore into the empty database it creates
-docker compose up -d postgres
-docker compose exec -T postgres pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" --no-owner < pre-18.dump
-
-# 3. Start everything; migrate adopts the old revision history and applies new migrations
-docker compose up -d
-```
-
-`pg_restore` may report that PostGIS extension objects already exist (the image creates them in a new
-database); those messages are harmless. Check the app, then remove the old volume: `docker volume rm <project>_postgres_data`. Fresh installs can
-skip this section.
 
 ## Backups
 
 All state is in Postgres. Redis only holds queued jobs, which can be re-queued.
 
 ```bash
-docker compose exec -T postgres pg_dump -U "$POSTGRES_USER" -Fc "$POSTGRES_DB" > neighboriq-$(date +%F).dump
-# restore into an empty database
-docker compose exec -T postgres pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" --clean < neighboriq-2026-09-24.dump
+# back up
+docker compose exec -T postgres sh -c 'pg_dump -U "$POSTGRES_USER" -Fc "$POSTGRES_DB"' > neighboriq-$(date +%F).dump
+# restore (replaces the current contents)
+docker compose exec -T postgres sh -c 'pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" --clean --if-exists' < neighboriq-2026-09-24.dump
 ```
+
+The database name and user come from the container's own environment, so the commands work whatever is in
+`.env`.
 
 Keep the dumps off the host. Open data can be reloaded from source, but user accounts and portfolios cannot.
 
 ## Rotating JWT keys
 
-Generate a new pair (see [Deployment](DEPLOYMENT.md#2-secrets)), update `.env`, then restart `api`. Existing
+Generate a new pair (see [Deployment](DEPLOYMENT.md#configure)), update `.env`, then restart `api`. Existing
 sessions become invalid and users sign in again.
