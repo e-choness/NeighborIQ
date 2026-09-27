@@ -6,6 +6,7 @@
 | [0002](0002-search-in-postgres.md) | Keep search in PostgreSQL until measured need | Accepted (engine choice open) |
 | [0003](0003-open-data-and-synthetic-listings.md) | Public open data and synthetic listings; no scraping | Accepted |
 | [0004](0004-keep-celery.md) | Keep Celery + Redis for background jobs | Accepted |
-| [0005](0005-license-fsl.md) | License under FSL-1.1-ALv2 | Accepted |
+| [0005](0005-license-fsl.md) | License under FSL-1.1-ALv2 | Superseded by 0006 |
+| [0006](0006-all-rights-reserved.md) | All rights reserved (proprietary) | Accepted |
 
 Format: context, decision, consequences. Add a new record instead of rewriting an accepted one.

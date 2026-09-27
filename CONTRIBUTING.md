@@ -41,6 +41,7 @@ Thanks for helping. Start with [Getting started](docs/development/getting-starte
 
 ## Licence
 
-NeighborIQ is licensed under the [Functional Source License 1.1, ALv2 Future License](LICENSE.md)
-(FSL-1.1-ALv2). By contributing, you agree that your contribution is licensed under the same terms, including
-the grant of the Apache License 2.0 two years after the release it ships in. See [ADR 0005](docs/adr/0005-license-fsl.md).
+NeighborIQ is proprietary; all rights are reserved ([LICENSE.md](LICENSE.md)). Before a contribution can be
+merged, you must agree in writing to assign its copyright to the maintainer, or grant a licence that lets the
+maintainer use and relicense it without restriction. Open an issue first if you want to contribute.
+See [ADR 0006](docs/adr/0006-all-rights-reserved.md).

@@ -48,10 +48,9 @@ the API version is the one in [`services/api/openapi.json`](services/api/openapi
   defaults, data sources).
 
 ### Changed
-- **Licence:** NeighborIQ is now source-available under the Functional Source License 1.1, ALv2 Future License
-  (FSL-1.1-ALv2). Self-hosting and internal use, including analysing properties for your own business, remain
-  free; offering it as a competing commercial product or service is not. Each release becomes Apache-2.0 two
-  years after it ships. Code up to commit `4c7146f` remains MIT. See [ADR 0005](docs/adr/0005-license-fsl.md).
+- **Licence:** NeighborIQ is now proprietary, all rights reserved. Using, copying, modifying, hosting or
+  distributing it requires written permission. Copies obtained under MIT (up to `4c7146f`) or FSL-1.1-ALv2
+  (up to `50c9118`) keep those terms. See [ADR 0006](docs/adr/0006-all-rights-reserved.md).
 - Migrations squashed into `0001_baseline` (the same schema, verified column-for-column). Databases
   at the old head `005_open_data` are adopted automatically on the next upgrade.
 - `shared/` now holds only code used by more than one deployable: models, database sessions, analytics.

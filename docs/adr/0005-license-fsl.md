@@ -1,6 +1,6 @@
 # 0005 — Functional Source License (FSL-1.1-ALv2)
 
-**Status:** Accepted (2026-09)
+**Status:** Superseded by [0006](0006-all-rights-reserved.md)
 
 ## Context
 

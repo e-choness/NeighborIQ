@@ -149,6 +149,7 @@ export default withMermaid(
             { text: '0003 Open data, no scraping', link: '/adr/0003-open-data-and-synthetic-listings' },
             { text: '0004 Keep Celery', link: '/adr/0004-keep-celery' },
             { text: '0005 Licence (FSL)', link: '/adr/0005-license-fsl' },
+            { text: '0006 All rights reserved', link: '/adr/0006-all-rights-reserved' },
           ],
         },
       ],
@@ -157,7 +158,7 @@ export default withMermaid(
       editLink: { pattern: `${REPO}/edit/${BRANCH}/docs/:path`, text: 'Edit this page on GitHub' },
       outline: { level: [2, 3] },
       footer: {
-        message: 'Code under the Functional Source License (FSL-1.1-ALv2). Data licensed by its publishers. Not financial advice.',
+        message: 'Code © Beili (Echo) Yin, all rights reserved. Data licensed by its publishers. Not financial advice.',
         copyright: 'NeighborIQ contributors',
       },
     },

@@ -2,7 +2,7 @@
   "name": "neighboriq-frontend",
   "version": "0.3.0",
   "private": true,
-  "license": "FSL-1.1-ALv2",
+  "license": "UNLICENSED",
   "type": "module",
   "engines": {
     "node": "24.x"
