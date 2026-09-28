@@ -150,6 +150,7 @@ export default withMermaid(
             { text: '0004 Keep Celery', link: '/adr/0004-keep-celery' },
             { text: '0005 Licence (FSL)', link: '/adr/0005-license-fsl' },
             { text: '0006 All rights reserved', link: '/adr/0006-all-rights-reserved' },
+            { text: '0007 Map-first shell', link: '/adr/0007-map-first-shell' },
           ],
         },
       ],

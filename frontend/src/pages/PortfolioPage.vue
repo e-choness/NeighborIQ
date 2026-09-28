@@ -2,16 +2,25 @@
 /** Saved deals, each recomputed with the assumptions it was saved with, compared side by side. */
 import { Trash2 } from '@lucide/vue'
 import { useMutation, useQuery, useQueryCache } from '@pinia/colada'
-import { computed } from 'vue'
+import { computed, onMounted, watch } from 'vue'
 import { RouterLink } from 'vue-router'
+import Sheet from '@/components/shell/Sheet.vue'
 import Button from '@/components/ui/Button.vue'
 import Skeleton from '@/components/ui/Skeleton.vue'
 import { api } from '@/lib/api'
 import { moneyShort, pct, signedMoney } from '@/lib/format'
 import type { CashFlowInput, CashFlowResult, Insights, SavedDeal } from '@/lib/types'
+import { isPhone } from '@/lib/viewport'
+import { useMapStage } from '@/stores/mapStage'
+import { useShell } from '@/stores/shell'
 
 const cache = useQueryCache()
+const stage = useMapStage()
+const shell = useShell()
 const { data: deals, isLoading } = useQuery({ key: ['portfolio'], query: () => api<SavedDeal[]>('/portfolio/saved') })
+
+onMounted(() => stage.show('overview'))
+watch(() => deals.value, (d) => (stage.listings = (d ?? []).map((x) => x.house)), { immediate: true })
 
 // One insights + cash-flow computation per saved deal
 const ids = computed(() => (deals.value ?? []).map((d) => d.house_id).join(','))
@@ -32,61 +41,90 @@ const { data: results } = useQuery({
   },
 })
 
+const rows = computed(() =>
+  (deals.value ?? []).map((d) => {
+    const r = results.value?.[d.house_id]
+    const delta = r?.valuation?.delta_pct
+    return {
+      id: d.house_id,
+      title: d.house.title,
+      sub: `${d.house.community ?? ''}${d.house.community ? ', ' : ''}${d.house.city}${d.notes ? ` · ${d.notes}` : ''}`,
+      price: moneyShort(d.assumptions?.price ?? d.house.price),
+      delta: delta === undefined || delta === null ? '—' : `${delta > 0 ? '+' : ''}${pct(delta)}`,
+      cf: r?.cf ? signedMoney(r.cf.monthly_cash_flow) : r ? '—' : '…',
+      negative: (r?.cf?.monthly_cash_flow ?? 0) < 0,
+      cap: pct(r?.cf?.cap_rate_pct, 2),
+      coc: pct(r?.cf?.cash_on_cash_pct),
+      invested: moneyShort(r?.cf?.cash_invested),
+    }
+  }),
+)
+
 const { mutate: remove } = useMutation({
   mutation: (houseId: number) => api(`/portfolio/saved/${houseId}`, { method: 'DELETE' }),
+  onSuccess: () => shell.flash('Removed from portfolio'),
   onSettled: () => cache.invalidateQueries({ key: ['portfolio'] }),
 })
+const GRID = 'grid grid-cols-[minmax(0,2.4fr)_repeat(6,minmax(0,1fr))_44px] items-center gap-3 px-4'
 </script>
 
 <template>
-  <div>
-    <h1 class="text-3xl font-semibold tracking-tight">Portfolio</h1>
-    <p class="mt-2 text-sm text-text-2">Saved deals, recalculated with the assumptions you saved them with.</p>
+  <Sheet side="center" label="Portfolio" :body-class="isPhone ? 'p-4' : 'p-6'">
+    <div class="mx-auto max-w-[1040px]">
+      <h1 class="font-display text-[36px] tracking-[0.03em]">Portfolio</h1>
+      <p class="mt-1.5 text-sm text-text-2">Saved deals, recalculated with the assumptions you saved them with.</p>
 
-    <Skeleton v-if="isLoading" class="mt-8 h-40" />
-    <div v-else-if="!deals?.length" class="mt-10 rounded-2xl border border-dashed border-border p-10 text-center">
-      <p class="font-medium">No saved deals yet</p>
-      <p class="mt-1 text-sm text-text-2">Open a listing and choose “Save deal” to keep its analysis here.</p>
-      <Button to="/explore" variant="secondary" class="mt-4">Browse listings</Button>
-    </div>
+      <Skeleton v-if="isLoading" class="mt-6 h-40" />
+      <div v-else-if="!deals?.length" class="mt-6 rounded-[18px] border border-dashed border-border p-10 text-center">
+        <p class="font-medium">No saved deals yet</p>
+        <p class="mt-1.5 text-sm text-text-2">Open a listing and choose “Save deal” to keep its analysis here.</p>
+        <Button to="/explore" variant="secondary" class="mt-4">Browse listings</Button>
+      </div>
 
-    <div v-else class="mt-8 overflow-x-auto rounded-2xl border border-border bg-surface">
-      <table class="w-full min-w-[52rem] text-sm">
-        <thead class="text-left text-xs text-muted">
-          <tr class="border-b border-border">
-            <th class="px-4 py-3 font-normal">Property</th>
-            <th class="px-4 py-3 text-right font-normal">Price</th>
-            <th class="px-4 py-3 text-right font-normal">vs comps</th>
-            <th class="px-4 py-3 text-right font-normal">Cash flow / mo</th>
-            <th class="px-4 py-3 text-right font-normal">Cap rate</th>
-            <th class="px-4 py-3 text-right font-normal">Cash-on-cash</th>
-            <th class="px-4 py-3 text-right font-normal">Cash to close</th>
-            <th class="px-4 py-3"><span class="sr-only">Actions</span></th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="d in deals" :key="d.id" class="border-b border-border last:border-0">
-            <td class="px-4 py-3">
-              <RouterLink :to="`/listings/${d.house_id}`" class="font-medium hover:text-accent">{{ d.house.title }}</RouterLink>
-              <p class="text-xs text-muted">{{ d.house.community }}, {{ d.house.city }}<template v-if="d.notes"> · {{ d.notes }}</template></p>
-            </td>
-            <td class="num px-4 py-3 text-right">{{ moneyShort(d.assumptions?.price ?? d.house.price) }}</td>
-            <td class="num px-4 py-3 text-right">
-              <template v-if="results?.[d.house_id]?.valuation">{{ results[d.house_id].valuation!.delta_pct > 0 ? '+' : '' }}{{ pct(results[d.house_id].valuation!.delta_pct) }}</template>
-              <template v-else>—</template>
-            </td>
-            <td class="num px-4 py-3 text-right" :class="(results?.[d.house_id]?.cf?.monthly_cash_flow ?? 0) >= 0 ? 'text-good' : 'text-bad'">
-              {{ results?.[d.house_id]?.cf ? signedMoney(results[d.house_id].cf!.monthly_cash_flow) : '…' }}
-            </td>
-            <td class="num px-4 py-3 text-right">{{ pct(results?.[d.house_id]?.cf?.cap_rate_pct, 2) }}</td>
-            <td class="num px-4 py-3 text-right">{{ pct(results?.[d.house_id]?.cf?.cash_on_cash_pct) }}</td>
-            <td class="num px-4 py-3 text-right">{{ moneyShort(results?.[d.house_id]?.cf?.cash_invested) }}</td>
-            <td class="px-2 py-3 text-right">
-              <Button variant="danger" size="icon" :aria-label="`Remove ${d.house.title}`" @click="remove(d.house_id)"><Trash2 class="h-4 w-4" /></Button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+      <div v-else-if="!isPhone" class="mt-[22px] overflow-hidden rounded-[18px] border border-border" role="table" aria-label="Saved deals">
+        <div :class="[GRID, 'border-b border-border py-3 text-xs text-muted']" role="row">
+          <span role="columnheader">Property</span>
+          <span role="columnheader" class="text-right">Price</span>
+          <span role="columnheader" class="text-right">vs comps</span>
+          <span role="columnheader" class="text-right">Cash flow / mo</span>
+          <span role="columnheader" class="text-right">Cap rate</span>
+          <span role="columnheader" class="text-right">Cash-on-cash</span>
+          <span role="columnheader" class="text-right">Cash to close</span>
+          <span role="columnheader"><span class="sr-only">Actions</span></span>
+        </div>
+        <div v-for="d in rows" :key="d.id" :class="[GRID, 'border-b border-border py-3 text-sm last:border-0']" role="row" data-testid="portfolio-row">
+          <span class="min-w-0" role="cell">
+            <RouterLink :to="`/listings/${d.id}`" class="block truncate font-medium text-text hover:text-accent">{{ d.title }}</RouterLink>
+            <span class="block truncate text-xs text-muted">{{ d.sub }}</span>
+          </span>
+          <span role="cell" class="num text-right">{{ d.price }}</span>
+          <span role="cell" class="num text-right">{{ d.delta }}</span>
+          <span role="cell" class="num text-right" :class="d.negative ? 'text-bad' : 'text-good'">{{ d.cf }}</span>
+          <span role="cell" class="num text-right">{{ d.cap }}</span>
+          <span role="cell" class="num text-right">{{ d.coc }}</span>
+          <span role="cell" class="num text-right">{{ d.invested }}</span>
+          <span role="cell">
+            <button type="button" :aria-label="`Remove ${d.title}`" class="grid h-8 w-8 place-items-center rounded-[10px] text-bad hover:bg-bad/10" @click="remove(d.id)">
+              <Trash2 class="h-4 w-4" />
+            </button>
+          </span>
+        </div>
+      </div>
+
+      <div v-else class="mt-[18px] flex flex-col gap-2.5">
+        <div v-for="d in rows" :key="d.id" class="rounded-2xl border border-border bg-surface-2 p-3.5" data-testid="portfolio-row">
+          <div class="flex justify-between gap-2.5">
+            <RouterLink :to="`/listings/${d.id}`" class="min-w-0 truncate font-medium text-text">{{ d.title }}</RouterLink>
+            <button type="button" :aria-label="`Remove ${d.title}`" class="shrink-0 text-bad" @click="remove(d.id)"><Trash2 class="h-4 w-4" /></button>
+          </div>
+          <div class="truncate text-xs text-muted">{{ d.sub }}</div>
+          <div class="num mt-2.5 grid grid-cols-3 gap-2 text-[13px]">
+            <span>{{ d.price }}</span>
+            <span :class="d.negative ? 'text-bad' : 'text-good'">{{ d.cf }}</span>
+            <span class="text-right">{{ d.cap }} cap</span>
+          </div>
+        </div>
+      </div>
     </div>
-  </div>
+  </Sheet>
 </template>

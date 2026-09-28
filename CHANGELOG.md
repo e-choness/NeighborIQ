@@ -5,7 +5,27 @@ the API version is the one in [`services/api/openapi.json`](services/api/openapi
 
 ## [Unreleased]
 
+### Changed
+- Glass redesign with a map-first shell: one persistent map behind every screen and content in docked glass
+  sheets (left: Home, Explore, Analyze; right: Listing; centre: Portfolio, Data). Desktop gets a navigation
+  rail and a top bar that holds the city; phones get a tab bar and a three-snap bottom sheet. Listing is
+  split into Value / Cash flow / History / Area tabs (`?tab=`), with its comparables highlighted on the map;
+  Analyze pins its result in the sheet. New sage palette, Italiana display type for titles (ADR 0007).
+- Maps show a street basemap by default (OpenFreeMap, OpenStreetMap data), tinted to the palette, with a
+  data-only fallback when it can't load. Self-hosted PMTiles still takes precedence (`VITE_PMTILES_URL`);
+  `VITE_BASEMAP=none` keeps the plain background.
+- `/admin` is now the Admin tab of the Data screen (`/data?tab=admin`).
+
 ### Added
+- Playwright browser tests (`frontend/e2e`, `docker compose --profile test run --rm test-frontend-e2e`),
+  ESLint (`npm run lint`) and a palette validator (`npm run check:palette`).
+- CI: read-only token by default, duplicate PR runs cancelled, frontend lint + palette check + Playwright
+  (report uploaded on failure), and the missing image scan after `build` (Grype, HIGH/CRITICAL with a fix
+  fails the job, SARIF to code scanning). Ruff and pip-audit move to `requirements-dev.txt` so Dependabot
+  bumps them; pip and npm caches in lint and audit.
+- Dependencies: uvicorn 0.54, PyJWT 2.15.1, openai 3.20, pytest-mock 3.16, @types/node 24.19, mermaid 11.17;
+  nginx pinned to 1.30.5-alpine by digest. Held: SQLAlchemy 2.1 (own PR), redis 8 (kombu 5.6.2 still
+  requires < 6.5), TypeScript 7 (vue-tsc), VitePress 2 (alpha).
 - DigitalOcean App Platform spec (`.do/app.yaml`): static SPA, API, private Valkey, two workers with
   their schedulers, and migrate/bootstrap jobs, on a managed PostgreSQL with PostGIS. Guide in
   docs/DEPLOYMENT.md.

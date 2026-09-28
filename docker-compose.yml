@@ -217,6 +217,18 @@ services:
     profiles: ["test"]
     networks: [neighbor_iq_net]
 
+  # Browser tests against a production build with the API mocked (frontend/e2e)
+  test-frontend-e2e:
+    build:
+      context: .
+      dockerfile: frontend/e2e/Dockerfile
+    environment:
+      CI_NETWORK: ${CI_NETWORK:-}
+    volumes:
+      - ./frontend/playwright-report:/app/playwright-report
+      - ./frontend/test-results:/app/test-results
+    profiles: ["test"]
+
 networks:
   neighbor_iq_net:
     driver: bridge

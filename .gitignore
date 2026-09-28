@@ -375,3 +375,6 @@ data/cache/
 docs/.vitepress/dist/
 docs/.vitepress/cache/
 implementation-plan/
+# Playwright
+frontend/playwright-report/
+frontend/test-results/

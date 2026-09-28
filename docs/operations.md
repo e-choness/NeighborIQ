@@ -81,8 +81,26 @@ Price history, links, yields and saved entries cascade.
 
 ## Basemap
 
-The map works without a basemap (area polygons and points on a plain background). For streets and labels,
-self-host a Protomaps PMTiles extract:
+By default every map draws on a hosted vector basemap: OpenFreeMap's `dark` and `positron` styles
+(OpenMapTiles schema, OpenStreetMap data), tinted to the app palette. Nothing to download or configure;
+the browser fetches styles and tiles from `tiles.openfreemap.org`. Attribution ("© OpenStreetMap
+contributors · OpenFreeMap") stays in the map's compact attribution control and on the Data screen.
+
+Build arguments of the frontend image:
+
+| Argument | Default | Effect |
+|---|---|---|
+| `VITE_BASEMAP` | `hosted` | `hosted` or `none` (data layers on a plain background, e.g. air-gapped) |
+| `VITE_BASEMAP_STYLE_DARK` / `_LIGHT` | OpenFreeMap `dark` / `positron` | Any MapLibre style URL |
+| `VITE_PMTILES_URL` | — | Self-hosted Protomaps file; takes precedence over `VITE_BASEMAP` |
+
+If the hosted style can't be reached within 12 s, the map falls back to data only and shows "Basemap
+unreachable — showing data only". If a Content-Security-Policy is ever added to `nginx.conf`, allow
+`https://tiles.openfreemap.org` in `connect-src` and `img-src`.
+
+### Self-hosting (PMTiles)
+
+For heavy traffic or no third-party requests, self-host a Protomaps PMTiles extract:
 
 ```bash
 # pmtiles CLI: https://github.com/protomaps/go-pmtiles/releases

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-/** Operators: data coverage, load history, and jobs on the workers. */
+/** Data tab for admins: data coverage, load history, and jobs on the workers. */
 import { useMutation, useQuery, useQueryCache } from '@pinia/colada'
 import { ref } from 'vue'
 import Badge from '@/components/ui/Badge.vue'
@@ -39,21 +39,15 @@ const { mutate: run, isLoading: running } = useMutation({
 
 <template>
   <div>
-    <div class="flex items-end justify-between gap-4">
-      <div>
-        <h1 class="text-3xl font-semibold tracking-tight">Data operations</h1>
-        <p class="mt-2 text-sm text-text-2">What is loaded, and the jobs that load it.</p>
-      </div>
-      <div class="flex items-center gap-2 text-xs">
-        <Badge :tone="status?.broker === 'up' ? 'good' : 'bad'">Queue {{ status?.broker ?? '…' }}</Badge>
-        <Badge :tone="status?.workers.length ? 'good' : 'warn'">{{ status?.workers.length ?? 0 }} workers</Badge>
-        <Button variant="ghost" size="sm" @click="refresh()">Refresh</Button>
-      </div>
+    <div class="flex items-center gap-2 text-xs">
+      <Badge :tone="status?.broker === 'up' ? 'good' : 'bad'">Queue {{ status?.broker ?? '…' }}</Badge>
+      <Badge :tone="status?.workers.length ? 'good' : 'warn'">{{ status?.workers.length ?? 0 }} workers</Badge>
+      <Button variant="ghost" size="sm" @click="refresh()">Refresh</Button>
     </div>
 
-    <p v-if="message" class="mt-4 rounded-lg bg-accent-soft px-3 py-2 text-sm text-accent" role="status">{{ message }}</p>
+    <p v-if="message" class="mt-4 rounded-[10px] bg-accent-soft px-3 py-2 text-sm text-accent" role="status">{{ message }}</p>
 
-    <div class="mt-8 grid gap-6 lg:grid-cols-2">
+    <div class="mt-4 grid items-start gap-4 [grid-template-columns:repeat(auto-fit,minmax(300px,1fr))]">
       <Panel title="Coverage">
         <dl class="divide-y divide-border text-sm">
           <div v-for="(value, key) in status?.coverage" :key="key" class="flex justify-between py-2">
@@ -99,7 +93,7 @@ const { mutate: run, isLoading: running } = useMutation({
       </Panel>
     </div>
 
-    <Panel title="Open-data load history" class="mt-6">
+    <Panel title="Open-data load history" class="mt-4">
       <table v-if="status?.open_data_loads.length" class="w-full text-sm">
         <thead class="text-left text-xs text-muted">
           <tr><th class="pb-2 font-normal">Source</th><th class="pb-2 font-normal">Status</th><th class="pb-2 text-right font-normal">Rows</th><th class="pb-2 text-right font-normal">When</th></tr>
