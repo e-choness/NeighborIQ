@@ -374,3 +374,4 @@ data/cache/
 # Docs site build output
 docs/.vitepress/dist/
 docs/.vitepress/cache/
+implementation-plan/

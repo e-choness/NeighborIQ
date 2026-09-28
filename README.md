@@ -153,8 +153,5 @@ see [SECURITY.md](SECURITY.md).
 Copyright © 2025-2026 Beili (Echo) Yin. **All rights reserved.** The source is visible, but no licence is
 granted to use, copy, modify, host or distribute it without written permission; see [LICENSE.md](LICENSE.md).
 
-Code up to commit `4c7146f` was released under MIT, and up to commit `50c9118` under FSL-1.1-ALv2; copies
-obtained under those terms keep them. Details are on the [licence page](https://e-choness.github.io/NeighborIQ/guide/license).
-Third-party data is licensed by its publishers;
 see [NOTICE](NOTICE). Estimates rely on asking prices and public data. They are not appraisals or financial
 advice.
