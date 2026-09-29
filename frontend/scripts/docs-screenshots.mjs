@@ -1,16 +1,17 @@
 #!/usr/bin/env node
 /**
- * Screenshots for README and docs/images from a running stack (docker compose up, demo data).
+ * Screenshots for the README and docs (docs/public/media) from a running stack (docker compose up, demo data).
  *
  *   docker run --rm -v "$PWD:/repo" -w /repo/frontend -e BASE_URL=http://host.docker.internal \
  *     neighboriq-test-frontend-e2e node scripts/docs-screenshots.mjs
  *
- * Writes docs/images/{home,explore,listing,analyze}.png (desktop, dark) plus -light and -phone variants.
+ * Writes docs/public/media/{home,explore,listing,analyze}.png (desktop, dark) plus -light and -phone variants;
+ * the README and docs use home-light, home-phone and listing-phone (delete the others).
  */
 import { chromium, devices } from '@playwright/test'
 
 const BASE = process.env.BASE_URL ?? 'http://localhost'
-const OUT = process.env.OUT_DIR ?? '../docs/images'
+const OUT = process.env.OUT_DIR ?? '../docs/public/media'
 const settle = (page, ms = 3500) => page.waitForTimeout(ms)
 
 async function listingId(page) {

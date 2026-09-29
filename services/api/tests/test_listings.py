@@ -34,7 +34,7 @@ def _listing(**overrides) -> dict:
 
 
 @pytest.fixture(scope="module")
-def listings(client: TestClient, admin_headers) -> dict:
+def listings(client: TestClient, admin_headers):
     created = {}
     for key, payload in {
         "condo": _listing(),
@@ -51,7 +51,10 @@ def listings(client: TestClient, admin_headers) -> dict:
         r = client.post("/api/v1/houses", json=payload, headers=admin_headers)
         assert r.status_code == 200, r.text
         created[key] = r.json()
-    return created
+    yield created
+    # Leave no test listings behind in a shared (dev) database: they would show up as a city
+    for house in created.values():
+        client.delete(f"/api/v1/houses/{house['id']}", headers=admin_headers)
 
 
 def test_write_requires_admin_role(client: TestClient, user_headers) -> None:

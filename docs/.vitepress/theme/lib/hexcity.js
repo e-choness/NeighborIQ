@@ -5,15 +5,15 @@
 // Pure geometry, no DOM: returns prisms sorted back-to-front with SVG path
 // strings for the top face and the three visible side faces.
 
-/** Validated sequential ramps from frontend/src/theme/palette.ts (low → high). */
+/** Sequential ramps and surfaces from frontend/src/theme/palette.ts and app.css (low → high). */
 export const RAMPS = {
-  dark: ['#115e59', '#0f766e', '#0d9488', '#14b8a6', '#2dd4bf', '#5eead4'],
-  light: ['#14b8a6', '#0d9488', '#0f766e', '#115e59'],
+  dark: ['#1d3a2e', '#2a5140', '#3b6a53', '#548868', '#7aab86', '#b3d7b8'],
+  light: ['#c3dcc8', '#8fb698', '#5f8a6c', '#3b6a50', '#244a36'],
 }
 
 export const SURFACE = {
-  dark: { bg: '#0b0f14', ink: '#e6edf3', muted: '#8b98a9', faint: '#1a2430', subject: '#3987e5' },
-  light: { bg: '#f7f8fa', ink: '#0f1720', muted: '#526070', faint: '#dde3ea', subject: '#2a78d6' },
+  dark: { bg: '#090c0b', ink: '#eaefec', muted: '#aab6af', faint: '#161d1a', subject: '#6ea8f0', accent: '#a9cdb2', deep: '#2b4638' },
+  light: { bg: '#e9eeeb', ink: '#0f1412', muted: '#45524b', faint: '#d6ded9', subject: '#2a78d6', accent: '#35604a', deep: '#2b4638' },
 }
 
 const SQUASH = 0.52 // vertical squash of the ground plane (isometric look)
@@ -124,7 +124,7 @@ export function prismColors(t, mode) {
   const ramp = RAMPS[mode]
   const top = ramp[Math.min(ramp.length - 1, Math.round(t * (ramp.length - 1)))]
   const bg = SURFACE[mode].bg
-  const shade = mode === 'dark' ? '#000000' : '#0b1a1a'
+  const shade = mode === 'dark' ? '#000000' : '#0f1412'
   return {
     top,
     right: mix(top, shade, mode === 'dark' ? 0.28 : 0.18),

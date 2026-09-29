@@ -14,13 +14,13 @@ proxies `/api` to the API and serves `/tiles/`.
 | Icons, type | Lucide; Geist and Geist Mono for UI and figures; Italiana for the wordmark and screen titles (all self-hosted) |
 | Tests | Playwright (`e2e/`) at 1440×900 and iPhone 14, API mocked from demo-data fixtures |
 
-![Home, dark theme](../images/home.png)
+![Home, dark theme](../public/media/home.png)
 
 ## Map-first shell
 
 One MapLibre map (`components/map/MapStage.vue`) is mounted once in `App.vue` and stays behind every primary
 route; content lives in docked glass sheets, so the map keeps its context while you read. Only sheet
-interiors scroll — the page itself never does. See [ADR 0007](../adr/0007-map-first-shell.md).
+interiors scroll — the page itself never does.
 
 | Layout (`meta.layout`) | Routes | Sheet (desktop ≥ 1024px) |
 |---|---|---|
@@ -43,7 +43,7 @@ The map's modes (`stores/mapStage.ts`), set by each page:
 |---|---|---|
 | `home` | Home, Analyze without a place | 3D hex columns (height and colour = metric), pitch 58°, slow orbit |
 | `explore` | Explore | Listing dots coloured by gross yield, flat; row hover ↔ dot ring; "Search this area" after a pan |
-| `listing` | Listing, Analyze with a place | Subject and comparables at street level (pitch 48°); comp row hover ↔ map ring. No hex: translucent columns at that zoom read as ghost towers |
+| `listing` | Listing, Analyze with a place | Subject and comparables at street level (pitch 48°); comp row hover ↔ map ring; no hex columns |
 | `overview` | Portfolio, Data | Hex columns at 55% behind a scrim, saved listings as dots |
 
 ## Pages
@@ -97,9 +97,8 @@ The basemap is low contrast, so the data layers carry the contrast. Current valu
 `npm run check:palette` validates them: adjacent ramp steps are ΔE ≥ 0.035 apart (OKLab) in normal,
 protan, deutan and tritan vision and ordered by lightness; the strongest step and both markers reach 3:1
 against the basemap earth; subject and comp stay ΔE ≥ 0.08 apart in every vision type; text, secondary and
-muted text reach 4.5:1 on the glass over the basemap ground and its brightest area. The dark glass is 0.75
-opaque (the design's 0.60 left muted text at 4.1:1 over light road grey). Colour is never the only channel:
-the hex map encodes the metric in height too, and verdicts carry text labels.
+muted text reach 4.5:1 on the glass over the basemap ground and its brightest area. Colour is never the only
+channel: the hex map encodes the metric in height too, and verdicts carry text labels.
 
 ## Maps
 
@@ -137,4 +136,5 @@ docker compose --profile test run --rm test-frontend-build
 docker compose --profile test run --rm test-frontend-e2e              # CI_NETWORK=1 to also test the hosted basemap
 ```
 
-`frontend/scripts/docs-screenshots.mjs` regenerates the images in `docs/images` from a running stack.
+Screenshots and the walkthrough are regenerated from a running stack; see
+[Testing → Screenshots and walkthrough](../development/testing.md#screenshots-and-walkthrough).

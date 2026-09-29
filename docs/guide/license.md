@@ -18,20 +18,8 @@ The source is public so you can read it. Reading it does not give you permission
 | Run it, self-host it or use it inside my company | **Only with written permission** |
 | Change the code, fork it or publish a fork | **Only with written permission** |
 | Offer it, or a service built from it, to others | **Only with written permission** |
-| Use a copy I obtained under an earlier licence | **Yes**, under that licence's terms (see below) |
 
 To ask for permission, contact the maintainer through [GitHub](https://github.com/e-choness/NeighborIQ/issues).
-
-## Earlier versions
-
-Licences already granted stay in force for the copies they covered:
-
-- Code up to and including commit `4c7146f` was released under the **MIT License**.
-- Code up to and including commit `50c9118` was released under the **Functional Source License 1.1, ALv2 Future
-  License** (FSL-1.1-ALv2). Each of those versions still becomes available under the Apache License 2.0 two years
-  after its release.
-
-Versions after `50c9118` are all rights reserved. See [ADR 0006](../adr/0006-all-rights-reserved.md).
 
 ## Other things to know
 

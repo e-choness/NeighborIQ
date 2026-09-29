@@ -7,7 +7,7 @@ from app.main import app
 
 
 @pytest.fixture(scope="module")
-def house_id(client: TestClient, admin_headers) -> int:
+def house_id(client: TestClient, admin_headers):
     r = client.post(
         "/api/v1/houses",
         headers=admin_headers,
@@ -23,7 +23,10 @@ def house_id(client: TestClient, admin_headers) -> int:
         },
     )
     assert r.status_code == 200, r.text
-    return r.json()["id"]
+    house_id = r.json()["id"]
+    yield house_id
+    # Leave no test listing behind in a shared (dev) database
+    client.delete(f"/api/v1/houses/{house_id}", headers=admin_headers)
 
 
 def test_requires_auth() -> None:

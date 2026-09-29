@@ -80,7 +80,7 @@ shared/                      code used by more than one deployable: models, data
 migrations/                  Alembic revisions
 frontend/                    Vue 3 + Vite SPA
 data/reference/              rent benchmarks CSV
-docs/                        documentation site (VitePress); docs/adr/ for decisions
+docs/                        documentation site (VitePress)
 ```
 
 ## Where to change things

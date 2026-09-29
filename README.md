@@ -1,8 +1,8 @@
 <p align="center">
   <a href="https://e-choness.github.io/NeighborIQ/">
     <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="images/banner-dark.svg">
-      <img alt="NeighborIQ — rental-property analysis for small investors in Canadian cities" src="images/banner-light.svg" width="100%">
+      <source media="(prefers-color-scheme: dark)" srcset="docs/public/media/banner-dark.svg">
+      <img alt="NeighborIQ — rental-property analysis for small investors in Canadian cities" src="docs/public/media/banner-light.svg" width="100%">
     </picture>
   </a>
 </p>
@@ -10,8 +10,8 @@
 <p align="center">
   <a href="https://github.com/e-choness/NeighborIQ/actions/workflows/ci-cd.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/e-choness/NeighborIQ/ci-cd.yml?branch=main&label=CI&style=flat-square"></a>
   <a href="https://github.com/e-choness/NeighborIQ/actions/workflows/docs.yml"><img alt="Docs" src="https://img.shields.io/github/actions/workflow/status/e-choness/NeighborIQ/docs.yml?branch=main&label=docs&style=flat-square"></a>
-  <a href="https://e-choness.github.io/NeighborIQ/reference/api"><img alt="API version" src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fe-choness%2FNeighborIQ%2Fmain%2Fservices%2Fapi%2Fopenapi.json&query=%24.info.version&label=API&color=0d9488&style=flat-square"></a>
-  <a href="LICENSE.md"><img alt="License: All rights reserved" src="https://img.shields.io/badge/license-all%20rights%20reserved-0d9488?style=flat-square"></a>
+  <a href="https://e-choness.github.io/NeighborIQ/reference/api"><img alt="API version" src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fe-choness%2FNeighborIQ%2Fmain%2Fservices%2Fapi%2Fopenapi.json&query=%24.info.version&label=API&color=35604a&style=flat-square"></a>
+  <a href="LICENSE.md"><img alt="License: All rights reserved" src="https://img.shields.io/badge/license-all%20rights%20reserved-35604a?style=flat-square"></a>
   <a href="https://github.com/astral-sh/ruff"><img alt="Ruff" src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json&style=flat-square"></a>
   <a href="https://github.com/e-choness/NeighborIQ/commits/main"><img alt="Last commit" src="https://img.shields.io/github/last-commit/e-choness/NeighborIQ?style=flat-square"></a>
   <br>
@@ -41,14 +41,28 @@ property you found elsewhere, it answers three questions:
 | 2 | **Will it cash-flow?** | Monthly cash flow under Canadian rules (semi-annual compounding, CMHC insurance, land transfer tax), with every assumption editable |
 | 3 | **What is the neighbourhood like?** | Census income and tenure, transit frequency, crime, new supply and assessed values, from public open data, each with source and date |
 
-![3D map of gross rental yield across Toronto](docs/images/home.png)
+<p align="center">
+  <img src="docs/public/media/walkthrough.gif" width="100%" alt="Walkthrough: the Toronto yield map, filtering listings in Explore, a listing's fair value with its comparables on the map, adjusting its cash flow, analysing a property by neighbourhood, and switching to the light theme">
+  <br><sub>A 50-second tour on the demo data: <b>Map</b> → <b>Explore</b> → <b>Listing</b> (value, cash flow) → <b>Analyze</b> → light theme.</sub>
+</p>
 
 <table>
   <tr>
-    <td width="50%"><img src="docs/images/listing.png" alt="Listing: fair value against comparables, cash flow, price history"><br><sub><b>Listing</b>: fair value with its comps, editable cash flow, price history</sub></td>
-    <td width="50%"><img src="docs/images/analyze.png" alt="Analyze any property"><br><sub><b>Analyze</b>: the same analysis for any address, pre-filled from the assessment roll</sub></td>
+    <td width="50%"><img src="docs/public/media/home.png" alt="Map: 3D hexagon columns of gross rental yield across Toronto, with city medians and the best-yield listings"><br><sub><b>Map</b>: one metric per ~0.7 km² column, city medians, the best yields</sub></td>
+    <td width="50%"><img src="docs/public/media/listing.png" alt="Listing: asking price against comparable listings, with the comparables on the map"><br><sub><b>Listing</b>: fair value, cash flow, history and area in tabs; comps on the map</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/public/media/explore.png" alt="Explore: filters and a list of listings beside the same listings as dots on the map"><br><sub><b>Explore</b>: filters and a list, in sync with the dots on the map</sub></td>
+    <td width="50%"><img src="docs/public/media/analyze.png" alt="Analyze: a property's inputs and its result beside the map of nearby comparables"><br><sub><b>Analyze</b>: any address or neighbourhood, result pinned beside the map</sub></td>
   </tr>
 </table>
+
+<p align="center">
+  <img src="docs/public/media/home-light.png" width="62%" alt="The map screen in the light theme">
+  <img src="docs/public/media/home-phone.png" width="17%" alt="The map screen on a phone, with a bottom sheet and tab bar">
+  <img src="docs/public/media/listing-phone.png" width="17%" alt="A listing on a phone">
+  <br><sub>Light and dark themes; on phones the panels become a bottom sheet over the map.</sub>
+</p>
 
 > [!NOTE]
 > **What is real.** The app runs on **synthetic demo listings** out of the box. They are labelled everywhere, so
@@ -102,8 +116,7 @@ flowchart LR
 ```
 
 One HTTP service handles everything request/response. The two Celery workers carry the batch work that
-actually needs to scale. The reasoning is in the [architecture overview](docs/architecture/overview.md) and
-[ADR 0001](docs/adr/0001-one-api-two-workers.md).
+actually needs to scale. See the [architecture overview](docs/architecture/overview.md).
 
 <details>
 <summary><b>Stack</b></summary>
@@ -114,7 +127,7 @@ actually needs to scale. The reasoning is in the [architecture overview](docs/ar
 | Data | PostgreSQL 18 + PostGIS 3.6, Alembic migrations |
 | Jobs | Celery with Valkey (Redis-compatible) as broker; Scrapy for licensed partner feeds |
 | Analytics | Comparable-listing valuation, Canadian cash flow, XGBoost with a backtested error band (off by default) |
-| Frontend | Vue 3.5, Vite 8, Tailwind CSS v4, Reka UI, Pinia Colada, MapLibre GL + Protomaps PMTiles, H3 |
+| Frontend | Vue 3.5, Vite 8, Tailwind CSS v4, Reka UI, Pinia Colada, MapLibre GL (OpenFreeMap basemap, optional self-hosted PMTiles), H3; Playwright tests |
 | Docs | VitePress, published to GitHub Pages |
 | Tooling | Ruff, pytest, vue-tsc, pip-audit + npm audit, Dependabot, SHA-pinned GitHub Actions, Caddy |
 
@@ -129,7 +142,7 @@ built from [`docs/`](docs/), so every page also reads on GitHub:
 - **Run it:** [Deployment](docs/DEPLOYMENT.md) · [Operations](docs/operations.md)
 - **Build on it:** [Architecture](docs/architecture/overview.md) · [Data model](docs/architecture/data-models.md) ·
   [Frontend](docs/frontend/overview.md) · [Development setup](docs/development/getting-started.md) ·
-  [Testing](docs/development/testing.md) · [Decisions](docs/adr/README.md)
+  [Testing](docs/development/testing.md)
 
 ## Status
 
@@ -138,7 +151,7 @@ built from [`docs/`](docs/), so every page also reads on GitHub:
 - [x] Single API + two workers, Alembic-owned schema, CI with lint, tests and an API contract check
 - [ ] Verify every open-data source against its live portal (only Bank of Canada is verified so far)
 - [ ] Replace placeholder rent benchmarks with the official CMHC table
-- [ ] Fuzzy address search (`pg_trgm`), see [ADR 0002](docs/adr/0002-search-in-postgres.md)
+- [ ] Fuzzy address search (`pg_trgm`)
 - [ ] A licensed listing feed
 
 See the [changelog](CHANGELOG.md) for what changed and when.

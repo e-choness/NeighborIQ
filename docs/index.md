@@ -6,7 +6,7 @@ titleTemplate: Rental-property analysis for Canadian small investors
 hero:
   name: NeighborIQ
   text: Is the price fair? Will it cash-flow?
-  tagline: Rental-property analysis for small investors in Canadian cities. Open source and self-hosted, and every number shows where it came from.
+  tagline: Rental-property analysis for small investors in Canadian cities. Self-hosted, and every number shows where it came from.
   actions:
     - theme: brand
       text: Get started

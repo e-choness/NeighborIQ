@@ -91,7 +91,8 @@ const valuationKey = refDebounced(computed(() => JSON.stringify({
 const { data: valuation } = useQuery({
   key: () => ['adhoc-valuation', valuationKey.value],
   query: () => api<Valuation | null>('/valuation', { method: 'POST', body: JSON.parse(valuationKey.value) }),
-  enabled: () => ready.value,
+  // The debounced key trails the inputs: wait until it carries a location too
+  enabled: () => ready.value && JSON.parse(valuationKey.value).latitude !== null,
 })
 const { data: rent } = useQuery({
   key: () => ['rent', cities.city, deal.rooms],

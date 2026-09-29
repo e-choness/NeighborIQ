@@ -28,6 +28,9 @@ def db():
     trans = conn.begin()
     # Code under test calls session.commit(); savepoints keep it inside our rollback
     session = Session(bind=conn, join_transaction_mode="create_savepoint")
+    # A running insights worker may have summarised Apitown during an earlier run; hide that here
+    # (inside the rolled-back transaction) so these tests see only their own rows.
+    session.execute(text("DELETE FROM house_market_insights WHERE LOWER(city) = 'apitown'"))
     session.execute(
         text("""
         INSERT INTO house_rent_benchmarks (city, bedrooms, avg_rent, source)

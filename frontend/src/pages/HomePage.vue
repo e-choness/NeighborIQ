@@ -37,7 +37,7 @@ const bestCards = computed(() =>
     id: l.id,
     rank: `0${i + 1}`,
     price: moneyShort(l.price),
-    yield: `${pct(l.gross_yield_pct)} yield`,
+    yield: pct(l.gross_yield_pct),
     meta: [
       `${beds(l.rooms)} ${l.property_type ? PROPERTY_TYPE_LABEL[l.property_type].toLowerCase() : ''}`.trim(),
       l.community,
@@ -138,7 +138,7 @@ const tiles = computed(() => {
               <Building2 class="h-[18px] w-[18px]" :stroke-width="1.75" />
             </span>
             <span class="min-w-0 flex-1">
-              <span class="num block text-[15px] font-medium">{{ b.price }} <span class="text-xs text-accent">{{ b.yield }}</span></span>
+              <span class="num block text-[15px] font-medium">{{ b.price }} <span class="text-xs text-accent">{{ b.yield }} yield</span></span>
               <span class="block truncate text-xs text-text-2">{{ b.meta }}</span>
             </span>
             <ArrowRight class="h-3.5 w-3.5 text-text-2" />
@@ -170,12 +170,12 @@ const tiles = computed(() => {
       @click="router.push(`/listings/${b.id}`)"
     >
       <span class="flex w-full items-center gap-3">
-        <span class="grid h-[38px] w-[38px] shrink-0 place-items-center rounded-xl border border-border bg-surface-2 text-accent">
+        <span class="hidden h-[38px] w-[38px] shrink-0 min-[1440px]:grid place-items-center rounded-xl border border-border bg-surface-2 text-accent">
           <Building2 class="h-[18px] w-[18px]" :stroke-width="1.75" aria-hidden="true" />
         </span>
         <span class="min-w-0 flex-1">
           <span class="block text-[11px] uppercase tracking-[0.08em] text-muted">Best yield · {{ b.rank }}</span>
-          <span class="num mt-0.5 block text-[17px] font-medium">{{ b.price }} <span class="text-[13px] text-accent">{{ b.yield }}</span></span>
+          <span class="num mt-0.5 block whitespace-nowrap text-[17px] font-medium">{{ b.price }} <span class="text-[13px] text-accent">{{ b.yield }}<span class="hidden min-[1440px]:inline"> yield</span></span></span>
         </span>
       </span>
       <span class="flex w-full items-center gap-2.5">

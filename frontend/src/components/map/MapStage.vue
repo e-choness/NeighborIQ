@@ -226,7 +226,10 @@ function apply() {
   if (mode === 'listing') {
     const s = stage.subject
     if (!s) return
-    m.flyTo({ center: [s.longitude, s.latitude], zoom: stage.zoom, pitch: 48, bearing: -12, padding: pad, duration: still ? 0 : 1400 })
+    // Offset, not padding: flyTo's padding persists on the map and is added to the next fitBounds'
+    // padding, which then no longer fits the canvas (the fit is skipped and the map stays at street level).
+    const offset: [number, number] = [(pad.left - pad.right) / 2, (pad.top - pad.bottom) / 2]
+    m.flyTo({ center: [s.longitude, s.latitude], zoom: stage.zoom, pitch: 48, bearing: -12, offset, duration: still ? 0 : 1400 })
     return
   }
   if (mode === 'explore') {
