@@ -26,27 +26,27 @@ function onInput(event: Event) {
 </script>
 
 <template>
-  <div>
-    <div class="mb-2 flex items-baseline justify-between gap-3">
-      <label :for="id" class="text-xs text-text-2">{{ label }}</label>
-      <div class="flex items-center gap-1 rounded-md border border-border bg-surface-2 px-2 py-0.5 focus-within:border-accent">
-        <span v-if="prefix" class="text-xs text-muted">{{ prefix }}</span>
+  <div class="min-w-0">
+    <div class="mb-1.5 flex items-baseline justify-between gap-2">
+      <label :for="id" class="truncate text-xs text-text-2">{{ label }}</label>
+      <div class="flex shrink-0 items-center gap-0.5 rounded-md border border-transparent px-1 focus-within:border-accent hover:border-border">
+        <span v-if="prefix" class="num text-xs text-muted">{{ prefix }}</span>
         <input
           :id="id"
           type="number"
           :value="model"
           :step="step"
-          class="num w-20 bg-transparent text-right text-xs outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
+          class="num w-[4.5rem] bg-transparent text-right text-xs text-text outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
           @change="onInput"
         />
-        <span v-if="suffix" class="text-xs text-muted">{{ suffix }}</span>
+        <span v-if="suffix" class="whitespace-nowrap text-[11px] text-muted">{{ suffix }}</span>
       </div>
     </div>
-    <SliderRoot v-model="sliderValue" :min="min" :max="max" :step="step" class="relative flex h-5 touch-none select-none items-center" :aria-label="label">
-      <SliderTrack class="relative h-1 grow rounded-full bg-border-strong">
+    <SliderRoot v-model="sliderValue" :min="min" :max="max" :step="step" class="relative flex h-4 touch-none select-none items-center" :aria-label="label">
+      <SliderTrack class="relative h-1 grow rounded-full bg-bar">
         <SliderRange class="absolute h-full rounded-full bg-accent" />
       </SliderTrack>
-      <SliderThumb class="block h-4 w-4 rounded-full border-2 border-accent bg-surface shadow focus-visible:outline-2" />
+      <SliderThumb :aria-label="label" class="block h-3.5 w-3.5 rounded-full border-2 border-accent bg-surface shadow focus-visible:outline-2" />
     </SliderRoot>
     <p v-if="hint" class="mt-1.5 text-[11px] leading-snug text-muted">{{ hint }}</p>
   </div>

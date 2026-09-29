@@ -60,6 +60,44 @@ The docs site runs the cash-flow calculator in the browser, using a JavaScript p
 After an intended change to the maths, update the JavaScript port, then regenerate the fixtures with
 `python scripts/export_cashflow_fixtures.py`.
 
+## Browser tests
+
+Playwright drives a production build (`vite build --mode e2e`, served by `vite preview`) with the API mocked
+from demo-data fixtures in `frontend/e2e/fixtures`, at 1440×900 and on an iPhone 14 viewport:
+
+```bash
+docker compose --profile test run --rm test-frontend-e2e
+CI_NETWORK=1 docker compose --profile test run --rm test-frontend-e2e   # also load the hosted basemap
+```
+
+The suites cover the map (full-bleed canvas, hex layer, camera refit after a listing), Home → best yield →
+Listing → Cash flow slider → Save → Portfolio, and Explore → Listing → back with the filters kept. The HTML
+report and failure traces land in `frontend/playwright-report/` and `frontend/test-results/`.
+
+## Screenshots and walkthrough
+
+Everything visual lives in `docs/public/media` (the docs site serves it as `/media/*`, the README links to it). The screenshots and walkthrough are generated from a running stack with demo data
+(`docker compose up -d`), in the browser-test image:
+
+```bash
+# Screenshots: docs/public/media/{home,explore,listing,analyze}.png plus -light / -phone variants
+docker run --rm -v "$PWD:/repo" -w /repo/frontend -e BASE_URL=http://host.docker.internal \
+  neighboriq-test-frontend-e2e node scripts/docs-screenshots.mjs
+
+# Walkthrough video (REDUCED_MOTION=1 for the README GIF: a still camera keeps it small)
+docker run --rm -v "$PWD:/repo" -w /repo/frontend -e BASE_URL=http://host.docker.internal \
+  neighboriq-test-frontend-e2e node scripts/walkthrough.mjs
+docker run --rm -v "$PWD:/repo" -w /repo --entrypoint ffmpeg jrottenberg/ffmpeg:7.1-alpine -y \
+  -i frontend/test-results/walkthrough/walkthrough.webm -vf scale=1280:-2 -c:v libx264 -crf 26 \
+  -pix_fmt yuv420p -movflags +faststart -an docs/public/media/walkthrough.mp4
+docker run --rm -v "$PWD:/repo" -w /repo --entrypoint ffmpeg jrottenberg/ffmpeg:7.1-alpine -y \
+  -i frontend/test-results/walkthrough/walkthrough.webm -fps_mode vfr -loop 0 \
+  -vf "fps=8,mpdecimate=hi=64*24:lo=64*8:frac=0.2,scale=840:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=128:stats_mode=diff[p];[b][p]paletteuse=dither=none:diff_mode=rectangle" \
+  docs/public/media/walkthrough.gif
+```
+
+The banners, social card (animated SVG, plus the still `og.png` crawlers use) and the logo come from `docs/scripts/banner.mjs` (`npm run banner` in `docs/`); it also writes the app's favicon from the same mark.
+
 ## Writing tests
 
 - API tests use FastAPI's `TestClient`. Fixtures in `services/api/tests/conftest.py` sign up users and admins

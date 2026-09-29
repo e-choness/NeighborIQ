@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 import Button from '@/components/ui/Button.vue'
 import Field from '@/components/ui/Field.vue'
 import { inputClass } from '@/components/ui/inputClass'
@@ -32,8 +32,9 @@ async function submit() {
 </script>
 
 <template>
-  <div class="mx-auto max-w-sm pt-8">
-    <h1 class="text-2xl font-semibold tracking-tight">{{ mode === 'login' ? 'Sign in' : 'Create an account' }}</h1>
+  <div class="mx-auto max-w-sm px-4 pt-16">
+    <RouterLink to="/" class="font-display text-[34px] tracking-[0.04em] text-text">NeighborIQ</RouterLink>
+    <h1 class="mt-8 text-xl font-medium">{{ mode === 'login' ? 'Sign in' : 'Create an account' }}</h1>
     <p class="mt-1 text-sm text-text-2">Save deals with your own assumptions and compare them side by side.</p>
     <Segmented
       v-model="mode"

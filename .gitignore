@@ -374,3 +374,10 @@ data/cache/
 # Docs site build output
 docs/.vitepress/dist/
 docs/.vitepress/cache/
+implementation-plan/
+# Playwright
+frontend/playwright-report/
+frontend/test-results/
+
+# Internal decision records (kept locally, not published)
+docs/adr/

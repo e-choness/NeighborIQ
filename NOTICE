@@ -24,9 +24,11 @@ Data © OpenStreetMap contributors, available under the Open Database License
   - Use the public Overpass instance sparingly (the loader runs one query per
     city, weekly) or self-host one: https://wiki.openstreetmap.org/wiki/Overpass_API
 
-Map tiles are served by openstreetmap.org and subject to the OSM Tile Usage
-Policy: https://operations.osmfoundation.org/policies/tiles/ — heavy or
-commercial use requires your own tile source.
+Basemap: by default the frontend loads vector tiles and styles from
+OpenFreeMap (https://openfreemap.org), built from OpenMapTiles and OSM data.
+Maps © OpenStreetMap contributors (ODbL) · OpenFreeMap. The attribution
+control on every map must stay visible. For heavy use, self-host a Protomaps
+PMTiles extract instead (docs/operations.md#basemap).
 
 --------------------------------------------------------------------------------
 Municipal, provincial and federal open data — `python -m ingestion opendata`

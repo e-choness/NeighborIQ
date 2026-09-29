@@ -37,11 +37,9 @@ Thanks for helping. Start with [Getting started](docs/development/getting-starte
   in components. Colour is never the only encoding.
 - **Docs** are Markdown in `docs/` that must read on GitHub and on the [site](https://e-choness.github.io/NeighborIQ/).
   Link to code with relative paths. Update the docs in the same PR as the behaviour they describe.
-- **Decisions** that change architecture get an ADR in [docs/adr](docs/adr/).
 
 ## Licence
 
 NeighborIQ is proprietary; all rights are reserved ([LICENSE.md](LICENSE.md)). Before a contribution can be
 merged, you must agree in writing to assign its copyright to the maintainer, or grant a licence that lets the
 maintainer use and relicense it without restriction. Open an issue first if you want to contribute.
-See [ADR 0006](docs/adr/0006-all-rights-reserved.md).

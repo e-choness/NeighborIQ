@@ -8,12 +8,7 @@ worker and read with SQL by the API, so they have no ORM classes.
 | Migration | Does |
 |---|---|
 | `0001_baseline` | The whole schema as of 0.3.0: every table, key and index below, plus the PostGIS extension |
-| `0002_integrity` | Adds the foreign keys the old migrations missed (price history, amenity links, refresh tokens → cascade on delete) and a unique constraint on `auth_users.email`; drops redundant indexes |
-
-`0001_baseline` replaced the legacy chain `001_initial_schema` … `005_open_data`, which built the pre-Canada
-schema and then rewrote it. A database already at `005_open_data` is re-stamped automatically by
-`migrations/alembic/env.py` on its next `upgrade`; one stuck partway through the old chain is refused with
-instructions.
+| `0002_integrity` | Foreign keys with cascade on delete (price history, amenity links, refresh tokens), a unique constraint on `auth_users.email`, and index cleanup |
 
 ```mermaid
 erDiagram

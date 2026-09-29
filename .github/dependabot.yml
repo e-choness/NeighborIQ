@@ -1,13 +1,14 @@
 # Weekly dependency updates, grouped so each ecosystem opens at most one PR.
+# "/" covers requirements-dev.txt (CI tooling: Ruff, pip-audit). @fontsource/* rides the frontend group.
 version: 2
 updates:
   - package-ecosystem: pip
-    directories: ["/shared", "/shared/tests", "/services/api", "/services/ingestion-worker", "/services/insights-worker"]
+    directories: ["/", "/shared", "/shared/tests", "/services/api", "/services/ingestion-worker", "/services/insights-worker"]
     schedule: { interval: weekly }
     groups:
       python: { patterns: ["*"] }
     ignore:
-      # kombu (Celery's transport) requires redis-py < 6.5
+      # kombu (Celery's transport) requires redis-py < 6.5 — still true in kombu 5.6.2; re-check 2026-12
       - dependency-name: redis
         update-types: ["version-update:semver-major"]
   - package-ecosystem: npm
@@ -16,10 +17,10 @@ updates:
     groups:
       frontend: { patterns: ["*"] }
     ignore:
-      # TypeScript 7 is the native compiler; vue-tsc can't drive it yet
+      # TypeScript 7 is the native compiler; vue-tsc can't drive it yet — re-check 2026-12
       - dependency-name: typescript
         update-types: ["version-update:semver-major"]
-      # Node types track the runtime (Node 24 LTS); bump together with the Node image
+      # Node types track the runtime (Node 24 LTS); bump together with the Node image — re-check at Node 26 LTS (2026-10)
       - dependency-name: "@types/node"
         update-types: ["version-update:semver-major"]
   - package-ecosystem: npm
@@ -28,7 +29,7 @@ updates:
     groups:
       docs: { patterns: ["*"] }
     ignore:
-      # vitepress-plugin-mermaid supports mermaid 10 and 11 only
+      # vitepress-plugin-mermaid supports mermaid 10 and 11 only — re-check 2026-12
       - dependency-name: mermaid
         update-types: ["version-update:semver-major"]
   # Actions are pinned to commit SHAs (tags can be moved, as in the 2026 trivy-action compromise);
@@ -42,7 +43,7 @@ updates:
     directories: ["/services/api", "/services/ingestion-worker", "/services/insights-worker", "/frontend", "/shared/tests"]
     schedule: { interval: weekly }
     ignore:
-      # Node: LTS lines only (even majors); move to the next LTS deliberately
+      # Node: LTS lines only (even majors); move to the next LTS deliberately — re-check 2026-10
       - dependency-name: node
         update-types: ["version-update:semver-major"]
   - package-ecosystem: docker-compose

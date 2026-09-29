@@ -36,26 +36,23 @@ flowchart TB
 | `insights-worker` | [`services/insights-worker`](../../services/insights-worker) | Yields for new/changed listings, model backtest + retrain, market summaries | Listings changed, model size |
 | `*-beat` | same images | Schedules: daily rates, weekly OSM refresh and retrain, nightly narratives | — (exactly one each) |
 | `migrate`, `bootstrap` | ingestion image | One-shot: `alembic upgrade head`, then demo data on first start | — |
-| `frontend` | [`frontend`](../../frontend) | Static SPA, `/api` proxy, `/tiles` (PMTiles) | CDN-cacheable |
+| `frontend` | [`frontend`](../../frontend) | Static SPA, `/api` proxy, `/tiles` (optional PMTiles) | CDN-cacheable |
 
-## Why one API and two workers
+## Scaling units
 
-The system used to be seven HTTP services behind a gateway, all sharing one database and one `shared/` package —
-the costs of microservices (header-trust between services, port wiring, per-service images) without independent
-deploys. The components were ranked by how likely they are to need independent scaling:
+Components by how likely they are to need independent scaling:
 
-| Rank | Component | Load profile | Decision |
+| Rank | Component | Load profile | Runs in |
 |---|---|---|---|
 | 1 | **Ingestion** (seed, open data, OSM, feeds) | Bursty, network-bound, large files (assessment rolls, GTFS, census), third-party rate limits; failures must not affect users | **Separate worker** |
 | 2 | **Insights compute** (yields, ML training, narratives, optional LLM calls) | CPU/memory heavy, large dependencies (XGBoost), different release cadence | **Separate worker** |
-| 3 | Search | Read-heavy; becomes its own engine only if relevance or volume demands it | In the API (Postgres); see [ADR 0002](../adr/0002-search-in-postgres.md) |
-| 4 | Map aggregates / tiles | Read-heavy, cacheable | Static PMTiles + client-side H3; CDN when needed |
-| 5 | Listings, valuation, cash flow endpoints | Light per request (indexed queries, <10 ms arithmetic) | In the API |
-| 6 | Portfolio, auth, admin | Low volume | In the API |
+| 3 | Search | Read-heavy; becomes its own engine only if relevance or volume demands it | The API (PostgreSQL) |
+| 4 | Map aggregates / tiles | Read-heavy, cacheable | Hosted basemap or static PMTiles + client-side H3; CDN when needed |
+| 5 | Listings, valuation, cash flow endpoints | Light per request (indexed queries, <10 ms arithmetic) | The API |
+| 6 | Portfolio, auth, admin | Low volume | The API |
 
 The two workers are the scale-out units; the API scales by replicas. Module boundaries inside the API
-(one router per domain, shared code only via `shared/`) keep a later extraction cheap. See
-[ADR 0001](../adr/0001-one-api-two-workers.md).
+(one router per domain, shared code only via `shared/`) keep a later extraction cheap.
 
 ## Request flow
 

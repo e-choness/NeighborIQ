@@ -12,10 +12,11 @@ const SITE = (process.env.DOCS_SITE_URL ?? 'https://e-choness.github.io') + BASE
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const ROOT = resolve(SRC, '..')
-const EXCLUDE = ['scripts/**', '**/node_modules/**']
+// adr/: internal decision records, kept locally and not published
+const EXCLUDE = ['scripts/**', 'adr/**', '**/node_modules/**']
 const excluded = (abs: string) => {
   const rel = relative(SRC, abs).split(sep).join('/')
-  return rel.startsWith('scripts/')
+  return rel.startsWith('scripts/') || rel.startsWith('adr/')
 }
 
 /**
@@ -58,10 +59,9 @@ export default withMermaid(
     srcExclude: EXCLUDE,
     // Links to a local instance (http://localhost…) are instructions, not pages
     ignoreDeadLinks: 'localhostLinks',
-    rewrites: { 'adr/README.md': 'adr/index.md' },
     head: [
-      ['link', { rel: 'icon', type: 'image/svg+xml', href: `${BASE}logo.svg` }],
-      ['meta', { name: 'theme-color', content: '#0b0f14' }],
+      ['link', { rel: 'icon', type: 'image/svg+xml', href: `${BASE}media/logo.svg` }],
+      ['meta', { name: 'theme-color', content: '#090c0b' }],
       ['meta', { property: 'og:type', content: 'website' }],
       ['meta', { property: 'og:title', content: 'NeighborIQ' }],
       [
@@ -71,7 +71,7 @@ export default withMermaid(
           content: 'Is the price fair, will it cash-flow, what is the neighbourhood like — for Canadian rental properties.',
         },
       ],
-      ['meta', { property: 'og:image', content: `${SITE}og.png` }],
+      ['meta', { property: 'og:image', content: `${SITE}media/og.png` }],
       ['meta', { name: 'twitter:card', content: 'summary_large_image' }],
     ],
     vite: { build: { chunkSizeWarningLimit: 2000 } }, // mermaid is large and loaded on demand
@@ -80,12 +80,12 @@ export default withMermaid(
       theme: { light: 'github-light', dark: 'github-dark-dimmed' },
     },
     themeConfig: {
-      logo: '/logo.svg',
+      logo: '/media/logo.svg',
       siteTitle: 'NeighborIQ',
       nav: [
         { text: 'Guide', link: '/guide/', activeMatch: '^/(guide|development|DEPLOYMENT|operations)' },
         { text: 'How it works', link: '/methodology', activeMatch: '^/(methodology|data-sources)' },
-        { text: 'Architecture', link: '/architecture/overview', activeMatch: '^/(architecture|services|frontend|adr)' },
+        { text: 'Architecture', link: '/architecture/overview', activeMatch: '^/(architecture|services|frontend)' },
         { text: 'API', link: '/reference/api', activeMatch: '^/reference' },
         {
           text: 'More',
@@ -138,19 +138,6 @@ export default withMermaid(
         {
           text: 'Reference',
           items: [{ text: 'HTTP API', link: '/reference/api' }],
-        },
-        {
-          text: 'Decisions',
-          collapsed: true,
-          items: [
-            { text: 'Index', link: '/adr/' },
-            { text: '0001 One API, two workers', link: '/adr/0001-one-api-two-workers' },
-            { text: '0002 Search in PostgreSQL', link: '/adr/0002-search-in-postgres' },
-            { text: '0003 Open data, no scraping', link: '/adr/0003-open-data-and-synthetic-listings' },
-            { text: '0004 Keep Celery', link: '/adr/0004-keep-celery' },
-            { text: '0005 Licence (FSL)', link: '/adr/0005-license-fsl' },
-            { text: '0006 All rights reserved', link: '/adr/0006-all-rights-reserved' },
-          ],
         },
       ],
       socialLinks: [{ icon: 'github', link: REPO }],
