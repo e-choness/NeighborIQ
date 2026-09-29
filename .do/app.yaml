@@ -9,7 +9,7 @@
 # or in the control panel: create the app from the repo, then
 # Settings → App Spec → Edit, and paste this file.
 #
-# Before the first deploy (docs/DEPLOYMENT.md#digitalocean-app-platform):
+# Before the first deploy (docs/self-hosting/deployment.md#digitalocean-app-platform):
 #   1. Create a Managed PostgreSQL cluster named `neighboriq-db` in the same
 #      region and run `CREATE EXTENSION postgis;` in `defaultdb` as doadmin.
 #   2. Replace every REPLACE_ME value (secrets are encrypted once saved).
@@ -91,7 +91,7 @@ services:
       - key: ADMIN_EMAILS
         scope: RUN_TIME
         value: REPLACE_ME@example.com
-      - key: JWT_PRIVATE_KEY # PEM on one line with \n escapes (docs/DEPLOYMENT.md#configure)
+      - key: JWT_PRIVATE_KEY # PEM on one line with \n escapes (docs/self-hosting/deployment.md#configure)
         scope: RUN_TIME
         type: SECRET
         value: REPLACE_ME

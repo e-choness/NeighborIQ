@@ -65,7 +65,9 @@ npm run build      # checks the calculator against the Python fixtures, then bui
 npm run banner     # regenerate the README banners and social card
 ```
 
-Write pages as plain Markdown that also reads on GitHub. Link to source files with relative paths
+Pages are grouped by reader: `guide/` (using the app), `self-hosting/` (running it), `development/`
+(changing it) and `reference/` (API, changelog, licence). Add a page to the matching folder and to the
+sidebar in `docs/.vitepress/config.mts`. Write pages as plain Markdown that also reads on GitHub. Link to source files with relative paths
 (`../../services/api`); the build turns links that leave `docs/` into GitHub links. Two pages are generated:
 the [API reference](../reference/api.md) from `services/api/openapi.json`, and the
 [calculator](../guide/calculator.md) from `docs/.vitepress/theme/lib/cashflow.js`.

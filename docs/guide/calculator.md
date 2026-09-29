@@ -20,4 +20,4 @@ the scenario.
 - **Year one only.** No rent growth, appreciation, income tax or rate renewal. It screens deals; it
   does not forecast them.
 
-The full definitions are in the [Methodology](/methodology#cash-flow).
+The full definitions are in the [Methodology](methodology.md#cash-flow).

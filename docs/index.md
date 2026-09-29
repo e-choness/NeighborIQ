@@ -21,7 +21,7 @@ hero:
 features:
   - title: Fair value from comparables
     details: Median $/sq ft of the nearest similar listings, widening 1.5 → 3 → 6 km until there is enough evidence. The comps are drawn on a map and the result says how confident it is.
-    link: /methodology#fair-value-from-comparable-listings
+    link: /guide/methodology#fair-value-from-comparable-listings
     linkText: How it's computed
   - title: Cash flow under Canadian rules
     details: Semi-annual mortgage compounding, CMHC premiums, and land transfer tax by province. Cap rate, cash-on-cash, DSCR and break-even rent, with every assumption editable.
@@ -29,11 +29,11 @@ features:
     linkText: Open the calculator
   - title: The neighbourhood, from open data
     details: Census income and tenure, transit frequency, crime, new supply and assessed values, from 20+ public sources. Each figure carries its source and date.
-    link: /data-sources
+    link: /guide/data-sources
     linkText: See the sources
   - title: Runs on one server
     details: "docker compose up gives you demo data and every feature. In production, one server with automatic HTTPS, one API and two workers that scale on their own."
-    link: /DEPLOYMENT
+    link: /self-hosting/deployment
     linkText: Deploy it
 ---
 
@@ -41,12 +41,21 @@ features:
 
 <div class="home-notes">
 
+## Where to start
+
+| You want to… | Read |
+|---|---|
+| Use the app and understand its numbers | [Guide](/guide/) · [Methodology](/guide/methodology) · [Data sources](/guide/data-sources) |
+| Run your own instance | [Deployment](/self-hosting/deployment) · [Operations](/self-hosting/operations) |
+| Change the code | [Getting started](/development/getting-started) · [Architecture](/development/architecture) · [Testing](/development/testing) |
+| Look something up | [HTTP API](/reference/api) · [Changelog](/reference/changelog) · [License](/reference/license) |
+
 ## What is real
 
 The app ships with **synthetic demo listings**, labelled as such everywhere, so it runs without a data licence.
 Real listings need a licensed feed such as CREA's DDF® through a brokerage. NeighborIQ does not scrape MLS® or
 REALTOR.ca. Neighbourhood data, rates and transit come from public open data you load with one command.
-[Data sources →](/data-sources)
+[Data sources →](/guide/data-sources)
 
 ## Run it
 

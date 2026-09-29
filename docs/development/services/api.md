@@ -1,8 +1,8 @@
 # api
 
-[`services/api`](../../services/api). The only HTTP service is a FastAPI app on port 8000, stateless, with
+[`services/api`](../../../services/api). The only HTTP service is a FastAPI app on port 8000, stateless, with
 one router per domain. Interactive reference: `/docs`. Contract snapshot:
-[`services/api/openapi.json`](../../services/api/openapi.json).
+[`services/api/openapi.json`](../../../services/api/openapi.json).
 
 ## Routers
 

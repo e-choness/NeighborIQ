@@ -70,7 +70,7 @@ erDiagram
 | `house_market_insights` | insights-worker | Per-city narrative built only from computed statistics; `expires_at` 7 days |
 
 The fair-value comps and the cash flow shown on a listing are computed per request and not stored — see
-[Methodology](../methodology.md).
+[Methodology](../guide/methodology.md).
 
 ## Portfolio
 

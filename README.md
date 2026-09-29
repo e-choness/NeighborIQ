@@ -68,7 +68,7 @@ property you found elsewhere, it answers three questions:
 > **What is real.** The app runs on **synthetic demo listings** out of the box. They are labelled everywhere, so
 > no data licence is needed. Real listings need a licensed feed (for example CREA's DDF® through a brokerage);
 > NeighborIQ does not scrape MLS® or REALTOR.ca. Neighbourhood data, rates and transit come from public open
-> data you load with one command. See [Data sources](docs/data-sources.md) and [Methodology](docs/methodology.md).
+> data you load with one command. See [Data sources](docs/guide/data-sources.md) and [Methodology](docs/guide/methodology.md).
 
 ## Quick start
 
@@ -92,12 +92,12 @@ Then load open data for a city from the Admin page, or run
 <summary><b>Production</b>: one server, automatic HTTPS</summary>
 
 ```bash
-# .env: DOMAIN, POSTGRES_PASSWORD, ADMIN_EMAILS, JWT_PRIVATE_KEY/JWT_PUBLIC_KEY (see docs/DEPLOYMENT.md)
+# .env: DOMAIN, POSTGRES_PASSWORD, ADMIN_EMAILS, JWT_PRIVATE_KEY/JWT_PUBLIC_KEY (see docs/self-hosting/deployment.md)
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 ```
 
 Caddy obtains certificates for `$DOMAIN`; nothing but ports 80/443 is exposed. See
-[Deployment](docs/DEPLOYMENT.md) and [Operations](docs/operations.md).
+[Deployment](docs/self-hosting/deployment.md) and [Operations](docs/self-hosting/operations.md).
 
 </details>
 
@@ -116,7 +116,7 @@ flowchart LR
 ```
 
 One HTTP service handles everything request/response. The two Celery workers carry the batch work that
-actually needs to scale. See the [architecture overview](docs/architecture/overview.md).
+actually needs to scale. See the [architecture overview](docs/development/architecture.md).
 
 <details>
 <summary><b>Stack</b></summary>
@@ -138,11 +138,12 @@ actually needs to scale. See the [architecture overview](docs/architecture/overv
 The full documentation is at **[e-choness.github.io/NeighborIQ](https://e-choness.github.io/NeighborIQ/)**. It is
 built from [`docs/`](docs/), so every page also reads on GitHub:
 
-- **Use it:** [Introduction](docs/guide/index.md) · [Methodology](docs/methodology.md) · [Data sources](docs/data-sources.md)
-- **Run it:** [Deployment](docs/DEPLOYMENT.md) · [Operations](docs/operations.md)
-- **Build on it:** [Architecture](docs/architecture/overview.md) · [Data model](docs/architecture/data-models.md) ·
-  [Frontend](docs/frontend/overview.md) · [Development setup](docs/development/getting-started.md) ·
-  [Testing](docs/development/testing.md)
+| Section | For | Pages |
+|---|---|---|
+| [Guide](docs/guide/) | Using the app | [Introduction](docs/guide/index.md) · [Calculator](docs/guide/calculator.md) · [Methodology](docs/guide/methodology.md) · [Data sources](docs/guide/data-sources.md) |
+| [Self-hosting](docs/self-hosting/) | Running an instance | [Deployment](docs/self-hosting/deployment.md) · [Operations](docs/self-hosting/operations.md) |
+| [Development](docs/development/) | Changing the code | [Getting started](docs/development/getting-started.md) · [Testing](docs/development/testing.md) · [Architecture](docs/development/architecture.md) · [Data model](docs/development/data-model.md) · [Frontend](docs/development/frontend.md) · [Services](docs/development/services/) |
+| [Reference](docs/reference/) | Looking things up | [HTTP API](docs/reference/api.md) · [Changelog](docs/reference/changelog.md) · [License](docs/reference/license.md) |
 
 ## Status
 
@@ -154,7 +155,7 @@ built from [`docs/`](docs/), so every page also reads on GitHub:
 - [ ] Fuzzy address search (`pg_trgm`)
 - [ ] A licensed listing feed
 
-See the [changelog](CHANGELOG.md) for what changed and when.
+See the [changelog](docs/reference/changelog.md) for what changed and when.
 
 ## Contributing
 

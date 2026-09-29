@@ -8,7 +8,7 @@ come from the portal's documented format but have not been exercised against
 a live download yet: the first load will either work or fail with a SchemaError
 naming the columns actually present — fix the mapping here.
 
-Coverage by need (see docs/data-sources.md):
+Coverage by need (see docs/guide/data-sources.md):
   neighbourhood polygons ... all six cities
   property values ......... Vancouver, Calgary, Edmonton (Montréal: size/units only)
   demographics ............ national (StatCan Census 2021, dissemination areas)
@@ -63,7 +63,7 @@ def resolve_url(source: Source) -> str:
     if source.url:
         return source.url
     if not source.resolver:
-        raise ValueError(f"{source.key}: no URL — pass --url or --file (see docs/data-sources.md)")
+        raise ValueError(f"{source.key}: no URL — pass --url or --file (see docs/guide/data-sources.md)")
     kind, *args = source.resolver
     if kind == "ckan":
         base, package, formats = args

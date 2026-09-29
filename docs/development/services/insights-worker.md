@@ -1,6 +1,6 @@
 # insights-worker
 
-[`services/insights-worker`](../../services/insights-worker). A Celery worker on queues `insights` and
+[`services/insights-worker`](../../../services/insights-worker). A Celery worker on queues `insights` and
 `narratives`, plus `insights-beat`. It stores the derived numbers that list and map views need across many
 listings at once. Per-listing analysis on request (comps, cash flow) runs in the API, using the same
 `shared/analytics` code.
@@ -34,4 +34,4 @@ listings at once. Per-listing analysis on request (comps, cash flow) runs in the
 Model estimates are stored whenever a trained model exists; whether users see them is the API's
 `ML_PREDICTIONS_ENABLED` flag.
 
-See [Methodology](../methodology.md) for the maths.
+See [Methodology](../../guide/methodology.md) for the maths.

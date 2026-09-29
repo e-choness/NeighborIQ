@@ -118,7 +118,7 @@ const METHODS = [
               </table>
               <p v-else class="text-sm text-text-2">
                 No public data sets loaded yet. Operators load boundaries, assessment rolls, census, transit, crime and rates
-                with <code class="num text-xs">python -m ingestion opendata</code> (see docs/data-sources.md).
+                with <code class="num text-xs">python -m ingestion opendata</code> (see docs/guide/data-sources.md).
               </p>
             </Panel>
           </div>

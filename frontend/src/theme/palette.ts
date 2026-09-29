@@ -4,7 +4,7 @@
  * The basemap (Protomaps flavor or hosted-style tint) and every data layer read from here.
  * The data ramps were validated for step visibility, colour-vision deficiency separation and
  * contrast against the basemap ground — re-run `node scripts/check-palette.mjs`
- * (docs/frontend/overview.md#colour) after changing them.
+ * (docs/development/frontend.md#colour) after changing them.
  */
 import { namedFlavor, type Flavor } from '@protomaps/basemaps'
 

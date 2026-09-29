@@ -28,7 +28,7 @@ Basemap: by default the frontend loads vector tiles and styles from
 OpenFreeMap (https://openfreemap.org), built from OpenMapTiles and OSM data.
 Maps © OpenStreetMap contributors (ODbL) · OpenFreeMap. The attribution
 control on every map must stay visible. For heavy use, self-host a Protomaps
-PMTiles extract instead (docs/operations.md#basemap).
+PMTiles extract instead (docs/self-hosting/operations.md#basemap).
 
 --------------------------------------------------------------------------------
 Municipal, provincial and federal open data — `python -m ingestion opendata`

@@ -4,7 +4,7 @@ Revision ID: ${up_revision}
 Revises: ${down_revision | comma,n}
 Create Date: ${create_date}
 
-What changes and why (the schema is documented in docs/architecture/data-models.md).
+What changes and why (the schema is documented in docs/development/data-model.md).
 """
 
 from typing import Union

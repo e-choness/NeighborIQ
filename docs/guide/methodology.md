@@ -5,7 +5,7 @@ truth; this page explains them.
 
 ## Fair value from comparable listings
 
-[`shared/analytics/valuation.py`](../shared/analytics/valuation.py) (`comps-v1`)
+[`shared/analytics/valuation.py`](../../shared/analytics/valuation.py) (`comps-v1`)
 
 1. **Candidates**: active listings in the same city and property type, within ±1 bedroom and ±35% of the
    subject's square footage, with coordinates and a known size.
@@ -32,7 +32,7 @@ unit — the UI says this and asks for the user's own figure. The shipped CSV ho
 
 ## Cash flow
 
-[`shared/analytics/cashflow.py`](../shared/analytics/cashflow.py). [Try it in the browser](guide/calculator.md). Every input is editable in the UI; the
+[`shared/analytics/cashflow.py`](../../shared/analytics/cashflow.py). [Try it in the browser](calculator.md). Every input is editable in the UI; the
 defaults come from the listing and `GET /api/v1/cashflow/defaults`.
 
 **Mortgage.** Canadian fixed-rate mortgages compound semi-annually, so the monthly rate is
@@ -100,7 +100,7 @@ Each figure shows its source and period. Missing data is shown as missing, never
 
 ## Price model (off by default)
 
-[`services/insights-worker/insights/ml_models.py`](../services/insights-worker/insights/ml_models.py)
+[`services/insights-worker/insights/ml_models.py`](../../services/insights-worker/insights/ml_models.py)
 
 An XGBoost regressor on listing and location features. Training holds out 20% of listings, measures relative
 error on them, then refits on all rows. The 10th and 90th percentiles of held-out error set the displayed

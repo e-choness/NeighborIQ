@@ -108,7 +108,7 @@ channel: the hex map encodes the metric in height too, and verdicts carry text l
   `hosted`: OpenFreeMap `dark` / `positron`, overridable with `VITE_BASEMAP_STYLE_DARK` / `_LIGHT`, tinted
   to the palette by `tintBasemap`); `none` draws data on the plain background. If a hosted style has not
   arrived 12 s after the map is created, the map falls back to data only and shows "Basemap unreachable —
-  showing data only". See [Operations → Basemap](../operations.md#basemap).
+  showing data only". See [Operations → Basemap](../self-hosting/operations.md#basemap).
 - The map container is watched with a `ResizeObserver` (MapLibre measures a container mounted before layout
   as 400×300). Fit padding is clamped so at least 120px of map remains (`fitPadding`), and missing sprite
   images are replaced with a transparent pixel.
@@ -137,4 +137,4 @@ docker compose --profile test run --rm test-frontend-e2e              # CI_NETWO
 ```
 
 Screenshots and the walkthrough are regenerated from a running stack; see
-[Testing → Screenshots and walkthrough](../development/testing.md#screenshots-and-walkthrough).
+[Testing → Screenshots and walkthrough](testing.md#screenshots-and-walkthrough).

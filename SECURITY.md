@@ -19,7 +19,7 @@ Only the latest commit on `main` receives fixes.
 In scope: the API (`services/api`), the workers, the frontend, the Compose and Caddy configuration shipped here.
 
 Out of scope: vulnerabilities in third-party dependencies with no demonstrated impact on NeighborIQ (report
-those upstream), and deployments that ignore [the production checklist](docs/DEPLOYMENT.md#checklist) (for
+those upstream), and deployments that ignore [the production checklist](docs/self-hosting/deployment.md#checklist) (for
 example, running without `JWT_PRIVATE_KEY` or with the development ports exposed).
 
 ## Design notes for reviewers
