@@ -47,7 +47,7 @@ city. The API reference is at <http://localhost:8000/docs>, and also [on this si
 
 ## Where next
 
-- [Methodology](/methodology): how every number is computed, and its limits
-- [Data sources](/data-sources): what can be loaded, per city, and under which licence
-- [Deployment](/DEPLOYMENT): one server with automatic HTTPS
-- [Architecture](/architecture/overview): one API and two workers, and why
+- [Methodology](/guide/methodology): how every number is computed, and its limits
+- [Data sources](/guide/data-sources): what can be loaded, per city, and under which licence
+- [Deployment](/self-hosting/deployment): run your own instance on one server with automatic HTTPS
+- [Architecture](/development/architecture): one API and two workers

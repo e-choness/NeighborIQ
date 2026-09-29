@@ -3,7 +3,7 @@
 #   docker compose up -d                       # api + workers + frontend on http://localhost
 #   docker compose --profile test up --abort-on-container-exit   # test containers
 #
-# Deployables (see docs/architecture/overview.md):
+# Deployables (see docs/development/architecture.md):
 #   api              — the single HTTP service (auth, listings, portfolio, insights, admin)
 #   ingestion-worker — Celery: seed, open data, OSM, partner feeds    (scales independently)
 #   insights-worker  — Celery: yields, ML, narratives                  (scales independently)

@@ -38,21 +38,11 @@ flowchart TB
 | `migrate`, `bootstrap` | ingestion image | One-shot: `alembic upgrade head`, then demo data on first start | — |
 | `frontend` | [`frontend`](../../frontend) | Static SPA, `/api` proxy, `/tiles` (optional PMTiles) | CDN-cacheable |
 
-## Scaling units
+## Scaling
 
-Components by how likely they are to need independent scaling:
-
-| Rank | Component | Load profile | Runs in |
-|---|---|---|---|
-| 1 | **Ingestion** (seed, open data, OSM, feeds) | Bursty, network-bound, large files (assessment rolls, GTFS, census), third-party rate limits; failures must not affect users | **Separate worker** |
-| 2 | **Insights compute** (yields, ML training, narratives, optional LLM calls) | CPU/memory heavy, large dependencies (XGBoost), different release cadence | **Separate worker** |
-| 3 | Search | Read-heavy; becomes its own engine only if relevance or volume demands it | The API (PostgreSQL) |
-| 4 | Map aggregates / tiles | Read-heavy, cacheable | Hosted basemap or static PMTiles + client-side H3; CDN when needed |
-| 5 | Listings, valuation, cash flow endpoints | Light per request (indexed queries, <10 ms arithmetic) | The API |
-| 6 | Portfolio, auth, admin | Low volume | The API |
-
-The two workers are the scale-out units; the API scales by replicas. Module boundaries inside the API
-(one router per domain, shared code only via `shared/`) keep a later extraction cheap.
+The API is stateless and scales by adding replicas. The two workers scale independently of it and of each
+other; each `*-beat` scheduler runs exactly once. Inside the API there is one router per domain, and code
+is shared only through `shared/`. See [Deployment → Scaling](../self-hosting/deployment.md#scaling).
 
 ## Request flow
 
@@ -89,5 +79,5 @@ No service trusts identity headers: every protected route verifies the token its
 
 ## Related
 
-- [Data model](data-models.md) · [Methodology](../methodology.md) · [Data sources](../data-sources.md)
-- [Operations](../operations.md) · [Deployment](../DEPLOYMENT.md)
+- [Data model](data-model.md) · [Methodology](../guide/methodology.md) · [Data sources](../guide/data-sources.md)
+- [Operations](../self-hosting/operations.md) · [Deployment](../self-hosting/deployment.md)

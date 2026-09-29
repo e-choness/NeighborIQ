@@ -125,10 +125,10 @@ loads demo data; both then exit. Check that everything else is running:
 docker compose -f docker-compose.yml -f docker-compose.prod.yml ps
 ```
 
-The production overlay ([`docker-compose.prod.yml`](../docker-compose.prod.yml)):
+The production overlay ([`docker-compose.prod.yml`](../../docker-compose.prod.yml)):
 
 - adds **Caddy** on ports 80 and 443 (HTTP/3 included), with HSTS and security headers
-  ([`Caddyfile`](../Caddyfile)), and redirects HTTP to HTTPS;
+  ([`Caddyfile`](../../Caddyfile)), and redirects HTTP to HTTPS;
 - publishes no other ports, so Postgres, Valkey and the API are reachable only inside the Compose network;
 - refuses to start without `POSTGRES_PASSWORD` and the JWT keys;
 - restarts containers automatically, rotates logs and turns on Valkey persistence.
@@ -192,7 +192,7 @@ Never run more than one of each `*-beat` service.
 - [ ] Your domain resolves to the server; ports 80 and 443 are open
 - [ ] `.env` has a generated `POSTGRES_PASSWORD`, the JWT keys and `ADMIN_EMAILS`, and is `chmod 600`
 - [ ] `https://<your domain>/api/v1/health` reports `"database":"up"`
-- [ ] Rent benchmarks replaced with official CMHC figures ([Data sources](data-sources.md#rents))
+- [ ] Rent benchmarks replaced with official CMHC figures ([Data sources](../guide/data-sources.md#rents))
 - [ ] Nightly [backups](operations.md#backups) stored off the server
 - [ ] Oracle Cloud: account upgraded to Pay As You Go, so the instance isn't reclaimed
 
@@ -200,7 +200,7 @@ Never run more than one of each `*-beat` service.
 
 App Platform runs each component in its own managed container, with no server to maintain. It costs more
 than a single server: five containers plus a managed database. Create the app from the spec in
-[`.do/app.yaml`](../.do/app.yaml). Connecting the repository without the spec fails, because the Dockerfiles
+[`.do/app.yaml`](../../.do/app.yaml). Connecting the repository without the spec fails, because the Dockerfiles
 are in subfolders.
 
 | Component | Type | From |

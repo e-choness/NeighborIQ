@@ -20,7 +20,7 @@ REALTOR.ca.
   usual route for an investor tool is CREA's DDF® (Data Distribution Facility) through a participating
   brokerage, or a board's IDX/VOW feed. Once you have one:
   - a file export: `python -m ingestion import listings.csv --source ddf` (CSV or JSON in the canonical
-    format in [`ingestion/canonical.py`](../services/ingestion-worker/ingestion/canonical.py));
+    format in [`ingestion/canonical.py`](../../services/ingestion-worker/ingestion/canonical.py));
   - a URL feed: add its host to `FEED_ALLOWED_HOSTS`, then trigger it from the admin page
     (`POST /api/v1/admin/feeds`) or set `LISTING_FEED_URL` for a nightly crawl.
 - Comparable-listing valuations use asking prices. Sold prices are board-licensed and not available here;
@@ -37,7 +37,7 @@ for vacant units.
 
 ## Open data
 
-Registry: [`ingestion/opendata/sources.py`](../services/ingestion-worker/ingestion/opendata/sources.py).
+Registry: [`ingestion/opendata/sources.py`](../../services/ingestion-worker/ingestion/opendata/sources.py).
 Every load writes a row to `od_load_log` with row count, licence and attribution; the Data page
 (`/data`) lists them.
 
@@ -105,9 +105,9 @@ city's bounding box and links each listing to its nearest ones. Data © OpenStre
 ## Basemap
 
 The map background is an optional self-hosted Protomaps PMTiles file (OpenStreetMap data, ODbL). See
-[Operations → Basemap](operations.md#basemap).
+[Operations → Basemap](../self-hosting/operations.md#basemap).
 
 ## Attribution
 
-[NOTICE](../NOTICE) lists the attribution text each publisher requires; the Data page and the map footer
+[NOTICE](../../NOTICE) lists the attribution text each publisher requires; the Data page and the map footer
 display it.

@@ -1,5 +1,5 @@
 /**
- * Shared viewport state for the map-first shell. Breakpoints (see docs/frontend/overview.md):
+ * Shared viewport state for the map-first shell. Breakpoints (see docs/development/frontend.md):
  * phone layout below 1024px, Home stat tiles from 1100px, the floating best-yields row from 1280px.
  */
 import { computed, reactive } from 'vue'

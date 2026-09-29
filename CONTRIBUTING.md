@@ -1,7 +1,7 @@
 # Contributing
 
 Thanks for helping. Start with [Getting started](docs/development/getting-started.md) and the
-[architecture overview](docs/architecture/overview.md).
+[architecture overview](docs/development/architecture.md).
 
 ## Workflow
 
@@ -27,7 +27,7 @@ Thanks for helping. Start with [Getting started](docs/development/getting-starte
   Code used by one service lives in that service.
 - **Money** in whole CAD integers. **Rates** as decimals in storage and percentages in API inputs named
   `*_pct`.
-- **Numbers shown to users** must be traceable: document the method in [docs/methodology.md](docs/methodology.md)
+- **Numbers shown to users** must be traceable: document the method in [docs/guide/methodology.md](docs/guide/methodology.md)
   and show the source in the UI.
 - **Data**: never add a source that scrapes listing sites. New open-data sources need a licence and
   attribution in the registry and in [NOTICE](NOTICE).

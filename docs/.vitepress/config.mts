@@ -82,64 +82,85 @@ export default withMermaid(
     themeConfig: {
       logo: '/media/logo.svg',
       siteTitle: 'NeighborIQ',
+      // One section per reader: people using the app, people running it, people changing it
       nav: [
-        { text: 'Guide', link: '/guide/', activeMatch: '^/(guide|development|DEPLOYMENT|operations)' },
-        { text: 'How it works', link: '/methodology', activeMatch: '^/(methodology|data-sources)' },
-        { text: 'Architecture', link: '/architecture/overview', activeMatch: '^/(architecture|services|frontend)' },
-        { text: 'API', link: '/reference/api', activeMatch: '^/reference' },
+        { text: 'Guide', link: '/guide/', activeMatch: '^/guide/' },
+        { text: 'Self-hosting', link: '/self-hosting/deployment', activeMatch: '^/self-hosting/' },
+        { text: 'Development', link: '/development/getting-started', activeMatch: '^/development/' },
+        { text: 'Reference', link: '/reference/api', activeMatch: '^/reference/' },
         {
           text: 'More',
           items: [
-            { text: 'License', link: '/guide/license' },
-            { text: 'Changelog', link: `${REPO}/blob/${BRANCH}/CHANGELOG.md` },
+            { text: 'Changelog', link: '/reference/changelog' },
+            { text: 'License', link: '/reference/license' },
             { text: 'Contributing', link: `${REPO}/blob/${BRANCH}/CONTRIBUTING.md` },
             { text: 'Security policy', link: `${REPO}/blob/${BRANCH}/SECURITY.md` },
             { text: 'Issues', link: `${REPO}/issues` },
           ],
         },
       ],
-      sidebar: [
-        {
-          text: 'Guide',
-          items: [
-            { text: 'Introduction', link: '/guide/' },
-            { text: 'Development setup', link: '/development/getting-started' },
-            { text: 'Deployment', link: '/DEPLOYMENT' },
-            { text: 'Operations', link: '/operations' },
-            { text: 'Testing', link: '/development/testing' },
-            { text: 'License', link: '/guide/license' },
-          ],
-        },
-        {
-          text: 'How it works',
-          items: [
-            { text: 'Methodology', link: '/methodology' },
-            { text: 'Cash-flow calculator', link: '/guide/calculator' },
-            { text: 'Data sources', link: '/data-sources' },
-          ],
-        },
-        {
-          text: 'Architecture',
-          items: [
-            { text: 'Overview', link: '/architecture/overview' },
-            { text: 'Data model', link: '/architecture/data-models' },
-            { text: 'Frontend', link: '/frontend/overview' },
-            {
-              text: 'Services',
-              collapsed: false,
-              items: [
-                { text: 'api', link: '/services/api' },
-                { text: 'ingestion-worker', link: '/services/ingestion-worker' },
-                { text: 'insights-worker', link: '/services/insights-worker' },
-              ],
-            },
-          ],
-        },
-        {
-          text: 'Reference',
-          items: [{ text: 'HTTP API', link: '/reference/api' }],
-        },
-      ],
+      sidebar: {
+        '/guide/': [
+          {
+            text: 'Using NeighborIQ',
+            items: [
+              { text: 'Introduction', link: '/guide/' },
+              { text: 'Cash-flow calculator', link: '/guide/calculator' },
+            ],
+          },
+          {
+            text: 'How it works',
+            items: [
+              { text: 'Methodology', link: '/guide/methodology' },
+              { text: 'Data sources', link: '/guide/data-sources' },
+            ],
+          },
+        ],
+        '/self-hosting/': [
+          {
+            text: 'Self-hosting',
+            items: [
+              { text: 'Deployment', link: '/self-hosting/deployment' },
+              { text: 'Operations', link: '/self-hosting/operations' },
+            ],
+          },
+        ],
+        '/development/': [
+          {
+            text: 'Development',
+            items: [
+              { text: 'Getting started', link: '/development/getting-started' },
+              { text: 'Testing', link: '/development/testing' },
+            ],
+          },
+          {
+            text: 'Architecture',
+            items: [
+              { text: 'Overview', link: '/development/architecture' },
+              { text: 'Data model', link: '/development/data-model' },
+              { text: 'Frontend', link: '/development/frontend' },
+            ],
+          },
+          {
+            text: 'Services',
+            items: [
+              { text: 'api', link: '/development/services/api' },
+              { text: 'ingestion-worker', link: '/development/services/ingestion-worker' },
+              { text: 'insights-worker', link: '/development/services/insights-worker' },
+            ],
+          },
+        ],
+        '/reference/': [
+          {
+            text: 'Reference',
+            items: [
+              { text: 'HTTP API', link: '/reference/api' },
+              { text: 'Changelog', link: '/reference/changelog' },
+              { text: 'License', link: '/reference/license' },
+            ],
+          },
+        ],
+      },
       socialLinks: [{ icon: 'github', link: REPO }],
       search: { provider: 'local' },
       editLink: { pattern: `${REPO}/edit/${BRANCH}/docs/:path`, text: 'Edit this page on GitHub' },

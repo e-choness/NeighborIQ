@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Palette validator for src/theme/palette.ts (docs/frontend/overview.md#colour).
+ * Palette validator for src/theme/palette.ts (docs/development/frontend.md#colour).
  *
  *   node scripts/check-palette.mjs        # exits 1 when a check fails
  *

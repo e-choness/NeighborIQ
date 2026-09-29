@@ -52,7 +52,7 @@ docker compose exec ingestion-worker python -m ingestion import /data/listings.c
 ```
 
 To load a file you downloaded by hand, copy it into the container (`docker compose cp mci.csv
-ingestion-worker:/tmp/`) and pass `--file /tmp/mci.csv`. See [Data sources](data-sources.md) for every key.
+ingestion-worker:/tmp/`) and pass `--file /tmp/mci.csv`. See [Data sources](../guide/data-sources.md) for every key.
 
 Once listings are loaded, yields are computed automatically. To recompute them all, use
 `POST /api/v1/admin/insights/recompute` or the admin button.
@@ -143,5 +143,5 @@ Keep the dumps off the host. Open data can be reloaded from source, but user acc
 
 ## Rotating JWT keys
 
-Generate a new pair (see [Deployment](DEPLOYMENT.md#configure)), update `.env`, then restart `api`. Existing
+Generate a new pair (see [Deployment](deployment.md#configure)), update `.env`, then restart `api`. Existing
 sessions become invalid and users sign in again.

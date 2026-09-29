@@ -24,7 +24,7 @@ To ask for permission, contact the maintainer through [GitHub](https://github.co
 ## Other things to know
 
 - **Data.** This notice covers code only. Open data, OpenStreetMap and any listing feed keep their publishers'
-  terms; see [NOTICE](../../NOTICE) and [Data sources](../data-sources.md).
+  terms; see [NOTICE](../../NOTICE) and [Data sources](../guide/data-sources.md).
 - **Trademarks.** No rights are granted to the NeighborIQ name or logo.
 - **Contributions** need a copyright assignment or licence to the maintainer; see [CONTRIBUTING](../../CONTRIBUTING.md).
 

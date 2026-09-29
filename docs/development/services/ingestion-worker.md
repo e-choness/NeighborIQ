@@ -1,6 +1,6 @@
 # ingestion-worker
 
-[`services/ingestion-worker`](../../services/ingestion-worker). A Celery worker on queue `scraper`, plus the
+[`services/ingestion-worker`](../../../services/ingestion-worker). A Celery worker on queue `scraper`, plus the
 `python -m ingestion` CLI. Every piece of external data enters through it. The same image also runs the
 one-shot `migrate` and `bootstrap` services and `ingestion-beat`.
 
@@ -44,7 +44,7 @@ python -m ingestion opendata --list | --city CITY | --sources KEY[,KEY] [--url U
    `resolver`, and a column `mapping` that lists candidate names for each field.
 2. Add a test in `tests/test_opendata.py` with a few rows in the portal's real layout.
 3. Run it once live and set `verified=True` when it loads cleanly.
-4. Add it to [Data sources](../data-sources.md) and to [NOTICE](../../NOTICE) if it requires attribution.
+4. Add it to [Data sources](../../guide/data-sources.md) and to [NOTICE](../../../NOTICE) if it requires attribution.
 
 ## Configuration
 
