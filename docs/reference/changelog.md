@@ -59,8 +59,17 @@ the API version is the one in [`services/api/openapi.json`](../../services/api/o
 - Partner feeds are fetched with an honest `NeighborIQ/…` user agent instead of rotating browser strings.
 - API tests delete the listings they create, so a test run against the development database no longer
   leaves a "Testville" city on the map.
+- Docs site: Mermaid 12 with its `neo` look and the `redux-color` / `redux-dark-color` themes. The site
+  now uses its own diagram component instead of `vitepress-plugin-mermaid`'s. An npm override lets the
+  plugin accept Mermaid 12, which needs Node 22.12 or newer. ELK is now the default layout engine, so the
+  architecture diagram is rearranged into stacked stages, the request-flow labels wrap, and the data
+  model reads left to right. All three diagrams are now at least half size at page width (before:
+  0.52, 0.44 and 0.17).
 
 ### Fixed
+
+- Docs site: diagrams no longer flash "Syntax error in text" while the page loads, and dark mode uses the
+  matching dark diagram theme.
 
 - nginx now re-resolves the `api` service, so restarting or scaling the API no longer leaves the frontend
   returning 502 until nginx restarts.
@@ -92,6 +101,7 @@ the API version is the one in [`services/api/openapi.json`](../../services/api/o
   after the March 2026 compromise of `aquasecurity/trivy-action` tags.
 - Images contain no compilers or extra OS packages (wheels only) and run as a non-root user.
 - Docs site: Vite forced to 6.4.3 under VitePress 1.6.4, clearing four dev-server advisories.
+- Docs site: source-map-js updated to 1.2.2 (GHSA-68fv-2mgg-jv7q, high).
 
 ## [0.3.0] — 2026-09
 

@@ -149,10 +149,11 @@
   max-width: 100%;
   height: auto;
 }
-/* Mermaid measures labels at its own line-height; stop .vp-doc's from leaking in */
-.vp-doc .mermaid p,
-.vp-doc .mermaid .nodeLabel,
-.vp-doc .mermaid .edgeLabel {
+/* Mermaid sizes label boxes at a 1.5 line-height; .vp-doc's taller one would clip the last line */
+.vp-doc .mermaid foreignObject,
+.vp-doc .mermaid foreignObject * {
   line-height: 1.5;
+}
+.vp-doc .mermaid foreignObject p {
   margin: 0;
 }

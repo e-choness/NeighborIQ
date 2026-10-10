@@ -74,7 +74,11 @@ export default withMermaid(
       ['meta', { property: 'og:image', content: `${SITE}media/og.png` }],
       ['meta', { name: 'twitter:card', content: 'summary_large_image' }],
     ],
-    vite: { build: { chunkSizeWarningLimit: 2000 } }, // mermaid is large and loaded on demand
+    vite: {
+      build: { chunkSizeWarningLimit: 2000 }, // mermaid is large and loaded on demand
+      // Our component instead of the plugin's: it uses the dark theme below and stops startOnLoad early
+      resolve: { alias: { 'vitepress-plugin-mermaid/Mermaid.vue': resolve(SRC, '.vitepress/theme/components/Mermaid.vue') } },
+    },
     markdown: {
       config: githubLinks,
       theme: { light: 'github-light', dark: 'github-dark-dimmed' },
@@ -169,6 +173,13 @@ export default withMermaid(
         message: 'Code © Beili (Echo) Yin, all rights reserved. Data licensed by its publishers. Not financial advice.',
         copyright: 'NeighborIQ contributors',
       },
+    },
+    // Read by theme/components/Mermaid.vue, which removes darkTheme before mermaid.initialize
+    mermaid: {
+      look: 'neo',
+      theme: 'redux-color',
+      darkTheme: 'redux-dark-color',
+      themeVariables: { fontFamily: "'Geist Variable', ui-sans-serif, system-ui, sans-serif" },
     },
   }),
 )

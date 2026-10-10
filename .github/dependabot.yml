@@ -28,10 +28,6 @@ updates:
     schedule: { interval: monthly }
     groups:
       docs: { patterns: ["*"] }
-    ignore:
-      # vitepress-plugin-mermaid supports mermaid 10 and 11 only — re-check 2026-12
-      - dependency-name: mermaid
-        update-types: ["version-update:semver-major"]
   # Actions are pinned to commit SHAs (tags can be moved, as in the 2026 trivy-action compromise);
   # Dependabot updates the SHA and the version comment together.
   - package-ecosystem: github-actions

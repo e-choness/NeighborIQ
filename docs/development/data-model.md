@@ -12,6 +12,7 @@ worker and read with SQL by the API, so they have no ORM classes.
 
 ```mermaid
 erDiagram
+    direction LR
     auth_users ||--o{ auth_refresh_tokens : "user_id"
     auth_users ||--o{ portfolio_saved_houses : saves
     house_houses ||--o{ portfolio_saved_houses : "saved as"

@@ -4,29 +4,33 @@ NeighborIQ is one HTTP service plus two background workers, sharing one PostgreS
 
 ```mermaid
 flowchart TB
+    %% Stages connect subgraph to subgraph so each keeps its left-to-right direction under ELK
     subgraph edge["Edge"]
+        direction LR
         Caddy["Caddy (prod)<br/>TLS"] --> Web["frontend<br/>nginx: SPA + /api proxy + /tiles"]
     end
-    Web -->|/api/v1| API
 
     subgraph api["api (FastAPI, stateless, N replicas)"]
         API["routers: auth · listings · portfolio<br/>insights & markets · places · admin"]
     end
 
-    API --> PG[("PostgreSQL 18 + PostGIS")]
-    API -->|send_task| Redis[("Valkey<br/>Celery broker")]
-
-    subgraph workers["Celery workers (scale independently)"]
-        IW["ingestion-worker<br/>queue: scraper"]
-        AW["insights-worker<br/>queues: insights, narratives"]
-        IB["ingestion-beat"] -.-> Redis
+    subgraph jobs["Celery (workers scale independently)"]
+        direction LR
+        IB["ingestion-beat"] -.-> Redis[("Valkey<br/>Celery broker")]
         AB["insights-beat"] -.-> Redis
+        Redis --> IW["ingestion-worker<br/>queue: scraper"]
+        Redis --> AW["insights-worker<br/>queues: insights, narratives"]
+        IW -->|compute_insights| Redis
     end
-    Redis --> IW & AW
-    IW --> PG
-    AW --> PG
-    IW -->|compute_insights| Redis
-    IW -. HTTPS .-> OD["Open data portals<br/>StatCan · BoC · cities · GTFS · OSM"]
+
+    PG[("PostgreSQL 18 + PostGIS")]
+    OD["Open data portals<br/>StatCan · BoC · cities · GTFS · OSM"]
+
+    edge -->|/api/v1| api
+    api -->|send_task| jobs
+    api --> PG
+    jobs --> PG
+    jobs -. "HTTPS (ingestion-worker)" .-> OD
 ```
 
 | Deployable | Code | Does | Scales on |
@@ -52,12 +56,12 @@ sequenceDiagram
     participant N as frontend (nginx)
     participant A as api
     participant P as PostgreSQL
-    B->>N: GET /api/v1/houses/42/insights (cookie: access_token)
+    B->>N: GET /api/v1/houses/42/insights<br/>(cookie: access_token)
     N->>A: proxy
-    A->>A: optional_user — verify RS256 JWT in-process
-    A->>P: subject + comparable candidates (bbox, same type/size)
-    A->>A: median $/sq ft, rent benchmark, cash flow
-    A-->>B: valuation · rent · cash flow · area · rate
+    A->>A: optional_user:<br/>verify RS256 JWT in-process
+    A->>P: subject + comparable candidates<br/>(bbox, same type/size)
+    A->>A: median $/sq ft,<br/>rent benchmark, cash flow
+    A-->>B: valuation · rent · cash flow<br/>· area · rate
 ```
 
 No service trusts identity headers: every protected route verifies the token itself (`app/security.py`).
