@@ -1,12 +1,12 @@
 -r ../../shared/requirements.txt
-fastapi==0.141.1
+fastapi==0.143.0
 uvicorn[standard]==0.54.0
-pydantic[email]==2.13.5
+pydantic[email]==2.14.1
 python-multipart==0.0.32
 slowapi==0.1.10
 limits==5.8.0
 PyJWT[crypto]==2.15.1
-cryptography==50.0.1
+cryptography==50.0.2
 pwdlib[argon2]==0.3.1
 bcrypt==5.0.0  # verifies password hashes from earlier releases
 celery[redis]==5.6.3
