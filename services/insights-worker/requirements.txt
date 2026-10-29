@@ -5,8 +5,8 @@ xgboost-cpu==3.4.1; sys_platform == "linux"
 xgboost==3.4.1; sys_platform != "linux"
 scikit-learn==1.9.1
 joblib==1.6.0
-numpy==2.5.3
-openai==3.20.0  # optional narrative provider (NARRATIVE_PROVIDER=azure)
+numpy==2.5.4
+openai==3.37.0  # optional narrative provider (NARRATIVE_PROVIDER=azure)
 # tests
 pytest==9.1.1
-pytest-mock==3.16.0
+pytest-mock==3.17.0
