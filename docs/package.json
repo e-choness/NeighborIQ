@@ -14,10 +14,10 @@
     "@fontsource-variable/geist": "^5.3.0",
     "@fontsource-variable/geist-mono": "^5.3.0",
     "@fontsource/italiana": "^5.3.0",
-    "mermaid": "^12.1.0",
+    "mermaid": "^12.2.0",
     "vitepress": "^1.6.4",
     "vitepress-plugin-mermaid": "^2.0.17",
-    "vue": "^3.5.43"
+    "vue": "^3.5.44"
   },
   "overrides": {
     "vite": "^6.4.3",
