@@ -1,5 +1,5 @@
 # Build: install wheels into a virtualenv (no compilers; every dependency ships a wheel)
-FROM python:3.14-slim AS builder
+FROM python:3.15-slim AS builder
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1 PIP_NO_CACHE_DIR=1
 RUN python -m venv /opt/venv
 COPY shared/requirements.txt ./shared/requirements.txt
@@ -7,7 +7,7 @@ COPY services/ingestion-worker/requirements.txt ./services/ingestion-worker/requ
 RUN /opt/venv/bin/pip install --only-binary=:all: -r services/ingestion-worker/requirements.txt
 
 # Runtime: no extra OS packages, non-root
-FROM python:3.14-slim
+FROM python:3.15-slim
 RUN useradd --create-home --uid 10001 app
 WORKDIR /app
 COPY --from=builder /opt/venv /opt/venv
