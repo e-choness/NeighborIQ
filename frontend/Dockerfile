@@ -16,7 +16,7 @@ RUN npm run build
 
 # Stage 2 — serve with nginx
 # Pinned stable line (Dependabot bumps tag and digest together)
-FROM nginx:1.30.5-alpine@sha256:0985e772fb9f729e6fa0980da05fca5d9c468e870eed43071545afa9d2e27d94 AS runtime
+FROM nginx:1.31.8-alpine@sha256:785835ea65db4bba6f021acc0f3be91b0fef76a53fe41f8588c6698d2aed0606 AS runtime
 # The digest pin lags Alpine's security fixes (the image scan fails on any fixable HIGH), so pull them in
 RUN apk upgrade --no-cache
 COPY --from=builder /app/dist /usr/share/nginx/html
