@@ -1,6 +1,6 @@
 # Runs shared/tests: analytics, calculator parity fixtures, migrations round-trip.
 # Build context is the repository root.
-FROM python:3.14-slim
+FROM python:3.15-slim
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1 PIP_NO_CACHE_DIR=1 PYTHONDONTWRITEBYTECODE=1
 WORKDIR /app
 COPY shared/requirements.txt shared/requirements.txt
